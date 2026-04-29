@@ -16,6 +16,12 @@ Live GitHub Pages URL:
 https://kapitein420.github.io/Aetherfall/
 ```
 
+Immediate public browser preview:
+
+```text
+https://raw.githack.com/Kapitein420/Aetherfall/main/index.html
+```
+
 Server command:
 
 ```powershell
@@ -92,3 +98,4 @@ Prompts are in:
 - GitHub Desktop's bundled Git can be used from `C:\Users\noah_\AppData\Local\GitHubDesktop\app-3.5.8\resources\app\git\cmd\git.exe`.
 - The GitHub Desktop repository path is `C:\Users\noah_\Documents\GitHub\Aetherfall`.
 - GitHub Pages deploy is configured through `.github/workflows/pages.yml`.
+- If GitHub Pages is not enabled in settings yet, use the RawGitHack public preview URL for browser testing.

@@ -2,6 +2,12 @@
 
 This project is for a browser-playable fantasy deck building battle game with champion deck identity, summonable monsters, direct abilities, and support for 1v1, 2v2, and free-for-all multiplayer formats.
 
+Play the current public build in your browser:
+
+```text
+https://raw.githack.com/Kapitein420/Aetherfall/main/index.html
+```
+
 Start with the planning document:
 
 - [Game Design and Development Plan](docs/game-design-and-development-plan.md)
@@ -32,10 +38,16 @@ http://127.0.0.1:4173/
 
 ## Live Test Build
 
-The static prototype deploys to GitHub Pages from `main`:
+The current public build can be played directly from the GitHub repository through RawGitHack:
+
+```text
+https://raw.githack.com/Kapitein420/Aetherfall/main/index.html
+```
+
+GitHub Pages deployment is also prepared from `main`:
 
 ```text
 https://kapitein420.github.io/Aetherfall/
 ```
 
-After pushing, wait for the `Deploy Aetherfall to GitHub Pages` workflow to finish before sharing the link.
+If the GitHub Pages link returns 404, use the RawGitHack link above until Pages is enabled in repository settings.
