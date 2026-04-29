@@ -29,3 +29,13 @@ Then open:
 ```text
 http://127.0.0.1:4173/
 ```
+
+## Live Test Build
+
+The static prototype deploys to GitHub Pages from `main`:
+
+```text
+https://kapitein420.github.io/Aetherfall/
+```
+
+After pushing, wait for the `Deploy Aetherfall to GitHub Pages` workflow to finish before sharing the link.

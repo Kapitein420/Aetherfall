@@ -29,6 +29,11 @@ let message = "";
 let lastSeenEventId = 0;
 let activeEffects = [];
 let effectInstanceId = 1;
+let cardDrag = null;
+let suppressNextClick = false;
+
+const CARD_CLICK_DRAG_THRESHOLD = 8;
+const CARD_PLAY_DRAG_THRESHOLD = 78;
 
 render();
 
@@ -43,6 +48,13 @@ app.addEventListener("change", (event) => {
 });
 
 app.addEventListener("click", (event) => {
+  if (suppressNextClick) {
+    event.preventDefault();
+    event.stopPropagation();
+    suppressNextClick = false;
+    return;
+  }
+
   const button = event.target.closest("[data-action]");
   if (!button) {
     return;
@@ -55,6 +67,11 @@ app.addEventListener("click", (event) => {
     render();
   }
 });
+
+app.addEventListener("pointerdown", startCardDrag);
+window.addEventListener("pointermove", moveCardDrag);
+window.addEventListener("pointerup", finishCardDrag);
+window.addEventListener("pointercancel", cancelCardDrag);
 
 function handleAction(element) {
   const action = element.dataset.action;
@@ -117,44 +134,7 @@ function handleAction(element) {
   }
 
   if (action === "play-card") {
-    const cardInstance = activePlayer.hand.find((card) => card.instanceId === element.dataset.instanceId);
-    const card = getCardDefinition(cardInstance.cardId);
-
-    if (card.target === "none") {
-      gameState = playCard(gameState, {
-        playerId: activePlayer.id,
-        instanceId: cardInstance.instanceId,
-        target: null,
-      });
-      enqueueEffectsFromState(gameState);
-      pendingAction = null;
-      message = "";
-      render();
-      return;
-    }
-
-    if (card.target === "self") {
-      gameState = playCard(gameState, {
-        playerId: activePlayer.id,
-        instanceId: cardInstance.instanceId,
-        target: { type: "hero", playerId: activePlayer.id },
-      });
-      enqueueEffectsFromState(gameState);
-      pendingAction = null;
-      message = "";
-      render();
-      return;
-    }
-
-    pendingAction = {
-      type: "card",
-      playerId: activePlayer.id,
-      instanceId: cardInstance.instanceId,
-      label: card.name,
-      targets: getValidTargets(gameState, activePlayer.id, card).map(targetKey),
-    };
-    message = `Choose a target for ${card.name}.`;
-    render();
+    playActiveCard(element.dataset.instanceId);
     return;
   }
 
@@ -215,6 +195,179 @@ function handleAction(element) {
     message = "";
     render();
   }
+}
+
+function playActiveCard(instanceId) {
+  if (!gameState) {
+    return;
+  }
+
+  const activePlayer = getActivePlayer(gameState);
+  const cardInstance = activePlayer.hand.find((card) => card.instanceId === instanceId);
+  if (!cardInstance) {
+    return;
+  }
+
+  const card = getCardDefinition(cardInstance.cardId);
+
+  if (card.target === "none") {
+    gameState = playCard(gameState, {
+      playerId: activePlayer.id,
+      instanceId: cardInstance.instanceId,
+      target: null,
+    });
+    enqueueEffectsFromState(gameState);
+    pendingAction = null;
+    message = "";
+    render();
+    return;
+  }
+
+  if (card.target === "self") {
+    gameState = playCard(gameState, {
+      playerId: activePlayer.id,
+      instanceId: cardInstance.instanceId,
+      target: { type: "hero", playerId: activePlayer.id },
+    });
+    enqueueEffectsFromState(gameState);
+    pendingAction = null;
+    message = "";
+    render();
+    return;
+  }
+
+  pendingAction = {
+    type: "card",
+    playerId: activePlayer.id,
+    instanceId: cardInstance.instanceId,
+    label: card.name,
+    targets: getValidTargets(gameState, activePlayer.id, card).map(targetKey),
+  };
+  message = `Choose a target for ${card.name}.`;
+  render();
+}
+
+function startCardDrag(event) {
+  if (!gameState || gameState.winnerId || event.button !== 0) {
+    return;
+  }
+
+  const cardButton = event.target.closest(".hand-card[data-action='play-card']");
+  if (!cardButton || cardButton.disabled) {
+    return;
+  }
+
+  const activePlayer = getActivePlayer(gameState);
+  const instanceId = cardButton.dataset.instanceId;
+  const cardInstance = activePlayer.hand.find((card) => card.instanceId === instanceId);
+  if (!cardInstance) {
+    return;
+  }
+
+  cardDrag = {
+    pointerId: event.pointerId,
+    element: cardButton,
+    instanceId,
+    startX: event.clientX,
+    startY: event.clientY,
+    canPlay: false,
+    wasDragging: false,
+  };
+
+  cardButton.classList.add("being-dragged");
+  cardButton.style.setProperty("--drag-x", "0px");
+  cardButton.style.setProperty("--drag-y", "0px");
+  cardButton.style.setProperty("--drag-rotate", "0deg");
+  document.body.classList.add("card-dragging");
+
+  try {
+    cardButton.setPointerCapture(event.pointerId);
+  } catch {
+    // Pointer capture is best-effort; dragging still works through window listeners.
+  }
+}
+
+function moveCardDrag(event) {
+  if (!cardDrag || cardDrag.pointerId !== event.pointerId) {
+    return;
+  }
+
+  const deltaX = event.clientX - cardDrag.startX;
+  const deltaY = event.clientY - cardDrag.startY;
+  const distance = Math.hypot(deltaX, deltaY);
+
+  if (distance > CARD_CLICK_DRAG_THRESHOLD) {
+    cardDrag.wasDragging = true;
+  }
+
+  if (!cardDrag.wasDragging) {
+    return;
+  }
+
+  event.preventDefault();
+  const rotate = Math.max(-14, Math.min(14, deltaX / 14));
+  cardDrag.canPlay = isPointInPlayZone(event.clientX, event.clientY) || deltaY < -CARD_PLAY_DRAG_THRESHOLD;
+  cardDrag.element.style.setProperty("--drag-x", `${deltaX}px`);
+  cardDrag.element.style.setProperty("--drag-y", `${deltaY}px`);
+  cardDrag.element.style.setProperty("--drag-rotate", `${rotate}deg`);
+  document.body.classList.toggle("card-over-play", cardDrag.canPlay);
+}
+
+function finishCardDrag(event) {
+  if (!cardDrag || cardDrag.pointerId !== event.pointerId) {
+    return;
+  }
+
+  const shouldPlay =
+    cardDrag.wasDragging &&
+    (cardDrag.canPlay || cardDrag.startY - event.clientY > CARD_PLAY_DRAG_THRESHOLD);
+  const instanceId = cardDrag.instanceId;
+
+  if (cardDrag.wasDragging) {
+    event.preventDefault();
+    suppressNextClick = true;
+    window.setTimeout(() => {
+      suppressNextClick = false;
+    }, 0);
+  }
+
+  cleanupCardDrag();
+
+  if (shouldPlay) {
+    playActiveCard(instanceId);
+  }
+}
+
+function cancelCardDrag() {
+  cleanupCardDrag();
+}
+
+function cleanupCardDrag() {
+  if (cardDrag?.element) {
+    cardDrag.element.classList.remove("being-dragged");
+    cardDrag.element.style.removeProperty("--drag-x");
+    cardDrag.element.style.removeProperty("--drag-y");
+    cardDrag.element.style.removeProperty("--drag-rotate");
+  }
+
+  cardDrag = null;
+  document.body.classList.remove("card-dragging", "card-over-play");
+}
+
+function isPointInPlayZone(clientX, clientY) {
+  const dropZone = document.querySelector(".play-drop-zone");
+  if (!dropZone) {
+    return false;
+  }
+
+  const rect = dropZone.getBoundingClientRect();
+  const padding = 44;
+  return (
+    clientX >= rect.left - padding &&
+    clientX <= rect.right + padding &&
+    clientY >= rect.top - padding &&
+    clientY <= rect.bottom + padding
+  );
 }
 
 function render() {
@@ -322,7 +475,8 @@ function renderGame() {
             <span>Deck</span>
             <strong>${opponent.deck.length}</strong>
           </div>
-          <div class="turn-orb">
+          <div class="turn-orb play-drop-zone" aria-label="Play card drop zone">
+            <span class="drop-ring" aria-hidden="true"></span>
             <span>${activePlayer.name}</span>
             <strong>${activePlayer.mana}/${activePlayer.manaCrystals}</strong>
           </div>

@@ -10,6 +10,12 @@ Local URL:
 http://127.0.0.1:4173/
 ```
 
+Live GitHub Pages URL:
+
+```text
+https://kapitein420.github.io/Aetherfall/
+```
+
 Server command:
 
 ```powershell
@@ -28,6 +34,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\local-server.ps1
 - Core rules live in `src/engine/game.js`.
 - UI rendering lives in `src/app.js`.
 - Styling and current CSS effects live in `src/styles.css`.
+- Hand cards can be clicked or dragged toward the center drop zone to play them.
 
 ## Current Visual State
 
@@ -84,3 +91,4 @@ Prompts are in:
 - `git` is not available in the normal terminal PATH.
 - GitHub Desktop's bundled Git can be used from `C:\Users\noah_\AppData\Local\GitHubDesktop\app-3.5.8\resources\app\git\cmd\git.exe`.
 - The GitHub Desktop repository path is `C:\Users\noah_\Documents\GitHub\Aetherfall`.
+- GitHub Pages deploy is configured through `.github/workflows/pages.yml`.

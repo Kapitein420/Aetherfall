@@ -1,50 +1,52 @@
-const uiPath = "/assets/ui";
+import { assetUrl } from "./asset-paths.js";
 
-export const battlefieldImage = `${uiPath}/battlefield-aetherfall.png`;
+const uiAsset = (path) => assetUrl(`ui/${path}`);
+
+export const battlefieldImage = uiAsset("battlefield-aetherfall.png");
 
 export const championVisuals = {
   arian: {
-    portrait: `${uiPath}/portraits/arian.png`,
-    cardBack: `${uiPath}/card-backs/arian.png`,
+    portrait: uiAsset("portraits/arian.png"),
+    cardBack: uiAsset("card-backs/arian.png"),
   },
   geert: {
-    portrait: `${uiPath}/portraits/geert.png`,
-    cardBack: `${uiPath}/card-backs/geert.png`,
+    portrait: uiAsset("portraits/geert.png"),
+    cardBack: uiAsset("card-backs/geert.png"),
   },
   wouter: {
-    portrait: `${uiPath}/portraits/wouter.png`,
-    cardBack: `${uiPath}/card-backs/wouter.png`,
+    portrait: uiAsset("portraits/wouter.png"),
+    cardBack: uiAsset("card-backs/wouter.png"),
   },
   noah: {
-    portrait: `${uiPath}/portraits/noah.png`,
-    cardBack: `${uiPath}/card-backs/noah.png`,
+    portrait: uiAsset("portraits/noah.png"),
+    cardBack: uiAsset("card-backs/noah.png"),
   },
 };
 
 export const effectVisuals = {
-  advantageRoll: `${uiPath}/effects/spell-r5c2.png`,
-  block: `${uiPath}/effects/spell-r2c1.png`,
-  comboCharge: `${uiPath}/effects/spell-r2c4.png`,
-  criticalLine: `${uiPath}/effects/spell-r3c3.png`,
-  dice: `${uiPath}/effects/spell-r5c2.png`,
-  discard: `${uiPath}/effects/spell-r2c2.png`,
-  draw: `${uiPath}/effects/spell-r2c2.png`,
-  evasion: `${uiPath}/effects/spell-r3c1.png`,
-  instability: `${uiPath}/effects/spell-r4c4.png`,
-  loot: `${uiPath}/effects/spell-r2c2.png`,
-  mana: `${uiPath}/effects/spell-r2c4.png`,
-  physicalAttack: `${uiPath}/effects/spell-r1c3.png`,
-  physicalHit: `${uiPath}/effects/spell-r5c1.png`,
-  polarity: `${uiPath}/effects/spell-r2c4.png`,
-  polarityChanges: `${uiPath}/effects/spell-r2c4.png`,
-  pressure: `${uiPath}/effects/spell-r2c3.png`,
-  selfHit: `${uiPath}/effects/spell-r5c4.png`,
-  slow: `${uiPath}/effects/spell-r2c1.png`,
-  snareTrap: `${uiPath}/effects/spell-r3c3.png`,
-  spellHit: `${uiPath}/effects/spell-r1c2.png`,
-  storedDamage: `${uiPath}/effects/spell-r2c3.png`,
-  summon: `${uiPath}/effects/spell-r1c1.png`,
-  ward: `${uiPath}/effects/spell-r2c1.png`,
+  advantageRoll: uiAsset("effects/spell-r5c2.png"),
+  block: uiAsset("effects/spell-r2c1.png"),
+  comboCharge: uiAsset("effects/spell-r2c4.png"),
+  criticalLine: uiAsset("effects/spell-r3c3.png"),
+  dice: uiAsset("effects/spell-r5c2.png"),
+  discard: uiAsset("effects/spell-r2c2.png"),
+  draw: uiAsset("effects/spell-r2c2.png"),
+  evasion: uiAsset("effects/spell-r3c1.png"),
+  instability: uiAsset("effects/spell-r4c4.png"),
+  loot: uiAsset("effects/spell-r2c2.png"),
+  mana: uiAsset("effects/spell-r2c4.png"),
+  physicalAttack: uiAsset("effects/spell-r1c3.png"),
+  physicalHit: uiAsset("effects/spell-r5c1.png"),
+  polarity: uiAsset("effects/spell-r2c4.png"),
+  polarityChanges: uiAsset("effects/spell-r2c4.png"),
+  pressure: uiAsset("effects/spell-r2c3.png"),
+  selfHit: uiAsset("effects/spell-r5c4.png"),
+  slow: uiAsset("effects/spell-r2c1.png"),
+  snareTrap: uiAsset("effects/spell-r3c3.png"),
+  spellHit: uiAsset("effects/spell-r1c2.png"),
+  storedDamage: uiAsset("effects/spell-r2c3.png"),
+  summon: uiAsset("effects/spell-r1c1.png"),
+  ward: uiAsset("effects/spell-r2c1.png"),
 };
 
 export function getChampionVisual(classId) {

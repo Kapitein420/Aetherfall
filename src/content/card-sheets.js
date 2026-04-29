@@ -1,7 +1,11 @@
+import { assetUrl } from "./asset-paths.js";
+
+const cardAsset = (path) => assetUrl(`cards/${path}`);
+
 export const cardSheetDefinitions = {
   arian_full_cards: {
     id: "arian_full_cards",
-    src: "/assets/cards/arian-full-card-sheet.png",
+    src: cardAsset("arian-full-card-sheet.png"),
     columns: 3,
     rows: 3,
     aspectRatio: "3 / 4",
@@ -20,7 +24,7 @@ export const cardSheetDefinitions = {
   },
   geert_full_cards: {
     id: "geert_full_cards",
-    src: "/assets/cards/geert-full-card-sheet.png",
+    src: cardAsset("geert-full-card-sheet.png"),
     columns: 3,
     rows: 3,
     aspectRatio: "3 / 4",
@@ -39,7 +43,7 @@ export const cardSheetDefinitions = {
   },
   wouter_full_cards: {
     id: "wouter_full_cards",
-    src: "/assets/cards/wouter-full-card-sheet.png",
+    src: cardAsset("wouter-full-card-sheet.png"),
     columns: 3,
     rows: 3,
     aspectRatio: "2 / 3",
@@ -58,7 +62,7 @@ export const cardSheetDefinitions = {
   },
   noah_full_cards: {
     id: "noah_full_cards",
-    src: "/assets/cards/noah-full-card-sheet.png",
+    src: cardAsset("noah-full-card-sheet.png"),
     columns: 3,
     rows: 3,
     aspectRatio: "2 / 3",
@@ -104,7 +108,7 @@ export function getCardImage(cardId) {
   }
 
   return {
-    src: `/assets/cards/crops/${cardId.replace(".", "-").replaceAll("_", "-")}.png`,
+    src: cardAsset(`crops/${cardId.replace(".", "-").replaceAll("_", "-")}.png`),
     aspectRatio: sprite.aspectRatio,
   };
 }
