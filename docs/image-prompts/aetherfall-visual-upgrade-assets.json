@@ -1,0 +1,176 @@
+{
+  "schema_version": "1.0",
+  "project": "The Fracture of Aetherfall",
+  "purpose": "Generate modular visual assets to upgrade the browser card game's board, heroes, card backs, UI, and effects.",
+  "global_style": {
+    "style": "premium stylized dark high fantasy card battler, painterly but clean, game-ready, cinematic lighting, ornate materials, readable silhouettes",
+    "universe": "Aetherfall, a shattered magical world powered by amber, blue-white, emerald, and crimson aether forces",
+    "quality_bar": "polished fantasy browser game UI, smooth and atmospheric, not a rough concept sketch",
+    "avoid": [
+      "direct Hearthstone copy",
+      "direct Magic the Gathering copy",
+      "modern sci-fi UI",
+      "flat mobile-game plastic look",
+      "messy unreadable detail",
+      "text labels",
+      "watermarks",
+      "logos"
+    ],
+    "shared_materials": [
+      "weathered stone",
+      "dark metal",
+      "aged parchment",
+      "brass",
+      "moss",
+      "arcane glass",
+      "glowing aether cracks",
+      "polished gems",
+      "carved wood",
+      "shadowed leather"
+    ],
+    "deck_accents": {
+      "arian": "granite, moss, roots, amber seismic cracks",
+      "geert": "gunmetal, brass, gears, blue-white polarity energy",
+      "wouter": "dark forest, emerald trails, silver blades, moonlight",
+      "noah": "black obsidian, crimson, violet void, burning dice, fractured reality"
+    }
+  },
+  "asset_batches": [
+    {
+      "id": "battle_board",
+      "filename": "assets/ui/board-aetherfall-battlefield.png",
+      "canvas": "2400x1400",
+      "format": "single wide board background",
+      "transparent_background": false,
+      "must_have": [
+        "central battlefield lane",
+        "two opposing hero zones",
+        "subtle areas where monster slots can sit",
+        "dark readable zones behind cards",
+        "fantasy depth and atmosphere",
+        "no readable text",
+        "no UI buttons"
+      ],
+      "prompt": "Create one wide fantasy battle board background for The Fracture of Aetherfall, a premium browser card battler. Size 2400x1400. The board should be a dark cinematic Aetherfall battlefield with a central dueling lane, two opposing hero zones, subtle places for monster cards, cracked stone floor, faint glowing aether veins, weathered bronze edges, moss and roots, distant shattered ruins, magical fog, and soft dramatic lighting. It must be readable behind cards: dark enough, not too busy, with clear open zones. No text, no logos, no card frames, no buttons, no characters in the foreground. Original fantasy game board, polished and smooth."
+    },
+    {
+      "id": "champion_portraits",
+      "filename": "assets/ui/champion-portraits.png",
+      "canvas": "2048x2048",
+      "format": "2 columns by 2 rows portrait sheet",
+      "transparent_background": false,
+      "grid_order": [
+        "row 1 column 1: Arian, ancient stone giant / stone troll, gentle colossal face, moss, amber cracks",
+        "row 1 column 2: Geert, kind arcane tinkerer, brass tools, blue-white magnetic devices",
+        "row 2 column 1: Wouter, elf rogue forest hunter, hood, bow/dagger, emerald moonlit forest",
+        "row 2 column 2: Noah, demon sorcerer chaos warlock, crimson/violet magic, burning dice, unstable aura"
+      ],
+      "must_have": [
+        "same camera distance for each portrait",
+        "same lighting quality",
+        "strong face identity",
+        "dark fantasy portrait background",
+        "no text",
+        "no card frames"
+      ],
+      "prompt": "Create one 2 by 2 champion portrait sheet for The Fracture of Aetherfall. Premium stylized dark high fantasy, painterly but clean, game-ready, cinematic lighting. Four square portrait cells, same composition and scale. Row 1 column 1: Arian, ancient stone giant / stone troll, gentle colossal face, cracked granite skin, moss, roots, warm amber glow in fissures. Row 1 column 2: Geert, kind arcane tinkerer / artificer, clever expression, brass tools, dark metal gauntlet, blue-white magnetic devices and small gears orbiting. Row 2 column 1: Wouter, elf rogue / forest hunter, hooded, quiet calculating eyes, bow and dagger hints, moonlit forest, emerald trails. Row 2 column 2: Noah, demon sorcerer / chaos warlock, brilliant isolated madman, crimson and violet void magic, burning dice, fractured reality aura. No text, no logos, no UI, no card frames."
+    },
+    {
+      "id": "card_backs",
+      "filename": "assets/cards/card-backs.png",
+      "canvas": "2048x3072",
+      "format": "2 columns by 2 rows card-back sheet",
+      "transparent_background": false,
+      "grid_order": [
+        "row 1 column 1: Arian card back",
+        "row 1 column 2: Geert card back",
+        "row 2 column 1: Wouter card back",
+        "row 2 column 2: Noah card back"
+      ],
+      "must_have": [
+        "portrait card-back shape",
+        "ornate backs",
+        "no readable text",
+        "clear deck identity",
+        "same outer silhouette"
+      ],
+      "prompt": "Create one 2 by 2 sheet of ornate fantasy card backs for The Fracture of Aetherfall. Each cell is a full portrait card back with the same silhouette and proportions, no text. Row 1 column 1 Arian: carved stone back, moss, roots, amber seismic cracks. Row 1 column 2 Geert: dark metal, brass gears, blue-white polarity rings, arcane glass. Row 2 column 1 Wouter: dark forest leather, silver vines, emerald moonlit trails, hidden blades. Row 2 column 2 Noah: obsidian, crimson/violet chaos cracks, burning dice symbols, unstable void energy. Premium stylized fantasy card game style, polished, readable, original, no logos, no text."
+    },
+    {
+      "id": "core_effects",
+      "filename": "assets/effects/core-effects.png",
+      "canvas": "2048x2048",
+      "format": "4 columns by 4 rows effect sprite atlas",
+      "transparent_background": true,
+      "grid_order": [
+        "summon aura",
+        "spell hit burst",
+        "physical slash",
+        "block shield",
+        "ward shield",
+        "draw card sparkle",
+        "discard ash",
+        "mana crystal pulse",
+        "evasion dash",
+        "snare trap",
+        "critical hit mark",
+        "polarity ring",
+        "pressure quake",
+        "instability dice flare",
+        "defeat dust burst",
+        "backlash self-hit"
+      ],
+      "must_have": [
+        "transparent background",
+        "each effect centered in its cell",
+        "high contrast",
+        "usable as short overlay animation frames or static bursts",
+        "no text",
+        "no characters"
+      ],
+      "prompt": "Create one transparent 4 by 4 fantasy VFX sprite atlas for The Fracture of Aetherfall. Each cell contains one centered magical effect burst with no text, no characters, no UI. Premium stylized high fantasy, clean game-ready particles. Grid order: summon aura with green-gold arrival ring; spell hit blue arcane burst; physical slash bright weapon trail; block shield flash; ward stronger magical shield; draw card sparkle; discard ash fragments; mana crystal pulse; evasion emerald dash trail; snare trap vine and wire snap; critical hit crosshair mark; polarity blue-white magnetic ring; pressure amber seismic quake crack; instability crimson/violet dice flare; defeat dust burst; backlash red self-hit flare. Transparent background if possible."
+    },
+    {
+      "id": "ui_material_kit",
+      "filename": "assets/ui/aetherfall-ui-kit.png",
+      "canvas": "2048x2048",
+      "format": "4 columns by 4 rows UI kit sheet",
+      "transparent_background": true,
+      "must_have": [
+        "no readable text",
+        "separate reusable UI components",
+        "dark fantasy materials",
+        "consistent lighting",
+        "clear edges",
+        "transparent background if possible"
+      ],
+      "grid_order": [
+        "hero portrait frame",
+        "deck pile frame",
+        "field slot frame",
+        "turn orb",
+        "status badge",
+        "health gem",
+        "block gem",
+        "mana crystal",
+        "primary button plate",
+        "secondary button plate",
+        "tooltip panel",
+        "log panel",
+        "divider ornament",
+        "target ring",
+        "hover glow",
+        "modal frame"
+      ],
+      "prompt": "Create one transparent 4 by 4 UI material kit sheet for The Fracture of Aetherfall, a premium stylized dark fantasy browser card battler. No text, no labels, no logos. Each cell contains one reusable UI component with clean edges and consistent lighting: hero portrait frame, deck pile frame, field slot frame, turn orb, status badge, health gem, block gem, mana crystal, primary button plate, secondary button plate, tooltip panel, log panel, divider ornament, target ring, hover glow, modal frame. Materials: weathered stone, dark metal, aged parchment, brass, arcane glass, carved wood, glowing aether gems. Original game UI, polished, smooth, fantasy vibe."
+    }
+  ],
+  "recommended_generation_order": [
+    "battle_board",
+    "champion_portraits",
+    "card_backs",
+    "core_effects",
+    "ui_material_kit"
+  ],
+  "implementation_note": "Generate one batch at a time. After each output, slice it into individual PNG files and wire those files directly into the app. Avoid CSS sprite background-position for now; individual image files are easier to debug and more reliable."
+}

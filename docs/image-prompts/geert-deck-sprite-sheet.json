@@ -1,0 +1,236 @@
+{
+  "schema_version": "2.0",
+  "purpose": "Single-image full card sheet prompt for one complete champion deck",
+  "important_note": "This prompt asks for complete playable-looking cards, not only card artwork. It includes frames, cost gems, name banners, rules boxes, type labels, rarity gems, and monster stats where needed.",
+  "project": {
+    "title": "The Fracture of Aetherfall",
+    "genre": "fantasy browser deck-building card game",
+    "deck_id": "geert",
+    "deck_name": "Geert, the Polarity Architect",
+    "race": "Tinkerer / Arcane Artificer",
+    "aspect": "Control",
+    "playstyle": "complex combos, polarity switching, buffs, magnetic control, chain reactions, overclocking, controlled destruction"
+  },
+  "image_request": {
+    "generate_as": "one single image containing 9 complete card designs",
+    "do_not_generate": "separate images per card or plain artwork-only panels",
+    "format": "3 columns by 3 rows full-card sheet",
+    "recommended_canvas_size": {
+      "width": 3072,
+      "height": 4096,
+      "units": "pixels"
+    },
+    "card_aspect_ratio": "portrait fantasy card, approximately 3:4",
+    "layout": {
+      "columns": 3,
+      "rows": 3,
+      "outer_margin": "consistent dark background margin around the sheet",
+      "gutter": "even spacing between cards",
+      "alignment": "all cards aligned to the same grid, same scale, same proportions"
+    },
+    "must_include_on_every_card": [
+      "complete ornate card frame",
+      "mana cost gem in the top left",
+      "readable card name on a banner",
+      "large artwork window",
+      "rules text box",
+      "type or subtype ribbon",
+      "rarity gem",
+      "consistent Geert deck visual identity"
+    ],
+    "monster_card_extra_requirements": [
+      "attack value jewel in the bottom left",
+      "health value jewel in the bottom right",
+      "monster subtype ribbon"
+    ],
+    "non_monster_card_requirements": [
+      "no attack or health jewels",
+      "use a small spell-type emblem at the bottom instead"
+    ]
+  },
+  "card_frame_direction": {
+    "overall_layout": "original fantasy digital card game layout inspired by classic collectible card readability, but not a direct copy of any existing game",
+    "frame_material": "brushed dark metal frame with floating magnetic fragments, brass screws, arcane glass, blue-white electric seams, small gears, and polished inventor details",
+    "cost_gem": "top-left blue arcane crystal with a large clear white number",
+    "name_banner": "engraved metal-and-brass nameplate under or overlapping the artwork window, with high-contrast readable text",
+    "art_window": "large vertical illustration area occupying the top half of the card",
+    "rules_box": "clean pale parchment or brushed ivory metal panel in the lower third, with short readable black/dark text",
+    "rarity_gem": "small centered gem below the artwork or above the rules box, color-coded by rarity",
+    "rarity_colors": {
+      "common": "small pale silver gem",
+      "uncommon": "small green gem",
+      "rare": "small blue gem",
+      "legendary": "large bright blue-white diamond with gold trim"
+    },
+    "typography": "large readable fantasy card typography, clean and simple, no tiny paragraphs, spell every card name and rule exactly as provided"
+  },
+  "global_art_direction": {
+    "style": "consistent stylized high fantasy card illustration, painterly but clean, game-ready, cinematic lighting",
+    "rendering": "same rendering style across all 9 cards, strong silhouettes, readable actions, detailed but not noisy",
+    "lighting": "cool blue-white arcane light with warm brass highlights and controlled electric sparks",
+    "palette": [
+      "deep gunmetal gray",
+      "bright blue-white energy",
+      "polished brass",
+      "arcane cyan",
+      "dark workshop shadows",
+      "pale ivory rule panels",
+      "sparking silver"
+    ],
+    "materials": [
+      "magnetized metal fragments",
+      "brass gears",
+      "arcane coils",
+      "glass lenses",
+      "electric arcs",
+      "floating machinery",
+      "polished steel"
+    ],
+    "character_consistency": "Geert should feel like the same kind-hearted arcane inventor across the sheet whenever he appears: clever, focused, approachable, wearing practical tinkerer gear with brass tools, metal gauntlets, blue-white energy lenses, and magnetic devices orbiting around him.",
+    "deck_identity": "The whole sheet should communicate controlled complexity: polarity rings, attraction and repulsion, chain reactions, clever machinery, precise destruction, and a sense that every chaotic effect is engineered on purpose."
+  },
+  "grid_order": [
+    {
+      "row": 1,
+      "column": 1,
+      "card_id": "geert.spark_anchor",
+      "card_name": "Spark Anchor",
+      "cost": 1,
+      "type_label": "Attack",
+      "rarity": "common",
+      "rules_text": "Deal 2 damage. Set Polarity to Positive.",
+      "stats": null,
+      "art_prompt": "Geert launches a glowing magnetic anchor bolt from a brass-and-steel device. Blue-white sparks pull floating metal shards into a positive polarity ring around the target."
+    },
+    {
+      "row": 1,
+      "column": 2,
+      "card_id": "geert.repulsion_pulse",
+      "card_name": "Repulsion Pulse",
+      "cost": 1,
+      "type_label": "Skill",
+      "rarity": "common",
+      "rules_text": "Gain 3 Block. Set Polarity to Negative.",
+      "stats": null,
+      "art_prompt": "Geert braces behind a circular repulsion field as metal fragments and incoming debris are pushed away from him. The energy ring glows blue-white with a negative polarity symbol."
+    },
+    {
+      "row": 1,
+      "column": 3,
+      "card_id": "geert.magnetic_drone",
+      "card_name": "Magnetic Drone",
+      "cost": 2,
+      "type_label": "Drone",
+      "rarity": "common",
+      "rules_text": "Positive: +1 Attack.",
+      "stats": {
+        "attack": 2,
+        "health": 3
+      },
+      "art_prompt": "A compact arcane magnetic drone hovers in a workshop sky, made from polished metal plates, tiny gears, blue glass lenses, and crackling polarity coils. It looks agile and engineered."
+    },
+    {
+      "row": 2,
+      "column": 1,
+      "card_id": "geert.attraction_field",
+      "card_name": "Attraction Field",
+      "cost": 2,
+      "type_label": "Power",
+      "rarity": "uncommon",
+      "rules_text": "Gain 2 Combo Charge. Negative: draw 1.",
+      "stats": null,
+      "art_prompt": "A controlled magnetic field pulls scattered metal fragments, runic cards, and tiny components into a perfect orbit around Geert's device. The composition should feel clever and precise."
+    },
+    {
+      "row": 2,
+      "column": 2,
+      "card_id": "geert.chain_capacitor",
+      "card_name": "Chain Capacitor",
+      "cost": 2,
+      "type_label": "Attack",
+      "rarity": "uncommon",
+      "rules_text": "Deal 3. If Polarity changed, hit another enemy for 2.",
+      "stats": null,
+      "art_prompt": "A charged capacitor tower releases a branching chain of blue-white lightning between floating metal nodes. Geert adjusts a dial as the chain reaction leaps with deliberate control."
+    },
+    {
+      "row": 2,
+      "column": 3,
+      "card_id": "geert.overclock",
+      "card_name": "Overclock",
+      "cost": 1,
+      "type_label": "Skill",
+      "rarity": "rare",
+      "rules_text": "Draw 2 cards. Take 2 damage.",
+      "stats": null,
+      "art_prompt": "Geert pushes a glowing machine beyond safe limits. Cards, sparks, and blueprints whirl around him while red warning heat glows inside the device. It feels powerful but risky."
+    },
+    {
+      "row": 3,
+      "column": 1,
+      "card_id": "geert.polarity_switch",
+      "card_name": "Polarity Switch",
+      "cost": 1,
+      "type_label": "Reaction",
+      "rarity": "uncommon",
+      "rules_text": "Flip Polarity. Gain 2 Block.",
+      "stats": null,
+      "art_prompt": "Geert flips a brass lever between positive and negative polarity while two opposing magnetic rings rotate around him. A compact defensive shield forms from pulled-together metal plates."
+    },
+    {
+      "row": 3,
+      "column": 2,
+      "card_id": "geert.scrap_colossus",
+      "card_name": "Scrap Colossus",
+      "cost": 4,
+      "type_label": "Construct",
+      "rarity": "rare",
+      "rules_text": "Guard. Positive: gain 4 Block.",
+      "stats": {
+        "attack": 4,
+        "health": 6
+      },
+      "art_prompt": "A towering construct made from magnetized scrap, brass plates, gears, and glowing blue-white coils stands protectively in front of Geert. Heavy guard posture, engineered strength."
+    },
+    {
+      "row": 3,
+      "column": 3,
+      "card_id": "geert.perfect_chain_reaction",
+      "card_name": "Perfect Chain Reaction",
+      "cost": 5,
+      "type_label": "Ultimate",
+      "rarity": "legendary",
+      "rules_text": "Deal 4 to all enemies. If Polarity changed, repeat.",
+      "stats": null,
+      "art_prompt": "Geert stands at the center of a flawless machine-circle while magnetic rings, lightning chains, drones, and metal fragments trigger a perfectly synchronized chain reaction across the battlefield."
+    }
+  ],
+  "master_prompt": "Create one single portrait-format image showing a 3 by 3 sheet of 9 complete fantasy game cards for The Fracture of Aetherfall. These must be full usable card mockups, not plain artwork tiles. Each card must have an ornate original card frame, top-left mana cost gem, readable name banner, large illustration window, rules text box, type ribbon, rarity gem, and consistent Geert deck styling. Use an original fantasy digital card layout inspired by classic collectible card readability, but do not copy any existing card game frame exactly. The deck is Geert, the Polarity Architect, a Tinkerer / Arcane Artificer champion of Control. Visual identity: brushed dark metal, floating magnetic fragments, brass screws, gears, arcane glass, blue-white electric seams, controlled sparks, polished steel, cyan polarity rings, clean inventor details, dark workshop shadows, pale ivory rule panels. Make all 9 cards aligned in the same 3 columns by 3 rows grid, same scale, same proportions, with even gutters and dark neutral background around them. Use readable fantasy card typography and spell the following names, costs, and rules exactly. Row 1 column 1: cost 1, Spark Anchor, Attack, common, text: Deal 2 damage. Set Polarity to Positive. Artwork: Geert launches a glowing magnetic anchor bolt from a brass-and-steel device while blue-white sparks pull metal shards into a positive polarity ring. Row 1 column 2: cost 1, Repulsion Pulse, Skill, common, text: Gain 3 Block. Set Polarity to Negative. Artwork: Geert braces behind a circular repulsion field as metal fragments and incoming debris are pushed away. Row 1 column 3: cost 2, Magnetic Drone, Drone, common, text: Positive: +1 Attack. This is a monster card, with attack 2 bottom left and health 3 bottom right. Artwork: a compact arcane magnetic drone hovers, made from polished metal plates, tiny gears, blue glass lenses, and crackling polarity coils. Row 2 column 1: cost 2, Attraction Field, Power, uncommon, text: Gain 2 Combo Charge. Negative: draw 1. Artwork: a controlled magnetic field pulls metal fragments, runic cards, and tiny components into orbit around Geert's device. Row 2 column 2: cost 2, Chain Capacitor, Attack, uncommon, text: Deal 3. If Polarity changed, hit another enemy for 2. Artwork: a charged capacitor tower releases branching blue-white lightning between floating metal nodes while Geert adjusts a dial. Row 2 column 3: cost 1, Overclock, Skill, rare, text: Draw 2 cards. Take 2 damage. Artwork: Geert pushes a glowing machine beyond safe limits, with cards, sparks, blueprints, and red warning heat. Row 3 column 1: cost 1, Polarity Switch, Reaction, uncommon, text: Flip Polarity. Gain 2 Block. Artwork: Geert flips a brass lever between positive and negative polarity while two opposing magnetic rings rotate around him. Row 3 column 2: cost 4, Scrap Colossus, Construct, rare, text: Guard. Positive: gain 4 Block. This is a monster card, with attack 4 bottom left and health 6 bottom right. Artwork: a towering construct made from magnetized scrap, brass plates, gears, and glowing blue-white coils stands protectively. Row 3 column 3: cost 5, Perfect Chain Reaction, Ultimate, legendary, text: Deal 4 to all enemies. If Polarity changed, repeat. Artwork: Geert stands at the center of a flawless machine-circle while magnetic rings, lightning chains, drones, and metal fragments trigger a perfectly synchronized chain reaction. Important: one single image, exactly 9 complete cards, no extra cards, no separate outputs.",
+  "negative_prompt": "plain artwork-only panels, missing card frames, missing mana costs, missing name banners, missing rules boxes, separate images, extra cards, wrong grid, text outside the cards, unreadable tiny text, random nonsense text, misspelled names, watermark, logo, direct Hearthstone copy, direct Magic the Gathering copy, photorealistic product photo, anime style, modern sci-fi frame, guns, modern clothing, cropped cards, inconsistent card sizes, inconsistent frames, stone giant theme, mossy troll theme",
+  "production_warning": "Image generators can still make imperfect text. For production-quality playable cards, the best workflow is to generate the card visuals and render the final text, costs, and stats in the browser UI. This prompt is optimized for full visual mockups and first-pass card assets.",
+  "reuse_notes_for_other_decks": {
+    "keep_same_fields": true,
+    "replace": [
+      "deck_id",
+      "deck_name",
+      "race",
+      "aspect",
+      "playstyle",
+      "card_frame_direction.frame_material",
+      "global_art_direction",
+      "grid_order",
+      "master_prompt",
+      "negative_prompt"
+    ],
+    "do_not_replace": [
+      "schema_version",
+      "purpose",
+      "image_request.generate_as",
+      "image_request.format",
+      "image_request.layout",
+      "image_request.must_include_on_every_card",
+      "image_request.monster_card_extra_requirements",
+      "image_request.non_monster_card_requirements"
+    ]
+  }
+}

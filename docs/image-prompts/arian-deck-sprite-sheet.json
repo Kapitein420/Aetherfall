@@ -1,0 +1,224 @@
+{
+  "schema_version": "2.0",
+  "purpose": "Single-image full card sheet prompt for one complete champion deck",
+  "important_note": "This prompt asks for complete playable-looking cards, not only card artwork. It includes frames, cost gems, name banners, rules boxes, type labels, rarity gems, and monster stats where needed.",
+  "project": {
+    "title": "The Fracture of Aetherfall",
+    "genre": "fantasy browser deck-building card game",
+    "deck_id": "arian",
+    "deck_name": "Arian, the Still Colossus",
+    "race": "Ancient Giant / Stone Troll",
+    "aspect": "Accumulation",
+    "playstyle": "slow build-up, armor, stored damage, seismic pressure, delayed attacks, massive payoff strikes"
+  },
+  "image_request": {
+    "generate_as": "one single image containing 9 complete card designs",
+    "do_not_generate": "separate images per card or plain artwork-only panels",
+    "format": "3 columns by 3 rows full-card sheet",
+    "recommended_canvas_size": {
+      "width": 3072,
+      "height": 4096,
+      "units": "pixels"
+    },
+    "card_aspect_ratio": "portrait fantasy card, approximately 3:4",
+    "layout": {
+      "columns": 3,
+      "rows": 3,
+      "outer_margin": "consistent dark background margin around the sheet",
+      "gutter": "even spacing between cards",
+      "alignment": "all cards aligned to the same grid, same scale, same proportions"
+    },
+    "must_include_on_every_card": [
+      "complete ornate card frame",
+      "mana cost gem in the top left",
+      "readable card name on a banner",
+      "large artwork window",
+      "rules text box",
+      "type or subtype ribbon",
+      "rarity gem",
+      "consistent Arian deck visual identity"
+    ],
+    "monster_card_extra_requirements": [
+      "attack value jewel in the bottom left",
+      "health value jewel in the bottom right",
+      "monster subtype ribbon"
+    ],
+    "non_monster_card_requirements": [
+      "no attack or health jewels",
+      "use a small spell-type emblem at the bottom instead"
+    ]
+  },
+  "card_frame_direction": {
+    "overall_layout": "original fantasy digital card game layout inspired by classic collectible card readability, but not a direct copy of any existing game",
+    "frame_material": "carved ancient stone frame with moss, roots, amber aether cracks, worn bronze details, and heavy rounded silhouette",
+    "cost_gem": "top-left blue-gray stone crystal with a large clear white number",
+    "name_banner": "carved stone-and-bronze banner under or overlapping the artwork window, with high-contrast readable text",
+    "art_window": "large vertical illustration area occupying the top half of the card",
+    "rules_box": "aged parchment or light carved stone panel in the lower third, with short readable black/dark text",
+    "rarity_gem": "small centered gem below the artwork or above the rules box, color-coded by rarity",
+    "rarity_colors": {
+      "common": "small pale silver gem",
+      "uncommon": "small green gem",
+      "rare": "small blue gem",
+      "legendary": "large warm amber-gold gem"
+    },
+    "typography": "large readable fantasy card typography, clean and simple, no tiny paragraphs, spell every card name and rule exactly as provided"
+  },
+  "global_art_direction": {
+    "style": "consistent stylized high fantasy card illustration, painterly but clean, game-ready, cinematic lighting",
+    "rendering": "same rendering style across all 9 cards, strong silhouettes, readable actions, detailed but not noisy",
+    "lighting": "warm amber aether glow mixed with cool natural shadow",
+    "palette": [
+      "weathered granite gray",
+      "deep moss green",
+      "warm amber cracks",
+      "dark fertile earth",
+      "dusty golden light",
+      "muted stone blue shadows",
+      "aged parchment"
+    ],
+    "character_consistency": "Arian should feel like the same ancient gentle stone giant across the sheet whenever he appears: massive, calm, moss-covered, cracked stone skin, amber light glowing from fissures, kind face, enormous scale.",
+    "deck_identity": "The whole sheet should communicate patient accumulation: pressure building underground, stone absorbing impact, gentle protection, then huge seismic release."
+  },
+  "grid_order": [
+    {
+      "row": 1,
+      "column": 1,
+      "card_id": "arian.stone_breath",
+      "card_name": "Stone Breath",
+      "cost": 1,
+      "type_label": "Attack",
+      "rarity": "common",
+      "rules_text": "Deal 2 damage. Gain 1 Pressure.",
+      "stats": null,
+      "art_prompt": "Arian exhales a heavy storm of pebbles, dust, and amber-lit stone shards toward an unseen enemy. The breath feels slow but forceful, like a landslide compressed into one blast."
+    },
+    {
+      "row": 1,
+      "column": 2,
+      "card_id": "arian.granite_skin",
+      "card_name": "Granite Skin",
+      "cost": 1,
+      "type_label": "Skill",
+      "rarity": "common",
+      "rules_text": "Gain 5 Block.",
+      "stats": null,
+      "art_prompt": "Arian stands calmly while thick plates of granite lock over his arms, chest, and shoulders like natural armor. Incoming sparks and small impacts break against the stone skin."
+    },
+    {
+      "row": 1,
+      "column": 3,
+      "card_id": "arian.tectonic_wait",
+      "card_name": "Tectonic Wait",
+      "cost": 2,
+      "type_label": "Power",
+      "rarity": "uncommon",
+      "rules_text": "Gain 2 Pressure. Draw 1 card.",
+      "stats": null,
+      "art_prompt": "Arian kneels with one huge hand pressed into the earth, waiting in silence while underground pressure gathers. Subtle amber cracks spread outward beneath him."
+    },
+    {
+      "row": 2,
+      "column": 1,
+      "card_id": "arian.stored_impact",
+      "card_name": "Stored Impact",
+      "cost": 2,
+      "type_label": "Skill",
+      "rarity": "uncommon",
+      "rules_text": "Store 4 damage. Next attack adds it.",
+      "stats": null,
+      "art_prompt": "Arian holds back a massive stone fist wrapped in compressed shockwaves, as if refusing to release the strike yet. Amber energy spirals inward around the fist."
+    },
+    {
+      "row": 2,
+      "column": 2,
+      "card_id": "arian.mossbound_guardian",
+      "card_name": "Mossbound Guardian",
+      "cost": 2,
+      "type_label": "Guardian",
+      "rarity": "common",
+      "rules_text": "Guard.",
+      "stats": {
+        "attack": 2,
+        "health": 6
+      },
+      "art_prompt": "A moss-covered stone guardian rises from the forest floor, broad shield-like arms crossed protectively. Ancient roots bind its body, amber eyes glow softly."
+    },
+    {
+      "row": 2,
+      "column": 3,
+      "card_id": "arian.seismic_pressure",
+      "card_name": "Seismic Pressure",
+      "cost": 3,
+      "type_label": "Power",
+      "rarity": "rare",
+      "rules_text": "Gain 3 Pressure and 3 Block.",
+      "stats": null,
+      "art_prompt": "The ground around Arian bulges and fractures under immense contained pressure. Amber light glows through circular fault lines as the earth itself becomes a shield."
+    },
+    {
+      "row": 3,
+      "column": 1,
+      "card_id": "arian.faultline_slam",
+      "card_name": "Faultline Slam",
+      "cost": 3,
+      "type_label": "Attack",
+      "rarity": "rare",
+      "rules_text": "Deal 5 +2 per Pressure. Spend all Pressure.",
+      "stats": null,
+      "art_prompt": "Arian slams one enormous fist into the battlefield, splitting the ground into a jagged glowing fault line that races forward with flying stone slabs and amber shockwaves."
+    },
+    {
+      "row": 3,
+      "column": 2,
+      "card_id": "arian.kindly_cataclysm",
+      "card_name": "Kindly Cataclysm",
+      "cost": 2,
+      "type_label": "Reaction",
+      "rarity": "rare",
+      "rules_text": "Gain 4 Block and 2 Pressure.",
+      "stats": null,
+      "art_prompt": "Arian gently shields small glowing life-lights with one massive hand while the earth erupts around him. Kind expression, protective posture, catastrophic stone surge."
+    },
+    {
+      "row": 3,
+      "column": 3,
+      "card_id": "arian.worldbreaker_patience",
+      "card_name": "Worldbreaker Patience",
+      "cost": 5,
+      "type_label": "Ultimate",
+      "rarity": "legendary",
+      "rules_text": "Deal 12. At 5+ Pressure, deal 24 and spend it.",
+      "stats": null,
+      "art_prompt": "Arian stands fully upright at colossal scale after a long calm wait, with a continent-like battlefield cracking beneath him in radiant amber fault lines."
+    }
+  ],
+  "master_prompt": "Create one single portrait-format image showing a 3 by 3 sheet of 9 complete fantasy game cards for The Fracture of Aetherfall. These must be full usable card mockups, not plain artwork tiles. Each card must have an ornate original card frame, top-left mana cost gem, readable name banner, large illustration window, rules text box, type ribbon, rarity gem, and consistent Arian deck styling. Use an original fantasy digital card layout inspired by classic collectible card readability, but do not copy any existing card game frame exactly. The deck is Arian, the Still Colossus, an Ancient Giant / Stone Troll champion of Accumulation. Visual identity: carved ancient stone, moss, roots, amber aether cracks, weathered bronze, aged parchment, warm amber glow, granite gray, deep moss green, cracked earth, dusty golden light. Make all 9 cards aligned in the same 3 columns by 3 rows grid, same scale, same proportions, with even gutters and dark neutral background around them. Use readable fantasy card typography and spell the following names, costs, and rules exactly. Row 1 column 1: cost 1, Stone Breath, Attack, common, text: Deal 2 damage. Gain 1 Pressure. Artwork: Arian exhales a storm of pebbles, dust, and amber-lit stone shards. Row 1 column 2: cost 1, Granite Skin, Skill, common, text: Gain 5 Block. Artwork: granite armor plates lock over Arian as impacts break against him. Row 1 column 3: cost 2, Tectonic Wait, Power, uncommon, text: Gain 2 Pressure. Draw 1 card. Artwork: Arian kneels with one hand pressed into earth while amber cracks gather underground pressure. Row 2 column 1: cost 2, Stored Impact, Skill, uncommon, text: Store 4 damage. Next attack adds it. Artwork: Arian holds back a massive stone fist wrapped in compressed shockwaves and amber energy. Row 2 column 2: cost 2, Mossbound Guardian, Guardian, common, text: Guard. This is the only monster card, with attack 2 bottom left and health 6 bottom right. Artwork: a moss-covered stone guardian rises with shield-like arms crossed protectively. Row 2 column 3: cost 3, Seismic Pressure, Power, rare, text: Gain 3 Pressure and 3 Block. Artwork: the ground bulges and fractures around Arian as the earth becomes a shield. Row 3 column 1: cost 3, Faultline Slam, Attack, rare, text: Deal 5 +2 per Pressure. Spend all Pressure. Artwork: Arian slams the battlefield and sends a jagged glowing fault line forward. Row 3 column 2: cost 2, Kindly Cataclysm, Reaction, rare, text: Gain 4 Block and 2 Pressure. Artwork: Arian gently shields small glowing life-lights while the earth erupts around him. Row 3 column 3: cost 5, Worldbreaker Patience, Ultimate, legendary, text: Deal 12. At 5+ Pressure, deal 24 and spend it. Artwork: colossal Arian stands calmly while a continent-like battlefield cracks beneath him in radiant amber fault lines. Important: one single image, exactly 9 complete cards, no extra cards, no separate outputs.",
+  "negative_prompt": "plain artwork-only panels, missing card frames, missing mana costs, missing name banners, missing rules boxes, separate images, extra cards, wrong grid, text outside the cards, unreadable tiny text, random nonsense text, misspelled names, watermark, logo, direct Hearthstone copy, direct Magic the Gathering copy, photorealistic product photo, anime style, modern sci-fi frame, guns, modern clothing, cropped cards, inconsistent card sizes, inconsistent frames",
+  "production_warning": "Image generators can still make imperfect text. For production-quality playable cards, the best workflow is to generate framed card art and render the final text, costs, and stats in the browser UI. This prompt is optimized for full visual mockups and first-pass card assets.",
+  "reuse_notes_for_other_decks": {
+    "keep_same_fields": true,
+    "replace": [
+      "deck_id",
+      "deck_name",
+      "race",
+      "aspect",
+      "playstyle",
+      "card_frame_direction.frame_material",
+      "global_art_direction",
+      "grid_order",
+      "master_prompt",
+      "negative_prompt"
+    ],
+    "do_not_replace": [
+      "schema_version",
+      "purpose",
+      "image_request.generate_as",
+      "image_request.format",
+      "image_request.layout",
+      "image_request.must_include_on_every_card",
+      "image_request.monster_card_extra_requirements",
+      "image_request.non_monster_card_requirements"
+    ]
+  }
+}
