@@ -2,6 +2,7 @@ import { classDefinitions, selectableClasses } from "./content/classes.js";
 import { getCardImage } from "./content/card-sheets.js";
 import { getCardArtDefinition } from "./content/card-art.js";
 import { getCardDefinition } from "./content/cards.js";
+import { getChampionVisual, getEffectVisual } from "./content/game-assets.js";
 import { getEffectDuration, getEffectName, shouldShowEffectAmount } from "./effects/effect-library.js";
 import {
   attackWithMonster,
@@ -251,9 +252,16 @@ function renderSetup() {
 
 function renderSetupPlayer(label, classField) {
   const selectedChampion = classDefinitions[setup[classField]];
+  const championVisual = getChampionVisual(selectedChampion.id);
   return `
-    <section class="setup-panel">
-      <h2>${label}</h2>
+    <section class="setup-panel class-${selectedChampion.id}">
+      <div class="setup-panel-header">
+        <img class="setup-champion-portrait" src="${championVisual.portrait}" alt="" aria-hidden="true" />
+        <div>
+          <h2>${label}</h2>
+          <strong>${selectedChampion.shortName}</strong>
+        </div>
+      </div>
       <label>
         Champion Deck
         <select data-setup-field="${classField}">
@@ -309,7 +317,8 @@ function renderGame() {
         </section>
 
         <section class="center-lane">
-          <div class="pile-stack opponent-pile">
+          <div class="pile-stack opponent-pile class-${opponent.classId}">
+            <span class="pile-card-back" aria-hidden="true"></span>
             <span>Deck</span>
             <strong>${opponent.deck.length}</strong>
           </div>
@@ -317,7 +326,8 @@ function renderGame() {
             <span>${activePlayer.name}</span>
             <strong>${activePlayer.mana}/${activePlayer.manaCrystals}</strong>
           </div>
-          <div class="pile-stack active-pile">
+          <div class="pile-stack active-pile class-${activePlayer.classId}">
+            <span class="pile-card-back" aria-hidden="true"></span>
             <span>Deck</span>
             <strong>${activePlayer.deck.length}</strong>
           </div>
@@ -343,17 +353,21 @@ function renderGame() {
 
 function renderHero(player, seat) {
   const classDef = selectableClasses.find((candidate) => candidate.id === player.classId);
+  const championVisual = getChampionVisual(player.classId);
   const heroTarget = { type: "hero", playerId: player.id };
   const targetable = isPendingTarget(heroTarget);
   const healthPercent = Math.max(0, Math.round((player.hero.hp / player.hero.maxHp) * 100));
 
   return `
     <button
-      class="hero-portrait ${seat} ${targetable ? "targetable" : ""}"
+      class="hero-portrait ${seat} class-${player.classId} ${targetable ? "targetable" : ""}"
       type="button"
       data-action="target-hero"
       data-player-id="${player.id}"
     >
+      <span class="hero-avatar" aria-hidden="true">
+        <img src="${championVisual.portrait}" alt="" />
+      </span>
       <span class="hero-name">${player.name}</span>
       <span class="hero-class">${classDef.aspect} | ${classDef.raceName}</span>
       <span class="hero-life">
@@ -419,6 +433,7 @@ function renderFieldSlot(player, monster, slotIndex, isActivePlayer) {
   const monsterTarget = { type: "monster", playerId: player.id, slotIndex };
   const card = getCardDefinition(monster.cardId);
   const art = getCardArtDefinition(card);
+  const cardImage = getCardImage(card.id);
   const targetable = isPendingTarget(monsterTarget);
 
   return `
@@ -431,7 +446,12 @@ function renderFieldSlot(player, monster, slotIndex, isActivePlayer) {
         data-slot-index="${slotIndex}"
       >
         <strong>${monster.name}</strong>
-        <span class="minion-art ${art.className}">
+        <span class="minion-art ${cardImage ? "minion-card-art" : art.className}">
+          ${
+            cardImage
+              ? `<img src="${cardImage.src}" alt="" aria-hidden="true" />`
+              : ""
+          }
           <span>${monster.traits.includes("guard") ? "Guard" : art.label}</span>
         </span>
         <span class="minion-stats">
@@ -483,7 +503,7 @@ function renderHand(player, disabled) {
 function renderHiddenHand(player) {
   return `
     <div class="hidden-hand" aria-label="${player.name} has ${player.hand.length} cards">
-      ${player.hand.map(() => `<span class="card-back"></span>`).join("")}
+      ${player.hand.map(() => `<span class="card-back class-${player.classId}"></span>`).join("")}
     </div>
   `;
 }
@@ -607,8 +627,10 @@ function renderEffectSprites(target) {
 }
 
 function renderEffectSprite(effect) {
+  const effectVisual = getEffectVisual(effect.type);
   return `
-    <span class="effect-sprite effect-${effect.type}">
+    <span class="effect-sprite effect-${effect.type} ${effectVisual ? "has-vfx" : ""}">
+      ${effectVisual ? `<span class="effect-vfx" style="background-image: url('${effectVisual}')"></span>` : ""}
       <span class="effect-core"></span>
       <span class="effect-burst"></span>
       <span class="effect-label">${getEffectLabel(effect)}</span>

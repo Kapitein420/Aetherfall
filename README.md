@@ -16,6 +16,8 @@ Start with the planning document:
 
 This first version is intentionally local-only and dependency-free. It uses plain browser modules plus a small PowerShell static file server, so it does not require npm or a global Node setup.
 
+The current prototype includes generated full-card art, champion portraits, champion-specific card backs, a fantasy battlefield background, and image-backed combat VFX.
+
 Run it locally:
 
 ```powershell

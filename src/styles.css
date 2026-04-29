@@ -17,6 +17,8 @@ body {
   min-height: 100vh;
   margin: 0;
   background:
+    linear-gradient(180deg, rgba(7, 10, 10, 0.52), rgba(7, 10, 10, 0.86)),
+    url("../assets/ui/battlefield-aetherfall.png") center / cover fixed,
     radial-gradient(circle at 50% 10%, rgba(194, 115, 58, 0.18), transparent 34%),
     linear-gradient(180deg, #17201d 0%, #0f1312 100%);
 }
@@ -129,6 +131,32 @@ select:disabled {
   display: grid;
   gap: 14px;
   padding: 18px;
+  overflow: hidden;
+}
+
+.setup-panel-header {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.setup-panel-header strong {
+  display: block;
+  margin-top: 4px;
+  color: #f5d083;
+  font-size: 1.05rem;
+}
+
+.setup-champion-portrait {
+  width: 84px;
+  aspect-ratio: 1;
+  border: 2px solid var(--class-edge, rgba(236, 186, 97, 0.55));
+  border-radius: 999px;
+  object-fit: cover;
+  box-shadow:
+    0 0 0 4px rgba(0, 0, 0, 0.28),
+    0 0 24px var(--class-glow, rgba(245, 208, 131, 0.24));
 }
 
 .setup-panel label {
@@ -227,10 +255,14 @@ select:disabled {
   border-radius: 8px;
   padding: 14px;
   background:
+    linear-gradient(180deg, rgba(12, 13, 12, 0.1), rgba(8, 11, 11, 0.16)),
+    url("../assets/ui/battlefield-aetherfall.png") center / cover,
     linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
     linear-gradient(180deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
     linear-gradient(180deg, rgba(70, 51, 31, 0.7), rgba(24, 37, 33, 0.92));
   background-size:
+    auto,
+    cover,
     38px 38px,
     38px 38px,
     auto;
@@ -246,12 +278,12 @@ select:disabled {
 }
 
 .opponent-zone {
-  grid-template-rows: 34px 92px auto;
+  grid-template-rows: 34px 122px auto;
 }
 
 .active-zone {
   align-content: end;
-  grid-template-rows: auto 104px 40px minmax(218px, auto);
+  grid-template-rows: auto 126px 40px minmax(218px, auto);
 }
 
 .hidden-hand {
@@ -265,23 +297,43 @@ select:disabled {
   display: block;
   width: 28px;
   height: 38px;
-  border: 2px solid #d7b46d;
-  border-radius: 6px;
-  background:
-    linear-gradient(135deg, transparent 42%, rgba(246, 240, 223, 0.42) 43%, transparent 46%),
-    #5b2f32;
-  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(247, 214, 126, 0.82);
+  border-radius: 4px;
+  background: center / cover no-repeat;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.44),
+    0 5px 12px rgba(0, 0, 0, 0.34);
+}
+
+.card-back.class-arian,
+.pile-stack.class-arian .pile-card-back {
+  background-image: url("../assets/ui/card-backs/arian.png");
+}
+
+.card-back.class-geert,
+.pile-stack.class-geert .pile-card-back {
+  background-image: url("../assets/ui/card-backs/geert.png");
+}
+
+.card-back.class-wouter,
+.pile-stack.class-wouter .pile-card-back {
+  background-image: url("../assets/ui/card-backs/wouter.png");
+}
+
+.card-back.class-noah,
+.pile-stack.class-noah .pile-card-back {
+  background-image: url("../assets/ui/card-backs/noah.png");
 }
 
 .hero-portrait {
   position: relative;
   display: grid;
   place-items: center;
-  width: min(360px, 100%);
-  min-height: 92px;
+  width: min(420px, 100%);
+  min-height: 116px;
   border: 2px solid rgba(236, 186, 97, 0.5);
   border-radius: 999px;
-  padding: 14px 82px 14px;
+  padding: 14px 82px 14px 118px;
   overflow: hidden;
   background:
     radial-gradient(circle at 50% 0%, rgba(236, 186, 97, 0.26), transparent 58%),
@@ -293,6 +345,64 @@ select:disabled {
     0 12px 32px rgba(0, 0, 0, 0.28);
 }
 
+.hero-portrait.class-arian,
+.setup-panel.class-arian,
+.hand-card.class-arian {
+  --class-edge: #9b7a4a;
+  --class-glow: rgba(212, 154, 68, 0.42);
+}
+
+.hero-portrait.class-geert,
+.setup-panel.class-geert,
+.hand-card.class-geert {
+  --class-edge: #4ca8d8;
+  --class-glow: rgba(76, 168, 216, 0.44);
+}
+
+.hero-portrait.class-wouter,
+.setup-panel.class-wouter,
+.hand-card.class-wouter {
+  --class-edge: #3f9f67;
+  --class-glow: rgba(63, 159, 103, 0.42);
+}
+
+.hero-portrait.class-noah,
+.setup-panel.class-noah,
+.hand-card.class-noah {
+  --class-edge: #b5305b;
+  --class-glow: rgba(181, 48, 91, 0.44);
+}
+
+.hero-portrait::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 22% 50%, var(--class-glow, rgba(245, 208, 131, 0.2)), transparent 34%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.3), transparent 58%);
+  pointer-events: none;
+}
+
+.hero-avatar {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  bottom: 10px;
+  width: 94px;
+  border: 2px solid var(--class-edge, rgba(236, 186, 97, 0.62));
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 18px rgba(0, 0, 0, 0.36),
+    0 0 20px var(--class-glow, rgba(245, 208, 131, 0.24));
+}
+
+.hero-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .hero-portrait.targetable,
 .board-slot.targetable {
   outline: 3px solid #f5d083;
@@ -302,6 +412,8 @@ select:disabled {
 .hero-name,
 .hero-class,
 .hero-status {
+  position: relative;
+  z-index: 1;
   display: block;
   max-width: 100%;
   overflow: hidden;
@@ -322,6 +434,7 @@ select:disabled {
 
 .hero-life {
   position: absolute;
+  z-index: 1;
   right: 18px;
   bottom: 14px;
   display: flex;
@@ -350,6 +463,7 @@ select:disabled {
 
 .health-track {
   position: absolute;
+  z-index: 1;
   left: 54px;
   right: 54px;
   bottom: 8px;
@@ -412,6 +526,7 @@ select:disabled {
     #23342e;
   color: #f6f0df;
   text-align: center;
+  overflow: hidden;
 }
 
 .minion-token.ready {
@@ -451,6 +566,28 @@ select:disabled {
   z-index: 1;
   color: #fff;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.minion-card-art {
+  min-height: 52px;
+  border: 1px solid rgba(246, 240, 223, 0.18);
+  border-radius: 6px;
+}
+
+.minion-card-art img {
+  position: absolute;
+  inset: -34% 0 -22%;
+  width: 100%;
+  height: 156%;
+  object-fit: cover;
+  filter: saturate(1.05) brightness(0.82);
+}
+
+.minion-card-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 28%, rgba(0, 0, 0, 0.64));
 }
 
 .minion-stats {
@@ -508,9 +645,28 @@ select:disabled {
 
 .effect-core,
 .effect-burst,
-.effect-label {
+.effect-label,
+.effect-vfx {
   position: absolute;
   display: block;
+}
+
+.effect-vfx {
+  width: 138px;
+  height: 138px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: drop-shadow(0 0 14px rgba(255, 232, 174, 0.56));
+  mix-blend-mode: screen;
+  opacity: 0.95;
+  transform: scale(0.68);
+  animation: effect-vfx-pop 820ms ease-out forwards;
+}
+
+.effect-sprite.has-vfx .effect-core,
+.effect-sprite.has-vfx .effect-burst {
+  opacity: 0.18;
 }
 
 .effect-core {
@@ -830,6 +986,20 @@ select:disabled {
   }
 }
 
+@keyframes effect-vfx-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.42) rotate(-5deg);
+  }
+  22% {
+    opacity: 0.98;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scale(1.08) rotate(7deg);
+  }
+}
+
 .center-lane {
   display: grid;
   grid-template-columns: 120px minmax(180px, 1fr) 120px;
@@ -847,10 +1017,31 @@ select:disabled {
 }
 
 .pile-stack {
+  position: relative;
   display: grid;
   place-items: center;
-  min-height: 66px;
+  min-height: 76px;
+  overflow: hidden;
   color: #d5d0bf;
+}
+
+.pile-card-back {
+  position: absolute;
+  inset: 7px auto 7px 10px;
+  width: 42px;
+  border: 1px solid rgba(247, 214, 126, 0.58);
+  border-radius: 5px;
+  background: center / cover no-repeat;
+  opacity: 0.9;
+  transform: rotate(-5deg);
+  box-shadow: 0 7px 16px rgba(0, 0, 0, 0.34);
+}
+
+.pile-stack span:not(.pile-card-back),
+.pile-stack strong {
+  position: relative;
+  z-index: 1;
+  margin-left: 24px;
 }
 
 .pile-stack strong,
@@ -1420,7 +1611,11 @@ select:disabled {
 
   .hero-portrait {
     min-height: 84px;
-    padding: 12px 64px 12px;
+    padding: 12px 64px 12px 86px;
+  }
+
+  .hero-avatar {
+    width: 68px;
   }
 
   .hero-life {

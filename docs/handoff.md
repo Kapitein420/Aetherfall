@@ -31,7 +31,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\local-server.ps1
 
 ## Current Visual State
 
-The generated card sheets have been copied into the project and sliced into individual card images.
+The generated card sheets have been copied into the project and sliced into individual card images. A first visual upgrade pass has also been integrated for board atmosphere, champion identity, deck backs, and battle VFX.
 
 Source sheets:
 
@@ -46,20 +46,25 @@ Individual card crops:
 
 There are 36 generated card crop images, one for each champion card. The app uses these directly through `src/content/card-sheets.js`, via `getCardImage(cardId)`.
 
+Runtime UI assets:
+
+- `assets/ui/battlefield-aetherfall.png`
+- `assets/ui/portraits/*.png`
+- `assets/ui/card-backs/*.png`
+- `assets/ui/effects/*.png`
+
+The app maps these through `src/content/game-assets.js`.
+
 ## Visual Upgrade Plan
 
-The next visual pass should happen piece by piece:
+The next visual pass should continue piece by piece:
 
-1. Battle board background.
-2. Champion portraits.
-3. Card backs.
-4. Core effect/VFX atlas.
-5. UI material kit.
-6. Monster tokens and status markers.
-7. Resource/status icons.
-8. Board interaction overlays.
-9. Menu/deck selection assets.
-10. Optional arena variants.
+1. Improve responsive layout around the new battlefield.
+2. Crop and integrate the UI frame/menu kit.
+3. Replace procedural monster tokens with dedicated token art.
+4. Add resource/status icons.
+5. Add board interaction overlays.
+6. Add arena variants.
 
 Prompts are in:
 
@@ -76,6 +81,6 @@ Prompts are in:
 
 ## Important Notes
 
-- `git` is not available in the current terminal PATH.
-- GitHub Desktop was not found via terminal search, but the project folder is ready to be added manually.
-- Before pushing to GitHub, confirm that generated assets are intended to be shared because that uploads local files to a third-party service.
+- `git` is not available in the normal terminal PATH.
+- GitHub Desktop's bundled Git can be used from `C:\Users\noah_\AppData\Local\GitHubDesktop\app-3.5.8\resources\app\git\cmd\git.exe`.
+- The GitHub Desktop repository path is `C:\Users\noah_\Documents\GitHub\Aetherfall`.
