@@ -2386,8 +2386,18 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
 .monster-region.region-arm-left { left: 8%; }
 .monster-region.region-arm-right { right: 8%; }
 
+.standoff-monster.hover-valid .monster-region {
+  opacity: 0.85;
+}
+
 .standoff-monster.hover-valid .monster-region.region-core {
   opacity: 1;
+  animation: monster-region-throb 1.4s ease-in-out infinite;
+}
+
+@keyframes monster-region-throb {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
 .monster-eyes {

@@ -52,6 +52,13 @@ let suppressBroadcast = false;
 
 render();
 
+// Redraw queue tethers on viewport changes so lines stay aligned.
+window.addEventListener("resize", () => {
+  if (gameState && QUEUE_TETHERS_ENABLED) {
+    drawQueueTethers();
+  }
+});
+
 app.addEventListener("change", (event) => {
   const field = event.target.dataset.setupField;
   if (!field) {
@@ -248,6 +255,67 @@ function render() {
     teardownDragSystem();
     dragInited = false;
   }
+
+  if (gameState && QUEUE_TETHERS_ENABLED) {
+    // Defer one frame so the new DOM has its layout boxes.
+    window.requestAnimationFrame(() => drawQueueTethers());
+  }
+}
+
+function drawQueueTethers() {
+  const stage = document.querySelector("[data-stage]");
+  const svg = document.querySelector("[data-tethers]");
+  if (!stage || !svg) {
+    return;
+  }
+  // Remove old tether paths (but leave any active drag-arrow).
+  for (const old of svg.querySelectorAll("path.tether-line")) {
+    old.remove();
+  }
+
+  const stageRect = stage.getBoundingClientRect();
+  const queuedItems = document.querySelectorAll('[data-action="unqueue-card"][data-target-key]');
+  for (const item of queuedItems) {
+    const targetKeyValue = item.dataset.targetKey;
+    if (!targetKeyValue) {
+      continue;
+    }
+    const targetEl = findTargetElement(targetKeyValue);
+    if (!targetEl) {
+      continue;
+    }
+
+    const itemRect = item.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+    const ox = itemRect.left + itemRect.width / 2 - stageRect.left;
+    const oy = itemRect.top - stageRect.top;
+    const tx = targetRect.left + targetRect.width / 2 - stageRect.left;
+    const ty = targetRect.top + targetRect.height * 0.6 - stageRect.top;
+
+    const midY = Math.min(oy, ty) - 80;
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.classList.add("tether-line");
+    const role = (item.className.match(/role-(\w+)/) || [])[1];
+    if (role) {
+      path.classList.add(`role-${role}`);
+    }
+    path.setAttribute(
+      "d",
+      `M ${ox} ${oy} C ${ox} ${midY}, ${tx} ${midY}, ${tx} ${ty}`,
+    );
+    svg.appendChild(path);
+  }
+}
+
+function findTargetElement(targetKeyValue) {
+  if (targetKeyValue === "monster") {
+    return document.querySelector('[data-target-zone="monster"]');
+  }
+  if (targetKeyValue.startsWith("player:")) {
+    const id = targetKeyValue.slice("player:".length);
+    return document.querySelector(`[data-target-zone="player"][data-player-id="${id}"]`);
+  }
+  return null;
 }
 
 function renderSetup() {
@@ -320,10 +388,10 @@ function renderSetupPlayer(label, classField) {
   `;
 }
 
-// Feature flags for the staged UI overhaul. Phase 3 features are off in
-// Phase 1's commit; the next commit flips MONSTER_INTENT_ENABLED on.
-const MONSTER_INTENT_ENABLED = false;
-const QUEUE_TETHERS_ENABLED = false;
+// Feature flags for the staged UI overhaul. Phase 3 turns on the monster
+// intent telegraph and the queued-card tether lines.
+const MONSTER_INTENT_ENABLED = true;
+const QUEUE_TETHERS_ENABLED = true;
 
 function renderGame() {
   const totalQueued = gameState.players.reduce((total, player) => total + player.planned.length, 0);
