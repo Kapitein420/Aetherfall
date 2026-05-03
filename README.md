@@ -8,14 +8,18 @@ Play the current public build in your browser:
 https://raw.githack.com/Kapitein420/Aetherfall/main/index.html
 ```
 
-Start with the planning document:
+Start here if another assistant is taking over:
+
+- [Claude Handoff](docs/claude-handoff.md)
+- [Project Handoff](docs/handoff.md)
+
+Older planning and asset documents:
 
 - [Game Design and Development Plan](docs/game-design-and-development-plan.md)
 - [Hearthstone-Inspired Core Loop Notes](docs/research-hearthstone-core-loop.md)
 - [Effect Sprite Library](docs/effect-sprite-library.md)
 - [Champion Decks and Card Art](docs/class-decks-and-card-art.md)
 - [V0 Roster Scope](docs/v0-roster-scope.md)
-- [Project Handoff](docs/handoff.md)
 - [Visual Upgrade Plan](docs/visual-upgrade-plan.md)
 
 ## Local Prototype
