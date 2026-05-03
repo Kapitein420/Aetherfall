@@ -29,6 +29,21 @@ export const championVisuals = {
     portrait: uiAsset("portraits/noah.png"),
     cardBack: uiAsset("card-backs/noah.png"),
   },
+  // TODO: replace with bespoke art for Captain Virex (Space Pirates)
+  virex: {
+    portrait: uiAsset("portraits/arian.png"),
+    cardBack: uiAsset("card-backs/arian.png"),
+  },
+  // TODO: replace with bespoke art for Elyra Rootweaver (Bionic Nature Elves)
+  elyra: {
+    portrait: uiAsset("portraits/wouter.png"),
+    cardBack: uiAsset("card-backs/wouter.png"),
+  },
+  // TODO: replace with bespoke art for Gorath Deepbreaker (Abyssal Orcs)
+  gorath: {
+    portrait: uiAsset("portraits/noah.png"),
+    cardBack: uiAsset("card-backs/noah.png"),
+  },
 };
 
 export const effectVisuals = {
