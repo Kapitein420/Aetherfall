@@ -1651,8 +1651,10 @@ body[data-game-view="active"] .log-drawer {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 160px;
+  height: 100%;
+  max-height: 130px;
   overflow: hidden;
+  padding: 8px 14px;
 }
 
 body[data-game-view="active"] .log-drawer h2 {
@@ -2394,20 +2396,83 @@ body[data-game-view="active"] {
 
 .standoff-table {
   display: grid;
-  grid-template-rows: auto auto 1fr 160px;
-  gap: 8px;
+  grid-template-rows: auto auto 130px auto 1fr;
+  gap: 10px;
   height: calc(100dvh - 16px);
   max-height: calc(100dvh - 16px);
   overflow: hidden;
 }
 
 .standoff-table .table-topbar {
-  padding: 4px 4px 6px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 8px;
+}
+
+.standoff-table .table-topbar .topbar-title {
+  justify-self: start;
+}
+
+.standoff-table .table-topbar .topbar-center {
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.standoff-table .table-topbar .topbar-actions {
+  justify-self: end;
 }
 
 .standoff-table .table-topbar h1 {
   font-size: clamp(1.4rem, 2.4vw, 2.4rem);
   line-height: 1;
+}
+
+.standoff-table .end-turn-button {
+  min-width: 168px;
+  height: 46px;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow:
+    0 0 0 2px rgba(245, 208, 131, 0.18),
+    0 12px 28px rgba(193, 111, 58, 0.36);
+}
+
+.rules-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  border: 1px solid rgba(246, 240, 223, 0.1);
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(245, 208, 131, 0.04), rgba(246, 240, 223, 0.05), rgba(245, 208, 131, 0.04));
+  color: #cbd5cc;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.rules-strip strong {
+  color: #f5d083;
+  margin-right: 4px;
+  font-weight: 800;
+}
+
+.rules-strip .rules-sep {
+  color: rgba(245, 208, 131, 0.4);
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.log-drawer-top {
+  border: 1px solid rgba(246, 240, 223, 0.12);
+  border-radius: 10px;
+  background: rgba(12, 15, 14, 0.7);
 }
 
 .standoff-stage {
