@@ -10,6 +10,11 @@ import {
   targetKey,
   unqueueCard,
 } from "./engine/game.js";
+import {
+  broadcastLocalAction,
+  installMultiplayerHooks,
+  pushSnapshotIfHost,
+} from "./multiplayer/app-hooks.js";
 
 const app = document.querySelector("#app");
 
@@ -24,7 +29,37 @@ let lastSeenEventId = 0;
 let activeEffects = [];
 let effectInstanceId = 1;
 
+installMultiplayerHooks({
+  runAction: (action) => {
+    if (!action || typeof action !== "object") {
+      return;
+    }
+    const fakeElement = {
+      dataset: { action: action.type, ...(action.dataset ?? {}) },
+    };
+    try {
+      handleAction(fakeElement);
+    } catch (error) {
+      message = error.message;
+      render();
+    }
+  },
+  getState: () => gameState,
+  applyState: (state) => {
+    gameState = state;
+    activeEffects = [];
+    lastSeenEventId = state ? getLatestEventId(state) : 0;
+    message = "";
+    render();
+  },
+});
+
 render();
+
+function notifyMultiplayer(action) {
+  broadcastLocalAction(action);
+  pushSnapshotIfHost(gameState);
+}
 
 app.addEventListener("change", (event) => {
   const field = event.target.dataset.setupField;
@@ -72,6 +107,7 @@ function handleAction(element) {
     activeEffects = [];
     message = "Plan together. Queue cards for both players, then resolve the round.";
     render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
     return;
   }
 
@@ -81,6 +117,7 @@ function handleAction(element) {
     activeEffects = [];
     lastSeenEventId = 0;
     render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
     return;
   }
 
@@ -96,6 +133,7 @@ function handleAction(element) {
     enqueueEffectsFromState(gameState);
     message = "";
     render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
     return;
   }
 
@@ -106,6 +144,7 @@ function handleAction(element) {
     });
     message = "";
     render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
     return;
   }
 
@@ -119,6 +158,7 @@ function handleAction(element) {
           : "The party fell. Try a different plan."
         : "New round. Draw 5, energy increases, threat decays.";
     render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
   }
 }
 
