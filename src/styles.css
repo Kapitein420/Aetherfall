@@ -17,9 +17,9 @@ body {
   min-height: 100vh;
   margin: 0;
   background:
-    linear-gradient(180deg, rgba(7, 10, 10, 0.52), rgba(7, 10, 10, 0.86)),
+    linear-gradient(180deg, rgba(7, 10, 10, 0.18), rgba(7, 10, 10, 0.52)),
     url("../assets/ui/battlefield-aetherfall.png") center / cover fixed,
-    radial-gradient(circle at 50% 10%, rgba(194, 115, 58, 0.18), transparent 34%),
+    radial-gradient(circle at 50% 10%, rgba(194, 115, 58, 0.22), transparent 34%),
     linear-gradient(180deg, #17201d 0%, #0f1312 100%);
 }
 
@@ -2168,5 +2168,1058 @@ body.card-over-play .hand-card.being-dragged {
     grid-column: 1 / -1;
     grid-template-columns: repeat(4, auto);
     justify-content: start;
+  }
+}
+
+/* ===========================================================================
+ * STANDOFF LAYOUT — big-character composition (Phase 1)
+ * Monster centered upper-third, two champions on the lower flanks facing
+ * inward, hand fanned at the bottom in arcs, queue strip with target tethers.
+ * Inscryption-style baseplates under feet, Wildermyth-style status pips.
+ * =========================================================================== */
+
+.standoff-table {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 14px;
+  min-height: calc(100vh - 36px);
+}
+
+.standoff-stage {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(420px, 1fr) auto auto auto;
+  gap: 12px;
+  min-height: 760px;
+  border: 1px solid rgba(246, 240, 223, 0.16);
+  border-radius: 12px;
+  padding: 22px 22px 12px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 110%, rgba(11, 14, 13, 0.7) 0 35%, transparent 70%),
+    radial-gradient(circle at 50% 18%, rgba(193, 111, 58, 0.18), transparent 50%),
+    linear-gradient(180deg, rgba(7, 10, 10, 0.05), rgba(7, 10, 10, 0.32) 70%),
+    url("../assets/ui/battlefield-aetherfall.png") center 30% / cover no-repeat,
+    #0f1312;
+  box-shadow:
+    inset 0 0 80px rgba(0, 0, 0, 0.46),
+    0 28px 80px rgba(0, 0, 0, 0.42);
+}
+
+.standoff-tethers {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 8;
+  overflow: visible;
+}
+
+.standoff-tethers .tether-line {
+  fill: none;
+  stroke: rgba(245, 208, 131, 0.55);
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+  filter: drop-shadow(0 0 6px rgba(245, 208, 131, 0.5));
+  opacity: 0.85;
+}
+
+.standoff-tethers .tether-line.role-attack {
+  stroke: rgba(217, 93, 77, 0.7);
+  filter: drop-shadow(0 0 6px rgba(217, 93, 77, 0.55));
+}
+
+.standoff-tethers .tether-line.role-healing {
+  stroke: rgba(107, 210, 127, 0.78);
+  filter: drop-shadow(0 0 6px rgba(107, 210, 127, 0.5));
+}
+
+.standoff-tethers .tether-line.role-defense {
+  stroke: rgba(122, 196, 232, 0.74);
+  filter: drop-shadow(0 0 6px rgba(122, 196, 232, 0.55));
+}
+
+.standoff-tethers .tether-line.role-support {
+  stroke: rgba(245, 208, 131, 0.78);
+}
+
+.standoff-tethers .tether-line.role-unique {
+  stroke: rgba(181, 144, 230, 0.78);
+  filter: drop-shadow(0 0 6px rgba(181, 144, 230, 0.55));
+}
+
+.standoff-tethers .drag-arrow {
+  fill: none;
+  stroke: rgba(255, 235, 172, 0.92);
+  stroke-width: 4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 10px rgba(255, 235, 172, 0.65));
+  pointer-events: none;
+}
+
+body[data-drag-role="attack"] .standoff-tethers .drag-arrow {
+  stroke: rgba(255, 162, 132, 0.96);
+  filter: drop-shadow(0 0 12px rgba(255, 100, 80, 0.6));
+}
+
+body[data-drag-role="healing"] .standoff-tethers .drag-arrow {
+  stroke: rgba(180, 240, 195, 0.96);
+  filter: drop-shadow(0 0 12px rgba(110, 220, 140, 0.55));
+}
+
+body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
+  stroke: rgba(180, 230, 250, 0.96);
+  filter: drop-shadow(0 0 12px rgba(110, 200, 240, 0.55));
+}
+
+/* ---- Monster ---- */
+
+.standoff-monster {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  z-index: 2;
+  padding-top: 10px;
+}
+
+.monster-figure {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: clamp(320px, 38vw, 480px);
+  aspect-ratio: 1 / 1;
+  filter: drop-shadow(0 30px 26px rgba(0, 0, 0, 0.52));
+  pointer-events: none;
+}
+
+.monster-aura {
+  position: absolute;
+  inset: -4%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 48%,
+    rgba(216, 88, 60, 0.5) 0 16%,
+    rgba(178, 64, 44, 0.32) 17% 36%,
+    rgba(99, 36, 26, 0.22) 37% 58%,
+    transparent 62%
+  );
+  filter: blur(14px);
+  animation: monster-aura-pulse 4.5s ease-in-out infinite;
+}
+
+@keyframes monster-aura-pulse {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+
+.monster-silhouette {
+  position: relative;
+  width: 78%;
+  height: 86%;
+  background:
+    /* shoulders */
+    radial-gradient(ellipse 60% 26% at 50% 32%, #15110f 0 70%, transparent 71%),
+    /* body */
+    radial-gradient(ellipse 38% 50% at 50% 64%, #1a1411 0 70%, transparent 72%),
+    /* head */
+    radial-gradient(ellipse 22% 22% at 50% 16%, #1d1614 0 76%, transparent 78%);
+  filter:
+    drop-shadow(0 0 26px rgba(229, 116, 78, 0.58))
+    drop-shadow(0 0 60px rgba(190, 70, 48, 0.36));
+}
+
+.monster-figure.wounded .monster-silhouette {
+  filter:
+    drop-shadow(0 0 26px rgba(229, 116, 78, 0.7))
+    drop-shadow(0 0 60px rgba(190, 70, 48, 0.5));
+  animation: monster-wounded-flicker 1.6s ease-in-out infinite;
+}
+
+.monster-figure.critical .monster-silhouette {
+  animation: monster-critical-flicker 0.8s ease-in-out infinite;
+}
+
+@keyframes monster-wounded-flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+@keyframes monster-critical-flicker {
+  0%, 100% { opacity: 1; transform: translateX(0); }
+  20% { transform: translateX(-2px); }
+  60% { transform: translateX(2px); }
+}
+
+.monster-region {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.monster-region.region-head {
+  width: 28%;
+  height: 28%;
+  left: 36%;
+  top: 4%;
+  background: radial-gradient(circle, rgba(255, 235, 172, 0.18), transparent 60%);
+}
+
+.monster-region.region-core {
+  width: 38%;
+  height: 38%;
+  left: 31%;
+  top: 50%;
+  background: radial-gradient(circle, rgba(255, 100, 80, 0.22), transparent 65%);
+}
+
+.monster-region.region-arm {
+  width: 18%;
+  height: 36%;
+  top: 32%;
+  background: radial-gradient(ellipse, rgba(220, 100, 80, 0.18), transparent 65%);
+}
+
+.monster-region.region-arm-left { left: 8%; }
+.monster-region.region-arm-right { right: 8%; }
+
+.standoff-monster.hover-valid .monster-region.region-core {
+  opacity: 1;
+}
+
+.monster-eyes {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  width: 56%;
+  height: 4%;
+  transform: translateX(-50%);
+  background:
+    radial-gradient(circle at 30% 50%, #ffd166 0 22%, transparent 25%),
+    radial-gradient(circle at 70% 50%, #ffd166 0 22%, transparent 25%);
+  filter: drop-shadow(0 0 10px rgba(255, 200, 90, 0.9));
+  animation: monster-eyes-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes monster-eyes-glow {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 200, 90, 0.7)); }
+  50% { filter: drop-shadow(0 0 18px rgba(255, 220, 120, 1)); }
+}
+
+.monster-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 86%, rgba(216, 88, 60, 0.36), transparent 30%);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.monster-pips {
+  position: absolute;
+  top: 12%;
+  right: 16%;
+  display: grid;
+  gap: 5px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.monster-effect-mount {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.monster-intent {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 8px 14px;
+  border: 2px solid rgba(217, 93, 77, 0.7);
+  border-radius: 999px;
+  background: rgba(20, 12, 12, 0.86);
+  color: #ffe7c7;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow:
+    0 0 24px rgba(217, 93, 77, 0.42),
+    inset 0 0 18px rgba(217, 93, 77, 0.18);
+  z-index: 6;
+}
+
+.monster-intent strong {
+  display: inline-grid;
+  place-items: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #d9594d;
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.monster-intent .intent-icon {
+  position: relative;
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  background:
+    linear-gradient(135deg, transparent 0 40%, #ffd28a 41% 48%, #d9594d 49% 56%, transparent 57%),
+    linear-gradient(135deg, #4d1a18, #d9594d);
+  border-radius: 4px;
+  box-shadow: 0 0 8px rgba(217, 93, 77, 0.6);
+  transform: rotate(-12deg);
+}
+
+.monster-intent .intent-target {
+  color: #f5d083;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.intent-marker {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #d9594d;
+  color: #fff;
+  font-weight: 900;
+  font-size: 1.1rem;
+  transform: translateX(-50%);
+  box-shadow: 0 0 18px rgba(217, 93, 77, 0.7);
+  animation: intent-marker-bob 1.6s ease-in-out infinite;
+  z-index: 7;
+}
+
+@keyframes intent-marker-bob {
+  0%, 100% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, -4px); }
+}
+
+/* ---- Baseplates ---- */
+
+.baseplate {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  min-width: 240px;
+  max-width: 460px;
+  padding: 10px 14px 12px;
+  border: 1px solid rgba(246, 240, 223, 0.18);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(28, 26, 22, 0.94), rgba(14, 12, 10, 0.96)),
+    radial-gradient(ellipse at 50% 0%, rgba(245, 208, 131, 0.18), transparent 60%);
+  box-shadow:
+    inset 0 0 24px rgba(0, 0, 0, 0.5),
+    0 14px 26px rgba(0, 0, 0, 0.55),
+    0 1px 0 rgba(245, 208, 131, 0.18);
+  z-index: 4;
+}
+
+.baseplate::before {
+  content: "";
+  position: absolute;
+  inset: -6px -10px auto -10px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.6), transparent 70%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.monster-baseplate {
+  width: min(560px, 90%);
+  text-align: center;
+}
+
+.monster-baseplate .baseplate-name {
+  display: grid;
+  gap: 0;
+}
+
+.monster-baseplate h2 {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.2vw, 2rem);
+  line-height: 1.05;
+  color: #f6efd7;
+}
+
+.monster-baseplate .eyebrow {
+  margin: 0 0 4px;
+}
+
+.baseplate-meter {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.meter-track {
+  position: relative;
+  display: block;
+  height: 12px;
+  border: 1px solid rgba(246, 240, 223, 0.18);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.52);
+  overflow: hidden;
+}
+
+.meter-track em {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #a63f34, #f0b15e);
+  transition: width 240ms ease;
+}
+
+.meter-track.meter-threat em {
+  background: linear-gradient(90deg, var(--class-edge, #c16f3a), #f2d189);
+  box-shadow: 0 0 12px var(--class-glow, rgba(245, 208, 131, 0.5));
+}
+
+.threat-pip-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.threat-pip {
+  display: grid;
+  grid-template-columns: 70px 1fr 46px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid rgba(246, 240, 223, 0.1);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.32);
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #d6cfb6;
+}
+
+.threat-pip strong {
+  color: #f5d083;
+  text-align: right;
+}
+
+.threat-pip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Champions ---- */
+
+.standoff-flanks {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: end;
+  gap: 12px;
+  padding: 0 12px;
+  z-index: 3;
+}
+
+.standoff-champion {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 6px;
+  cursor: default;
+  transition: transform 200ms ease, filter 200ms ease;
+}
+
+.standoff-champion.side-left { justify-self: start; }
+.standoff-champion.side-right { justify-self: end; }
+
+.standoff-champion.defeated {
+  filter: grayscale(0.85) brightness(0.5);
+}
+
+.champion-art {
+  position: relative;
+  width: clamp(180px, 18vw, 260px);
+  aspect-ratio: 3 / 4;
+  border-radius: 24px 24px 60% 60% / 18px 18px 40% 40%;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(0, 0, 0, 0.55), transparent 70%),
+    linear-gradient(180deg, transparent 60%, rgba(0, 0, 0, 0.45));
+  box-shadow:
+    0 18px 30px rgba(0, 0, 0, 0.55),
+    inset 0 0 22px rgba(0, 0, 0, 0.4);
+}
+
+.champion-glow {
+  position: absolute;
+  inset: -12%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 60%, var(--class-glow, rgba(245, 208, 131, 0.35)), transparent 60%);
+  filter: blur(14px);
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 220ms ease;
+  opacity: 0.85;
+}
+
+.standoff-champion.side-right .champion-portrait {
+  transform: scaleX(-1);
+}
+
+.champion-portrait {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 22%;
+  z-index: 1;
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5));
+}
+
+.champion-pips {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  gap: 4px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.standoff-champion.side-right .champion-pips {
+  left: 8px;
+  right: auto;
+}
+
+.champion-effect-mount {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.standoff-champion.intent-target .champion-art {
+  outline: 3px solid rgba(217, 93, 77, 0.85);
+  outline-offset: -3px;
+  box-shadow:
+    0 18px 30px rgba(0, 0, 0, 0.55),
+    inset 0 0 22px rgba(217, 93, 77, 0.3),
+    0 0 30px rgba(217, 93, 77, 0.5);
+}
+
+.champion-baseplate {
+  width: clamp(220px, 20vw, 300px);
+  text-align: left;
+}
+
+.champion-baseplate .baseplate-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.champion-baseplate h3 {
+  margin: 0;
+  font-size: 1.14rem;
+  color: #f6efd7;
+}
+
+.champion-baseplate .baseplate-row span {
+  color: #aeb7ad;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.baseplate-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid rgba(246, 240, 223, 0.14);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.36);
+  color: #d6cfb6;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.stat-chip em {
+  font-style: normal;
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #f7d67e;
+}
+
+.stat-chip.stat-block em {
+  color: #b6e3ff;
+}
+
+/* ---- Status pips on silhouettes ---- */
+
+.status-pip {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(20, 18, 16, 0.92);
+  color: #f5d083;
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  box-shadow:
+    0 0 0 1.5px rgba(245, 208, 131, 0.55),
+    0 6px 12px rgba(0, 0, 0, 0.55);
+}
+
+.status-pip.pip-block {
+  color: #b6e3ff;
+  box-shadow:
+    0 0 0 1.5px rgba(122, 196, 232, 0.7),
+    0 6px 12px rgba(0, 0, 0, 0.55);
+}
+
+.status-pip.pip-threat {
+  color: #ffb9a4;
+  box-shadow:
+    0 0 0 1.5px rgba(217, 93, 77, 0.65),
+    0 6px 12px rgba(0, 0, 0, 0.55);
+}
+
+.status-pip.pip-exposed {
+  color: #ffe19a;
+  box-shadow:
+    0 0 0 1.5px rgba(255, 217, 141, 0.85),
+    0 6px 12px rgba(0, 0, 0, 0.55);
+}
+
+.status-pip.pip-weakened {
+  color: #b8e3c7;
+  box-shadow:
+    0 0 0 1.5px rgba(143, 208, 170, 0.85),
+    0 6px 12px rgba(0, 0, 0, 0.55);
+}
+
+/* ---- Queue strip with target tethers ---- */
+
+.standoff-queue-strip {
+  position: relative;
+  z-index: 5;
+  margin-top: 8px;
+}
+
+.queue-strip-empty {
+  display: grid;
+  place-items: center;
+  min-height: 64px;
+  border: 1px dashed rgba(246, 240, 223, 0.18);
+  border-radius: 12px;
+  background: rgba(8, 10, 9, 0.5);
+  color: #aeb7ad;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.queue-strip-items {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.queued-mini {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 6px 12px 6px 32px;
+  border: 1px solid rgba(246, 240, 223, 0.18);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 16% 50%, var(--class-glow, rgba(245, 208, 131, 0.5)), transparent 60%),
+    linear-gradient(180deg, rgba(40, 32, 24, 0.94), rgba(18, 14, 12, 0.96));
+  color: #f6efd7;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+
+.queued-mini:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.55);
+}
+
+.queued-mini strong {
+  grid-row: 1;
+  grid-column: 1 / span 2;
+  color: #f6efd7;
+}
+
+.queued-mini .queued-cost {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #1f5f7a;
+  border: 1.5px solid #d8f4ff;
+  color: #fff;
+  font-size: 0.78rem;
+  transform: translateY(-50%);
+}
+
+.queued-mini .queued-target {
+  grid-row: 2;
+  color: #aeb7ad;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.queued-mini.role-attack { border-color: rgba(217, 93, 77, 0.6); }
+.queued-mini.role-healing { border-color: rgba(107, 210, 127, 0.6); }
+.queued-mini.role-defense { border-color: rgba(122, 196, 232, 0.6); }
+.queued-mini.role-support { border-color: rgba(245, 208, 131, 0.6); }
+.queued-mini.role-unique { border-color: rgba(181, 144, 230, 0.6); }
+
+/* ---- Play zone (untargeted fallback) ---- */
+
+.standoff-play-zone {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  min-height: 56px;
+  margin-top: 4px;
+  border: 2px dashed rgba(246, 240, 223, 0.16);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.18);
+  color: #aeb7ad;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 200ms ease, transform 200ms ease, border-color 200ms ease, background 200ms ease;
+  pointer-events: none;
+}
+
+body.dragging-card .standoff-play-zone {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.standoff-play-zone.hover-valid {
+  border-color: rgba(245, 208, 131, 0.85);
+  background: rgba(245, 208, 131, 0.1);
+  color: #f5d083;
+}
+
+/* ---- Hand shelf with arc fan ---- */
+
+.standoff-hand-shelf {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 8px 4px 4px;
+  margin-top: 4px;
+}
+
+.standoff-hand-cluster {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.standoff-hand-cluster.right {
+  text-align: right;
+}
+
+.standoff-hand-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 18px;
+  color: #d6cfb6;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.standoff-hand-label strong {
+  color: #f5d083;
+  font-size: 0.96rem;
+}
+
+.standoff-hand.coop-hand-arc {
+  display: flex;
+  justify-content: center;
+  align-items: end;
+  gap: 0;
+  width: 100%;
+  min-height: 230px;
+  overflow: visible;
+  padding: 16px 12px 4px;
+}
+
+.standoff-hand-cluster.left .coop-hand-arc { justify-content: flex-start; padding-left: 18px; }
+.standoff-hand-cluster.right .coop-hand-arc { justify-content: flex-end; padding-right: 18px; }
+
+/* The hand-card base style is already defined further up — we just override
+ * the coop-card-grid sizing it inherited and add fan rotation.
+ */
+.standoff-hand .hand-card {
+  --card-rotation: 0deg;
+  --card-lift: 0px;
+  flex: 0 0 144px;
+  width: 144px;
+  margin-left: -22px;
+  transform: translateY(var(--card-lift)) rotate(var(--card-rotation));
+  transform-origin: 50% 110%;
+  min-height: 210px;
+}
+
+.standoff-hand .hand-card:first-child {
+  margin-left: 0;
+}
+
+.standoff-hand .hand-card.playable:hover,
+.standoff-hand .hand-card.playable:focus-visible {
+  z-index: 5;
+  transform: translateY(calc(var(--card-lift) - 26px)) rotate(0deg) scale(1.04);
+  outline: none;
+  box-shadow:
+    0 0 0 3px var(--class-glow, rgba(245, 208, 131, 0.5)),
+    0 22px 40px rgba(0, 0, 0, 0.55);
+}
+
+.standoff-hand .hand-card .card-cost {
+  top: -10px;
+  left: -8px;
+}
+
+.standoff-hand .hand-card .card-name {
+  padding-left: 0;
+  font-size: 0.84rem;
+}
+
+.standoff-hand .hand-card .card-text {
+  font-size: 0.72rem;
+}
+
+/* ---- Drag visual feedback ---- */
+
+.standoff-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 200;
+  pointer-events: none;
+  display: none;
+}
+
+.drag-ghost-card {
+  pointer-events: none;
+  filter:
+    drop-shadow(0 24px 32px rgba(0, 0, 0, 0.6))
+    drop-shadow(0 0 16px rgba(245, 208, 131, 0.45));
+  transform: scale(1.05);
+}
+
+body.dragging-card .hand-card.being-dragged {
+  opacity: 0.18;
+  transform: translateY(var(--card-lift)) rotate(var(--card-rotation));
+}
+
+body.dragging-card .standoff-monster,
+body.dragging-card .standoff-champion {
+  transition: transform 200ms ease, filter 200ms ease;
+}
+
+[data-target-zone].targetable-valid {
+  position: relative;
+}
+
+[data-target-zone].targetable-valid::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: inherit;
+  border: 2px dashed rgba(245, 208, 131, 0.4);
+  animation: targetable-pulse 1.4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 6;
+}
+
+@keyframes targetable-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+
+.standoff-monster.targetable-valid::after {
+  border-radius: 16px;
+}
+
+.standoff-champion.targetable-valid::after {
+  border-radius: 24px 24px 60% 60%;
+}
+
+[data-target-zone].hover-valid {
+  z-index: 7;
+}
+
+.standoff-monster.hover-valid {
+  filter: drop-shadow(0 0 26px rgba(255, 220, 130, 0.6));
+}
+
+.standoff-monster.hover-valid .monster-aura {
+  opacity: 1;
+  animation-duration: 1.2s;
+}
+
+.standoff-champion.hover-valid .champion-art {
+  outline: 3px solid rgba(255, 220, 140, 0.95);
+  outline-offset: -3px;
+  transform: translateY(-4px) scale(1.03);
+  transition: transform 180ms ease, outline 180ms ease;
+}
+
+.standoff-champion.hover-invalid .champion-art {
+  outline: 3px solid rgba(217, 93, 77, 0.85);
+  outline-offset: -3px;
+  animation: invalid-shake 320ms ease-in-out;
+}
+
+.standoff-monster.hover-invalid {
+  animation: invalid-shake 320ms ease-in-out;
+  filter: drop-shadow(0 0 26px rgba(217, 93, 77, 0.8));
+}
+
+@keyframes invalid-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+
+/* ---- Effects on the new mounts ---- */
+
+.champion-effect-mount .effect-stack,
+.monster-effect-mount .effect-stack {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---- Responsive collapse ---- */
+
+@media (max-width: 980px) {
+  .standoff-stage {
+    grid-template-rows: minmax(320px, auto) auto auto auto;
+    min-height: auto;
+    padding: 14px 12px 10px;
+  }
+
+  .monster-figure {
+    width: clamp(240px, 60vw, 360px);
+  }
+
+  .champion-art {
+    width: clamp(140px, 30vw, 200px);
+  }
+
+  .champion-baseplate {
+    width: clamp(180px, 32vw, 240px);
+  }
+
+  .threat-pip-row {
+    grid-template-columns: 1fr;
+  }
+
+  .standoff-hand-shelf {
+    grid-template-columns: 1fr;
+  }
+
+  .standoff-hand-cluster.right .coop-hand-arc {
+    justify-content: center;
+    padding-right: 0;
+  }
+
+  .standoff-hand-cluster.left .coop-hand-arc {
+    justify-content: center;
+    padding-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .standoff-stage {
+    padding: 10px 8px 8px;
+  }
+
+  .baseplate {
+    min-width: 0;
+    padding: 8px 10px 10px;
+  }
+
+  .stat-chip {
+    padding: 4px 8px;
+  }
+
+  .standoff-hand .hand-card {
+    flex: 0 0 124px;
+    width: 124px;
+    margin-left: -32px;
+    min-height: 184px;
   }
 }
