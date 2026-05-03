@@ -11,6 +11,11 @@ import {
   unqueueCard,
 } from "./engine/game.js";
 import { initDragSystem, refreshDragSystem, teardownDragSystem } from "./ui/drag-system.js";
+import {
+  broadcastLocalAction,
+  installMultiplayerHooks,
+  pushSnapshotIfHost,
+} from "./multiplayer/app-hooks.js";
 
 const app = document.querySelector("#app");
 
@@ -26,29 +31,30 @@ let activeEffects = [];
 let effectInstanceId = 1;
 let dragInited = false;
 
-// Optional multiplayer hookup. Module may not exist yet — load defensively.
-let multiplayer = null;
-let suppressBroadcast = false;
-(async () => {
-  try {
-    multiplayer = await import("./multiplayer/sync.js");
-    if (multiplayer && typeof multiplayer.onRemoteAction === "function") {
-      multiplayer.onRemoteAction((action) => {
-        if (!action || typeof action !== "object") {
-          return;
-        }
-        suppressBroadcast = true;
-        try {
-          replayRemoteAction(action);
-        } finally {
-          suppressBroadcast = false;
-        }
-      });
+installMultiplayerHooks({
+  runAction: (action) => {
+    if (!action || typeof action !== "object") {
+      return;
     }
-  } catch (error) {
-    multiplayer = null;
-  }
-})();
+    const fakeElement = {
+      dataset: { action: action.type, ...(action.dataset ?? {}) },
+    };
+    try {
+      handleAction(fakeElement);
+    } catch (error) {
+      message = error.message;
+      render();
+    }
+  },
+  getState: () => gameState,
+  applyState: (state) => {
+    gameState = state;
+    activeEffects = [];
+    lastSeenEventId = state ? getLatestEventId(state) : 0;
+    message = "";
+    render();
+  },
+});
 
 render();
 
@@ -58,6 +64,11 @@ window.addEventListener("resize", () => {
     drawQueueTethers();
   }
 });
+
+function notifyMultiplayer(action) {
+  broadcastLocalAction(action);
+  pushSnapshotIfHost(gameState);
+}
 
 app.addEventListener("change", (event) => {
   const field = event.target.dataset.setupField;
@@ -104,8 +115,8 @@ function handleAction(element) {
     lastSeenEventId = getLatestEventId(gameState);
     activeEffects = [];
     message = "Plan together. Drag a card onto a target, or click to queue. Then resolve the round.";
-    broadcastFromAction("start-game", element.dataset);
     render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
     return;
   }
 
@@ -114,8 +125,8 @@ function handleAction(element) {
     message = "";
     activeEffects = [];
     lastSeenEventId = 0;
-    broadcastFromAction("new-game", element.dataset);
     render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
     return;
   }
 
@@ -130,8 +141,8 @@ function handleAction(element) {
     });
     enqueueEffectsFromState(gameState);
     message = "";
-    broadcastFromAction("queue-card", element.dataset);
     render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
     return;
   }
 
@@ -141,8 +152,8 @@ function handleAction(element) {
       instanceId: element.dataset.instanceId,
     });
     message = "";
-    broadcastFromAction("unqueue-card", element.dataset);
     render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
     return;
   }
 
@@ -155,83 +166,8 @@ function handleAction(element) {
           ? "The monster is defeated. Victory."
           : "The party fell. Try a different plan."
         : "New round. Draw 5, energy increases, threat decays.";
-    broadcastFromAction("resolve-round", element.dataset);
     render();
-  }
-}
-
-function broadcastFromAction(type, dataset) {
-  if (suppressBroadcast || !multiplayer || typeof multiplayer.broadcastAction !== "function") {
-    return;
-  }
-  if (typeof multiplayer.isMultiplayerActive === "function" && !multiplayer.isMultiplayerActive()) {
-    return;
-  }
-  try {
-    multiplayer.broadcastAction({ type, ...(dataset ?? {}) });
-  } catch (error) {
-    // never let multiplayer errors break local play
-  }
-}
-
-function replayRemoteAction(action) {
-  // Simulate the same handler path without re-broadcasting.
-  if (action.type === "start-game") {
-    gameState = createCoopBattle({
-      players: [
-        {
-          id: "player-1",
-          name: classDefinitions[setup.playerOneClass].shortName,
-          classId: setup.playerOneClass,
-        },
-        {
-          id: "player-2",
-          name: classDefinitions[setup.playerTwoClass].shortName,
-          classId: setup.playerTwoClass,
-        },
-      ],
-    });
-    lastSeenEventId = getLatestEventId(gameState);
-    activeEffects = [];
-    render();
-    return;
-  }
-
-  if (action.type === "new-game") {
-    gameState = null;
-    activeEffects = [];
-    lastSeenEventId = 0;
-    render();
-    return;
-  }
-
-  if (!gameState) {
-    return;
-  }
-
-  if (action.type === "queue-card") {
-    gameState = queueCard(gameState, {
-      playerId: action.playerId,
-      instanceId: action.instanceId,
-    });
-    enqueueEffectsFromState(gameState);
-    render();
-    return;
-  }
-
-  if (action.type === "unqueue-card") {
-    gameState = unqueueCard(gameState, {
-      playerId: action.playerId,
-      instanceId: action.instanceId,
-    });
-    render();
-    return;
-  }
-
-  if (action.type === "resolve-round") {
-    gameState = resolveRound(gameState);
-    enqueueEffectsFromState(gameState);
-    render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
   }
 }
 
