@@ -845,6 +845,36 @@ select:disabled {
   box-shadow: 0 0 24px rgba(63, 159, 103, 0.76);
 }
 
+.effect-heal .effect-core {
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, transparent 0 38%, rgba(238, 255, 226, 0.95) 39% 61%, transparent 62%),
+    linear-gradient(0deg, transparent 0 38%, rgba(238, 255, 226, 0.95) 39% 61%, transparent 62%),
+    radial-gradient(circle, #6bd27f, #2d7550);
+  box-shadow: 0 0 26px rgba(107, 210, 127, 0.82);
+}
+
+.effect-threat .effect-core {
+  width: 74px;
+  height: 74px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, #fff0bd 0 10%, transparent 11% 22%, rgba(221, 79, 56, 0.85) 23% 30%, transparent 31%),
+    conic-gradient(from 0deg, #7a1d20, #d75038, #f4c46a, #7a1d20);
+  box-shadow: 0 0 28px rgba(215, 80, 56, 0.86);
+}
+
+.effect-plan .effect-core {
+  width: 62px;
+  height: 78px;
+  border: 2px solid rgba(247, 214, 126, 0.9);
+  border-radius: 7px;
+  background: linear-gradient(180deg, #f1e3c0, #cda66a);
+  box-shadow: 0 0 22px rgba(245, 208, 131, 0.42);
+}
+
 .effect-discard .effect-core,
 .effect-criticalLine .effect-core,
 .effect-snareTrap .effect-core {
@@ -1693,5 +1723,450 @@ body.card-over-play .hand-card.being-dragged {
   .mana-crystal {
     width: 14px;
     height: 20px;
+  }
+}
+
+.class-rook {
+  --class-edge: #a97840;
+  --class-glow: rgba(225, 156, 72, 0.42);
+}
+
+.class-lyra {
+  --class-edge: #4aa36c;
+  --class-glow: rgba(74, 163, 108, 0.42);
+}
+
+.coop-table {
+  gap: 14px;
+}
+
+.rules-panel {
+  border: 1px solid rgba(246, 240, 223, 0.14);
+  border-radius: 8px;
+  padding: 16px;
+  background: rgba(12, 15, 14, 0.74);
+}
+
+.rules-panel h2 {
+  margin: 0 0 12px;
+}
+
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.rules-grid span {
+  border: 1px solid rgba(246, 240, 223, 0.1);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(246, 240, 223, 0.06);
+  color: #d8d2bf;
+}
+
+.coop-playmat {
+  display: grid;
+  gap: 14px;
+  min-height: 720px;
+  border: 1px solid rgba(246, 240, 223, 0.18);
+  border-radius: 8px;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, rgba(7, 10, 10, 0.22), rgba(7, 10, 10, 0.54)),
+    url("../assets/ui/battlefield-aetherfall.png") center / cover,
+    #101313;
+  box-shadow:
+    inset 0 0 90px rgba(0, 0, 0, 0.48),
+    0 24px 70px rgba(0, 0, 0, 0.34);
+}
+
+.boss-panel {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(300px, 420px);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.boss-core,
+.threat-board,
+.coop-player-panel {
+  border: 1px solid rgba(246, 240, 223, 0.14);
+  border-radius: 8px;
+  background: rgba(12, 15, 14, 0.72);
+  box-shadow:
+    inset 0 0 40px rgba(0, 0, 0, 0.26),
+    0 14px 34px rgba(0, 0, 0, 0.24);
+}
+
+.boss-core {
+  position: relative;
+  min-height: 190px;
+  padding: 20px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(160, 69, 56, 0.42), transparent 40%),
+    rgba(12, 15, 14, 0.78);
+}
+
+.boss-core h2 {
+  margin: 0 0 18px;
+  font-size: clamp(2rem, 4vw, 3.8rem);
+  line-height: 0.95;
+}
+
+.boss-hp,
+.player-hp {
+  display: grid;
+  gap: 6px;
+}
+
+.boss-hp strong,
+.player-hp strong {
+  color: #f7d67e;
+}
+
+.boss-hp span,
+.player-hp span,
+.threat-row div {
+  display: block;
+  height: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(246, 240, 223, 0.12);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.boss-hp em,
+.player-hp em,
+.threat-row em {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #a63f34, #f0b15e);
+}
+
+.boss-statuses {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.boss-statuses span,
+.deck-strip span,
+.zone-header span {
+  border: 1px solid rgba(246, 240, 223, 0.12);
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: rgba(246, 240, 223, 0.08);
+  color: #d8d2bf;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.threat-board {
+  display: grid;
+  gap: 12px;
+  align-content: center;
+  padding: 16px;
+}
+
+.threat-board h3 {
+  margin: 0;
+  color: #f7d67e;
+  font-size: 1.25rem;
+}
+
+.threat-row {
+  display: grid;
+  grid-template-columns: 82px minmax(120px, 1fr) 48px;
+  align-items: center;
+  gap: 10px;
+}
+
+.threat-row span,
+.threat-row strong {
+  font-weight: 900;
+}
+
+.threat-row em {
+  background: linear-gradient(90deg, var(--class-edge), #f2d189);
+  box-shadow: 0 0 16px var(--class-glow);
+}
+
+.coop-player-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.coop-player-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(250px, auto) auto;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.coop-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 72px;
+  gap: 12px;
+  align-items: center;
+  min-height: 98px;
+}
+
+.coop-hero img {
+  width: 76px;
+  aspect-ratio: 1;
+  border: 2px solid var(--class-edge);
+  border-radius: 999px;
+  object-fit: cover;
+  box-shadow: 0 0 20px var(--class-glow);
+}
+
+.coop-hero h2 {
+  margin: 0;
+  font-size: 1.45rem;
+}
+
+.coop-hero span {
+  color: #c7cebf;
+}
+
+.player-stats {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+
+.player-stats strong {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  min-height: 34px;
+  border: 1px solid rgba(246, 240, 223, 0.14);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  color: #f7d67e;
+}
+
+.player-stats span {
+  color: #aeb7ad;
+  font-size: 0.66rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.planned-zone {
+  display: grid;
+  gap: 8px;
+}
+
+.zone-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.planned-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  min-height: 78px;
+}
+
+.empty-plan {
+  display: grid;
+  place-items: center;
+  min-height: 70px;
+  border: 1px dashed rgba(246, 240, 223, 0.18);
+  border-radius: 8px;
+  color: #aeb7ad;
+}
+
+.queued-card {
+  display: grid;
+  gap: 4px;
+  min-height: 70px;
+  border: 1px solid rgba(246, 240, 223, 0.18);
+  border-radius: 8px;
+  padding: 9px;
+  background:
+    radial-gradient(circle at 50% 0%, var(--class-glow), transparent 60%),
+    rgba(21, 25, 24, 0.86);
+  color: #f6f0df;
+  text-align: left;
+}
+
+.queued-card span {
+  color: #f7d67e;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.coop-hand {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  align-items: stretch;
+  gap: 10px;
+  min-height: 260px;
+  overflow: visible;
+  padding: 0;
+}
+
+.coop-card {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
+  gap: 8px;
+  min-height: 230px;
+  border: 2px solid var(--class-edge);
+  border-radius: 8px;
+  padding: 12px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 24%),
+    radial-gradient(circle at 50% 8%, var(--class-glow), transparent 44%),
+    linear-gradient(180deg, #ead8ad, #bd9359);
+  color: #1f1711;
+  text-align: left;
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 255, 255, 0.12),
+    0 13px 26px rgba(0, 0, 0, 0.3);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    filter 150ms ease;
+}
+
+.coop-card::after {
+  content: "";
+  position: absolute;
+  inset: 48px 10px auto;
+  height: 58px;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, transparent 0 44%, rgba(255, 255, 255, 0.34) 45% 49%, transparent 50%),
+    rgba(0, 0, 0, 0.18);
+}
+
+.coop-card.playable:hover {
+  z-index: 4;
+  transform: translateY(-10px);
+  box-shadow:
+    0 0 0 3px var(--class-glow),
+    0 20px 38px rgba(0, 0, 0, 0.42);
+}
+
+.coop-card.unplayable {
+  filter: saturate(0.65) brightness(0.75);
+}
+
+.coop-card .card-cost {
+  position: relative;
+  inset: auto;
+  z-index: 1;
+}
+
+.coop-card .card-name {
+  position: relative;
+  z-index: 1;
+  min-height: 42px;
+  padding-left: 0;
+  justify-items: start;
+  font-size: 1rem;
+}
+
+.card-role {
+  position: relative;
+  z-index: 1;
+  width: fit-content;
+  border: 1px solid rgba(31, 23, 17, 0.22);
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.25);
+  color: #4f2d1e;
+  font-size: 0.7rem;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.coop-card .card-text {
+  position: relative;
+  z-index: 1;
+  align-items: end;
+  justify-items: start;
+  min-height: 84px;
+  color: #21160f;
+  font-size: 0.86rem;
+  text-align: left;
+}
+
+.role-attack {
+  --role-glow: rgba(184, 68, 50, 0.34);
+}
+
+.role-defense {
+  --role-glow: rgba(67, 125, 158, 0.34);
+}
+
+.role-healing {
+  --role-glow: rgba(79, 165, 98, 0.34);
+}
+
+.role-support {
+  --role-glow: rgba(201, 166, 76, 0.34);
+}
+
+.role-unique {
+  --role-glow: rgba(133, 92, 194, 0.36);
+}
+
+.coop-card.role-attack,
+.queued-card.role-attack {
+  background:
+    radial-gradient(circle at 50% 0%, var(--role-glow), transparent 58%),
+    linear-gradient(180deg, #ead8ad, #bd9359);
+}
+
+.deck-strip {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+@media (max-width: 1100px) {
+  .boss-panel,
+  .coop-player-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .coop-hand {
+    grid-template-columns: repeat(auto-fit, minmax(124px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .coop-playmat {
+    padding: 10px;
+  }
+
+  .coop-hero {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+
+  .coop-hero img {
+    width: 58px;
+  }
+
+  .player-stats {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, auto);
+    justify-content: start;
   }
 }

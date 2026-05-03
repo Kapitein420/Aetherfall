@@ -2,7 +2,7 @@
 
 ## Project
 
-The Fracture of Aetherfall is a local-only browser prototype for a fantasy deck-building battle game. It currently runs without npm or Node dependencies through a small PowerShell static server.
+The Fracture of Aetherfall is a browser prototype for a fantasy co-op deck-building boss fight. It currently runs without npm or Node dependencies through a small PowerShell static server.
 
 Local URL:
 
@@ -30,17 +30,20 @@ powershell -ExecutionPolicy Bypass -File .\tools\local-server.ps1
 
 ## Current Playable State
 
-- Local 1v1 hotseat match.
-- Four champion decks:
-  - Arian, the Still Colossus.
-  - Geert, the Polarity Architect.
-  - Wouter, the Veilstalker.
-  - Noah, Lord of Unwritten Chaos.
+- 2-player co-op boss fight.
+- One monster: The Hollow Titan.
+- Two 15-card player decks:
+  - Rook, the Iron Vanguard.
+  - Lyra, the Ember Veil.
+- Each deck has 4 attack cards, 4 defense cards, 1 healing card, 1 support card, and 5 unique cards.
+- Each round discards leftover hand cards, draws 5, increases max energy by 1, and decays threat by 3.
+- Players queue actions simultaneously, then resolve the round together.
+- The monster attacks the living player with the highest current threat.
 - Cards are data-driven in `src/content/cards.js`.
 - Core rules live in `src/engine/game.js`.
 - UI rendering lives in `src/app.js`.
 - Styling and current CSS effects live in `src/styles.css`.
-- Hand cards can be clicked or dragged toward the center drop zone to play them.
+- Hand cards are clicked into each player's queued action plan.
 
 ## Current Visual State
 
@@ -57,7 +60,7 @@ Individual card crops:
 
 - `assets/cards/crops/*.png`
 
-There are 36 generated card crop images, one for each champion card. The app uses these directly through `src/content/card-sheets.js`, via `getCardImage(cardId)`.
+The old full-card images are still stored in the repo for reference, but the redesigned co-op decks currently use procedural browser-rendered cards. New card art should be generated later for the new Rook and Lyra decks.
 
 Runtime UI assets:
 

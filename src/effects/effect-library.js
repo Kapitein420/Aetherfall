@@ -14,6 +14,11 @@ export const effectLibrary = {
     duration: 760,
     showsAmount: false,
   },
+  heal: {
+    label: "Heal",
+    duration: 820,
+    showsAmount: true,
+  },
   discard: {
     label: "Discard",
     duration: 760,
@@ -94,6 +99,11 @@ export const effectLibrary = {
     duration: 820,
     showsAmount: true,
   },
+  plan: {
+    label: "Queued",
+    duration: 520,
+    showsAmount: false,
+  },
   slow: {
     label: "Slow",
     duration: 820,
@@ -113,6 +123,11 @@ export const effectLibrary = {
     label: "Summon",
     duration: 920,
     showsAmount: false,
+  },
+  threat: {
+    label: "Threat",
+    duration: 820,
+    showsAmount: true,
   },
   ward: {
     label: "Ward",

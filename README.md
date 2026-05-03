@@ -1,6 +1,6 @@
 # The Fracture of Aetherfall
 
-This project is for a browser-playable fantasy deck building battle game with champion deck identity, summonable monsters, direct abilities, and support for 1v1, 2v2, and free-for-all multiplayer formats.
+This project is for a browser-playable fantasy deck-building boss fight. The current prototype is a redesigned 2-player co-op battle where both players plan actions together, spend energy, build threat, and try to defeat one monster before it overwhelms them.
 
 Play the current public build in your browser:
 
@@ -22,7 +22,16 @@ Start with the planning document:
 
 This first version is intentionally local-only and dependency-free. It uses plain browser modules plus a small PowerShell static file server, so it does not require npm or a global Node setup.
 
-The current prototype includes generated full-card art, champion portraits, champion-specific card backs, a fantasy battlefield background, and image-backed combat VFX.
+Current rules:
+
+- 2 players vs 1 monster.
+- 15-card deck per player.
+- Each round, leftover hand cards are discarded and each player draws 5.
+- Players start at 3 energy, gain +1 max energy per round, and cap at 10.
+- Players queue actions at the same time, then resolve the round together.
+- Monster threat is tracked separately per player.
+- Monster attacks the living player with the highest current threat.
+- The fight ends when the monster dies or both players fall.
 
 Run it locally:
 

@@ -1,39 +1,28 @@
 import { classDefinitions, selectableClasses } from "./content/classes.js";
-import { getCardImage } from "./content/card-sheets.js";
-import { getCardArtDefinition } from "./content/card-art.js";
 import { getCardDefinition } from "./content/cards.js";
 import { getChampionVisual, getEffectVisual } from "./content/game-assets.js";
 import { getEffectDuration, getEffectName, shouldShowEffectAmount } from "./effects/effect-library.js";
 import {
-  attackWithMonster,
-  createLocalDuel,
-  endTurn,
-  getActivePlayer,
-  getCardCost,
-  getValidMonsterTargets,
-  getValidTargets,
-  playCard,
+  createCoopBattle,
+  getRemainingEnergy,
+  queueCard,
+  resolveRound,
   targetKey,
+  unqueueCard,
 } from "./engine/game.js";
 
 const app = document.querySelector("#app");
 
 let setup = {
-  playerOneClass: "arian",
-  playerTwoClass: "geert",
+  playerOneClass: "rook",
+  playerTwoClass: "lyra",
 };
 
 let gameState = null;
-let pendingAction = null;
 let message = "";
 let lastSeenEventId = 0;
 let activeEffects = [];
 let effectInstanceId = 1;
-let cardDrag = null;
-let suppressNextClick = false;
-
-const CARD_CLICK_DRAG_THRESHOLD = 8;
-const CARD_PLAY_DRAG_THRESHOLD = 78;
 
 render();
 
@@ -48,13 +37,6 @@ app.addEventListener("change", (event) => {
 });
 
 app.addEventListener("click", (event) => {
-  if (suppressNextClick) {
-    event.preventDefault();
-    event.stopPropagation();
-    suppressNextClick = false;
-    return;
-  }
-
   const button = event.target.closest("[data-action]");
   if (!button) {
     return;
@@ -68,52 +50,36 @@ app.addEventListener("click", (event) => {
   }
 });
 
-app.addEventListener("pointerdown", startCardDrag);
-window.addEventListener("pointermove", moveCardDrag);
-window.addEventListener("pointerup", finishCardDrag);
-window.addEventListener("pointercancel", cancelCardDrag);
-
 function handleAction(element) {
   const action = element.dataset.action;
 
   if (action === "start-game") {
-    gameState = createLocalDuel({
+    gameState = createCoopBattle({
       players: [
         {
           id: "player-1",
           name: classDefinitions[setup.playerOneClass].shortName,
           classId: setup.playerOneClass,
-          raceId: classDefinitions[setup.playerOneClass].raceId,
         },
         {
           id: "player-2",
           name: classDefinitions[setup.playerTwoClass].shortName,
           classId: setup.playerTwoClass,
-          raceId: classDefinitions[setup.playerTwoClass].raceId,
         },
       ],
     });
     lastSeenEventId = getLatestEventId(gameState);
     activeEffects = [];
-    pendingAction = null;
-    message = "Opening hand drawn.";
+    message = "Plan together. Queue cards for both players, then resolve the round.";
     render();
     return;
   }
 
   if (action === "new-game") {
     gameState = null;
-    pendingAction = null;
     message = "";
-    lastSeenEventId = 0;
     activeEffects = [];
-    render();
-    return;
-  }
-
-  if (action === "cancel-pending") {
-    pendingAction = null;
-    message = "";
+    lastSeenEventId = 0;
     render();
     return;
   }
@@ -122,252 +88,38 @@ function handleAction(element) {
     return;
   }
 
-  const activePlayer = getActivePlayer(gameState);
-
-  if (action === "end-turn") {
-    gameState = endTurn(gameState, activePlayer.id);
-    enqueueEffectsFromState(gameState);
-    pendingAction = null;
-    message = "";
-    render();
-    return;
-  }
-
-  if (action === "play-card") {
-    playActiveCard(element.dataset.instanceId);
-    return;
-  }
-
-  if (action === "monster-attack") {
-    const slotIndex = Number(element.dataset.slotIndex);
-    const monster = activePlayer.field[slotIndex];
-    pendingAction = {
-      type: "monster",
-      playerId: activePlayer.id,
-      slotIndex,
-      label: monster.name,
-      targets: getValidMonsterTargets(gameState, activePlayer.id).map(targetKey),
-    };
-    message = `Choose a target for ${monster.name}.`;
-    render();
-    return;
-  }
-
-  if (action === "target-hero" || action === "target-monster") {
-    if (!pendingAction) {
-      return;
-    }
-
-    const target =
-      action === "target-hero"
-        ? { type: "hero", playerId: element.dataset.playerId }
-        : {
-            type: "monster",
-            playerId: element.dataset.playerId,
-            slotIndex: Number(element.dataset.slotIndex),
-          };
-
-    if (!pendingAction.targets.includes(targetKey(target))) {
-      message = "That target is protected or invalid.";
-      render();
-      return;
-    }
-
-    if (pendingAction.type === "card") {
-      gameState = playCard(gameState, {
-        playerId: pendingAction.playerId,
-        instanceId: pendingAction.instanceId,
-        target,
-      });
-      enqueueEffectsFromState(gameState);
-    }
-
-    if (pendingAction.type === "monster") {
-      gameState = attackWithMonster(gameState, {
-        playerId: pendingAction.playerId,
-        slotIndex: pendingAction.slotIndex,
-        target,
-      });
-      enqueueEffectsFromState(gameState);
-    }
-
-    pendingAction = null;
-    message = "";
-    render();
-  }
-}
-
-function playActiveCard(instanceId) {
-  if (!gameState) {
-    return;
-  }
-
-  const activePlayer = getActivePlayer(gameState);
-  const cardInstance = activePlayer.hand.find((card) => card.instanceId === instanceId);
-  if (!cardInstance) {
-    return;
-  }
-
-  const card = getCardDefinition(cardInstance.cardId);
-
-  if (card.target === "none") {
-    gameState = playCard(gameState, {
-      playerId: activePlayer.id,
-      instanceId: cardInstance.instanceId,
-      target: null,
+  if (action === "queue-card") {
+    gameState = queueCard(gameState, {
+      playerId: element.dataset.playerId,
+      instanceId: element.dataset.instanceId,
     });
     enqueueEffectsFromState(gameState);
-    pendingAction = null;
     message = "";
     render();
     return;
   }
 
-  if (card.target === "self") {
-    gameState = playCard(gameState, {
-      playerId: activePlayer.id,
-      instanceId: cardInstance.instanceId,
-      target: { type: "hero", playerId: activePlayer.id },
+  if (action === "unqueue-card") {
+    gameState = unqueueCard(gameState, {
+      playerId: element.dataset.playerId,
+      instanceId: element.dataset.instanceId,
     });
-    enqueueEffectsFromState(gameState);
-    pendingAction = null;
     message = "";
     render();
     return;
   }
 
-  pendingAction = {
-    type: "card",
-    playerId: activePlayer.id,
-    instanceId: cardInstance.instanceId,
-    label: card.name,
-    targets: getValidTargets(gameState, activePlayer.id, card).map(targetKey),
-  };
-  message = `Choose a target for ${card.name}.`;
-  render();
-}
-
-function startCardDrag(event) {
-  if (!gameState || gameState.winnerId || event.button !== 0) {
-    return;
+  if (action === "resolve-round") {
+    gameState = resolveRound(gameState);
+    enqueueEffectsFromState(gameState);
+    message =
+      gameState.phase === "game-over"
+        ? gameState.winner === "players"
+          ? "The monster is defeated. Victory."
+          : "The party fell. Try a different plan."
+        : "New round. Draw 5, energy increases, threat decays.";
+    render();
   }
-
-  const cardButton = event.target.closest(".hand-card[data-action='play-card']");
-  if (!cardButton || cardButton.disabled) {
-    return;
-  }
-
-  const activePlayer = getActivePlayer(gameState);
-  const instanceId = cardButton.dataset.instanceId;
-  const cardInstance = activePlayer.hand.find((card) => card.instanceId === instanceId);
-  if (!cardInstance) {
-    return;
-  }
-
-  cardDrag = {
-    pointerId: event.pointerId,
-    element: cardButton,
-    instanceId,
-    startX: event.clientX,
-    startY: event.clientY,
-    canPlay: false,
-    wasDragging: false,
-  };
-
-  cardButton.classList.add("being-dragged");
-  cardButton.style.setProperty("--drag-x", "0px");
-  cardButton.style.setProperty("--drag-y", "0px");
-  cardButton.style.setProperty("--drag-rotate", "0deg");
-  document.body.classList.add("card-dragging");
-
-  try {
-    cardButton.setPointerCapture(event.pointerId);
-  } catch {
-    // Pointer capture is best-effort; dragging still works through window listeners.
-  }
-}
-
-function moveCardDrag(event) {
-  if (!cardDrag || cardDrag.pointerId !== event.pointerId) {
-    return;
-  }
-
-  const deltaX = event.clientX - cardDrag.startX;
-  const deltaY = event.clientY - cardDrag.startY;
-  const distance = Math.hypot(deltaX, deltaY);
-
-  if (distance > CARD_CLICK_DRAG_THRESHOLD) {
-    cardDrag.wasDragging = true;
-  }
-
-  if (!cardDrag.wasDragging) {
-    return;
-  }
-
-  event.preventDefault();
-  const rotate = Math.max(-14, Math.min(14, deltaX / 14));
-  cardDrag.canPlay = isPointInPlayZone(event.clientX, event.clientY) || deltaY < -CARD_PLAY_DRAG_THRESHOLD;
-  cardDrag.element.style.setProperty("--drag-x", `${deltaX}px`);
-  cardDrag.element.style.setProperty("--drag-y", `${deltaY}px`);
-  cardDrag.element.style.setProperty("--drag-rotate", `${rotate}deg`);
-  document.body.classList.toggle("card-over-play", cardDrag.canPlay);
-}
-
-function finishCardDrag(event) {
-  if (!cardDrag || cardDrag.pointerId !== event.pointerId) {
-    return;
-  }
-
-  const shouldPlay =
-    cardDrag.wasDragging &&
-    (cardDrag.canPlay || cardDrag.startY - event.clientY > CARD_PLAY_DRAG_THRESHOLD);
-  const instanceId = cardDrag.instanceId;
-
-  if (cardDrag.wasDragging) {
-    event.preventDefault();
-    suppressNextClick = true;
-    window.setTimeout(() => {
-      suppressNextClick = false;
-    }, 0);
-  }
-
-  cleanupCardDrag();
-
-  if (shouldPlay) {
-    playActiveCard(instanceId);
-  }
-}
-
-function cancelCardDrag() {
-  cleanupCardDrag();
-}
-
-function cleanupCardDrag() {
-  if (cardDrag?.element) {
-    cardDrag.element.classList.remove("being-dragged");
-    cardDrag.element.style.removeProperty("--drag-x");
-    cardDrag.element.style.removeProperty("--drag-y");
-    cardDrag.element.style.removeProperty("--drag-rotate");
-  }
-
-  cardDrag = null;
-  document.body.classList.remove("card-dragging", "card-over-play");
-}
-
-function isPointInPlayZone(clientX, clientY) {
-  const dropZone = document.querySelector(".play-drop-zone");
-  if (!dropZone) {
-    return false;
-  }
-
-  const rect = dropZone.getBoundingClientRect();
-  const padding = 44;
-  return (
-    clientX >= rect.left - padding &&
-    clientX <= rect.right + padding &&
-    clientY >= rect.top - padding &&
-    clientY <= rect.bottom + padding
-  );
 }
 
 function render() {
@@ -376,13 +128,13 @@ function render() {
 
 function renderSetup() {
   return `
-    <section class="setup-shell">
+    <section class="setup-shell coop-setup">
       <div class="topbar">
         <div>
-          <p class="eyebrow">Local prototype</p>
+          <p class="eyebrow">Co-op boss prototype</p>
           <h1>The Fracture of Aetherfall</h1>
         </div>
-        <span class="status-pill">1v1 hotseat</span>
+        <span class="status-pill">2 players vs 1 monster</span>
       </div>
 
       <div class="setup-grid">
@@ -390,41 +142,45 @@ function renderSetup() {
         ${renderSetupPlayer("Player 2", "playerTwoClass")}
       </div>
 
-      <div class="mode-row">
-        <button class="mode-button active" type="button">1v1</button>
-        <button class="mode-button" type="button" disabled>2v2 planned</button>
-        <button class="mode-button" type="button" disabled>FFA planned</button>
-      </div>
+      <section class="rules-panel">
+        <h2>New Battle Rules</h2>
+        <div class="rules-grid">
+          <span>15-card deck per player</span>
+          <span>Draw 5 cards each round</span>
+          <span>Start at 3 energy</span>
+          <span>+1 max energy per round, max 10</span>
+          <span>Players plan actions together</span>
+          <span>Monster attacks highest threat</span>
+        </div>
+      </section>
 
       <div class="action-row">
-        <button class="primary-button" type="button" data-action="start-game">Start local match</button>
+        <button class="primary-button" type="button" data-action="start-game">Start boss fight</button>
       </div>
     </section>
   `;
 }
 
 function renderSetupPlayer(label, classField) {
-  const selectedChampion = classDefinitions[setup[classField]];
-  const championVisual = getChampionVisual(selectedChampion.id);
+  const selectedClass = classDefinitions[setup[classField]];
+  const championVisual = getChampionVisual(selectedClass.id);
   return `
-    <section class="setup-panel class-${selectedChampion.id}">
+    <section class="setup-panel class-${selectedClass.id}">
       <div class="setup-panel-header">
         <img class="setup-champion-portrait" src="${championVisual.portrait}" alt="" aria-hidden="true" />
         <div>
           <h2>${label}</h2>
-          <strong>${selectedChampion.shortName}</strong>
+          <strong>${selectedClass.shortName}</strong>
         </div>
       </div>
       <label>
-        Champion Deck
+        Character Deck
         <select data-setup-field="${classField}">
           ${selectableClasses
             .map(
               (classDef) => `
-                <option value="${classDef.id}" ${setup[classField] === classDef.id ? "selected" : ""} ${
-                  classDef.implemented ? "" : "disabled"
-                }>
-                  ${classDef.shortName} - ${classDef.aspect}${classDef.implemented ? "" : " (planned)"}
+                <option value="${classDef.id}" ${setup[classField] === classDef.id ? "selected" : ""}>
+                  ${classDef.shortName} - ${classDef.role}
                 </option>
               `,
             )
@@ -432,71 +188,43 @@ function renderSetupPlayer(label, classField) {
         </select>
       </label>
       <div class="champion-summary">
-        <strong>${selectedChampion.raceName}</strong>
-        <span>${selectedChampion.summary}</span>
-        <small>${selectedChampion.resourceName}: ${selectedChampion.personality}</small>
+        <strong>${selectedClass.aspect}</strong>
+        <span>${selectedClass.summary}</span>
+        <small>${selectedClass.personality}</small>
       </div>
     </section>
   `;
 }
 
 function renderGame() {
-  const activePlayer = getActivePlayer(gameState);
-  const opponent = getOpponent(activePlayer.id);
-  const winner = gameState.winnerId ? gameState.players.find((player) => player.id === gameState.winnerId) : null;
-  const nextPlayer = getOpponent(activePlayer.id);
+  const totalQueued = gameState.players.reduce((total, player) => total + player.planned.length, 0);
+  const gameOver = gameState.phase === "game-over";
 
   return `
-    <section class="game-table">
+    <section class="game-table coop-table">
       <div class="table-topbar">
         <div>
-          <p class="eyebrow">Turn ${gameState.turnNumber}</p>
-          <h1>${winner ? `${winner.name} wins` : `${activePlayer.name}'s turn`}</h1>
+          <p class="eyebrow">Round ${gameState.roundNumber}</p>
+          <h1>${gameOver ? renderWinnerTitle() : "Plan the round"}</h1>
         </div>
         <div class="topbar-actions">
-          <span class="status-pill">Next ${nextPlayer.name}</span>
-          <button class="end-turn-button" type="button" data-action="end-turn" ${winner ? "disabled" : ""}>End turn</button>
-          <button class="secondary-button" type="button" data-action="new-game">New match</button>
+          <span class="status-pill">${totalQueued} queued actions</span>
+          <button class="end-turn-button" type="button" data-action="resolve-round" ${gameOver ? "disabled" : ""}>Resolve round</button>
+          <button class="secondary-button" type="button" data-action="new-game">New fight</button>
         </div>
       </div>
 
-      ${message ? `<div class="message-bar">${message} ${pendingAction ? `<button type="button" data-action="cancel-pending">Cancel</button>` : ""}</div>` : ""}
+      ${message ? `<div class="message-bar">${escapeHtml(message)}</div>` : ""}
 
-      <div class="playmat">
-        <section class="player-zone opponent-zone">
-          ${renderHiddenHand(opponent)}
-          ${renderHero(opponent, "opponent")}
-          ${renderFieldRow(opponent, false)}
-        </section>
-
-        <section class="center-lane">
-          <div class="pile-stack opponent-pile class-${opponent.classId}">
-            <span class="pile-card-back" aria-hidden="true"></span>
-            <span>Deck</span>
-            <strong>${opponent.deck.length}</strong>
-          </div>
-          <div class="turn-orb play-drop-zone" aria-label="Play card drop zone">
-            <span class="drop-ring" aria-hidden="true"></span>
-            <span>${activePlayer.name}</span>
-            <strong>${activePlayer.mana}/${activePlayer.manaCrystals}</strong>
-          </div>
-          <div class="pile-stack active-pile class-${activePlayer.classId}">
-            <span class="pile-card-back" aria-hidden="true"></span>
-            <span>Deck</span>
-            <strong>${activePlayer.deck.length}</strong>
-          </div>
-        </section>
-
-        <section class="player-zone active-zone">
-          ${renderFieldRow(activePlayer, true)}
-          ${renderHero(activePlayer, "active")}
-          ${renderManaCrystals(activePlayer)}
-          ${renderHand(activePlayer, Boolean(winner))}
+      <div class="coop-playmat">
+        ${renderMonsterPanel()}
+        <section class="coop-player-grid">
+          ${gameState.players.map(renderPlayerPanel).join("")}
         </section>
       </div>
 
       <section class="log-drawer">
-        <h2>Match log</h2>
+        <h2>Battle log</h2>
         <ol>
           ${gameState.log.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}
         </ol>
@@ -505,226 +233,149 @@ function renderGame() {
   `;
 }
 
-function renderHero(player, seat) {
-  const classDef = selectableClasses.find((candidate) => candidate.id === player.classId);
+function renderWinnerTitle() {
+  if (gameState.winner === "players") {
+    return "Victory";
+  }
+
+  return "The monster wins";
+}
+
+function renderMonsterPanel() {
+  const monster = gameState.monster;
+  const hpPercent = Math.max(0, Math.round((monster.hp / monster.maxHp) * 100));
+  return `
+    <section class="boss-panel">
+      <div class="boss-core">
+        <p class="eyebrow">Threat encounter</p>
+        <h2>${monster.name}</h2>
+        <div class="boss-hp">
+          <strong>${monster.hp}/${monster.maxHp}</strong>
+          <span><em style="width: ${hpPercent}%"></em></span>
+        </div>
+        <div class="boss-statuses">
+          <span>Exposed +${monster.statuses.exposed}</span>
+          <span>Weakened ${monster.statuses.weakened}</span>
+        </div>
+        ${renderEffectSprites({ type: "monster" })}
+      </div>
+      <div class="threat-board">
+        <h3>Threat Tracker</h3>
+        ${gameState.players.map((player) => renderThreatRow(player)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderThreatRow(player) {
+  const threat = gameState.monster.threat[player.id] ?? 0;
+  const percent = Math.min(100, Math.round((threat / 20) * 100));
+  return `
+    <div class="threat-row class-${player.classId}">
+      <span>${player.name}</span>
+      <div><em style="width: ${percent}%"></em></div>
+      <strong>${threat}/20</strong>
+    </div>
+  `;
+}
+
+function renderPlayerPanel(player) {
+  const classDef = classDefinitions[player.classId];
   const championVisual = getChampionVisual(player.classId);
-  const heroTarget = { type: "hero", playerId: player.id };
-  const targetable = isPendingTarget(heroTarget);
-  const healthPercent = Math.max(0, Math.round((player.hero.hp / player.hero.maxHp) * 100));
+  const hpPercent = Math.max(0, Math.round((player.hp / player.maxHp) * 100));
+  const remainingEnergy = getRemainingEnergy(player);
 
   return `
-    <button
-      class="hero-portrait ${seat} class-${player.classId} ${targetable ? "targetable" : ""}"
-      type="button"
-      data-action="target-hero"
-      data-player-id="${player.id}"
-    >
-      <span class="hero-avatar" aria-hidden="true">
-        <img src="${championVisual.portrait}" alt="" />
-      </span>
-      <span class="hero-name">${player.name}</span>
-      <span class="hero-class">${classDef.aspect} | ${classDef.raceName}</span>
-      <span class="hero-life">
-        <strong>${player.hero.hp}</strong>
-        <em>${player.hero.block}</em>
-      </span>
-      <span class="health-track"><span style="width: ${healthPercent}%"></span></span>
-      <span class="hero-status">${renderHeroStatuses(player)}</span>
-      ${renderEffectSprites(heroTarget)}
-    </button>
-  `;
-}
-
-function renderHeroStatuses(player) {
-  const statuses = player.hero.statuses.map((status) => `${status.type} ${status.duration}`);
-  const counters = renderCounterSummary(player);
-  if (counters) {
-    statuses.push(counters);
-  }
-  statuses.push(`Ult ${player.hero.ultimateCharge}/10`);
-  return statuses.join(" | ");
-}
-
-function renderCounterSummary(player) {
-  if (!player.counters) {
-    return "";
-  }
-
-  if (player.classId === "arian") {
-    return `Pressure ${player.counters.pressure} / Stored ${player.counters.storedDamage}`;
-  }
-  if (player.classId === "geert") {
-    return `Polarity ${player.counters.polarity} / Changes ${player.counters.polarityChanges} / Combo ${player.counters.comboCharge}`;
-  }
-  if (player.classId === "wouter") {
-    return `Loot ${player.counters.loot}`;
-  }
-  if (player.classId === "noah") {
-    return `Instability ${player.counters.instability}`;
-  }
-
-  return "";
-}
-
-function renderFieldRow(player, isActivePlayer) {
-  return `
-    <div class="minion-row">
-      ${player.field.map((monster, slotIndex) => renderFieldSlot(player, monster, slotIndex, isActivePlayer)).join("")}
-    </div>
-  `;
-}
-
-function renderFieldSlot(player, monster, slotIndex, isActivePlayer) {
-  if (!monster) {
-    return `
-      <div class="board-slot empty">
-        <span class="empty-slot-mark"></span>
-        ${renderEffectSprites({ type: "monster", playerId: player.id, slotIndex })}
+    <section class="coop-player-panel class-${player.classId}">
+      <div class="coop-hero">
+        <img src="${championVisual.portrait}" alt="" aria-hidden="true" />
+        <div>
+          <h2>${player.name}</h2>
+          <span>${classDef.role}</span>
+          <div class="player-hp">
+            <strong>${player.hp}/${player.maxHp}</strong>
+            <span><em style="width: ${hpPercent}%"></em></span>
+          </div>
+        </div>
+        <div class="player-stats">
+          <strong>${remainingEnergy}/${player.energy}</strong>
+          <span>Energy</span>
+          <strong>${player.block}</strong>
+          <span>Block</span>
+        </div>
+        ${renderEffectSprites({ type: "player", playerId: player.id })}
       </div>
-    `;
-  }
 
-  const monsterTarget = { type: "monster", playerId: player.id, slotIndex };
-  const card = getCardDefinition(monster.cardId);
-  const art = getCardArtDefinition(card);
-  const cardImage = getCardImage(card.id);
-  const targetable = isPendingTarget(monsterTarget);
-
-  return `
-    <div class="board-slot ${targetable ? "targetable" : ""}">
-      <button
-        class="minion-token ${monster.ready ? "ready" : ""}"
-        type="button"
-        data-action="target-monster"
-        data-player-id="${player.id}"
-        data-slot-index="${slotIndex}"
-      >
-        <strong>${monster.name}</strong>
-        <span class="minion-art ${cardImage ? "minion-card-art" : art.className}">
-          ${
-            cardImage
-              ? `<img src="${cardImage.src}" alt="" aria-hidden="true" />`
-              : ""
-          }
-          <span>${monster.traits.includes("guard") ? "Guard" : art.label}</span>
-        </span>
-        <span class="minion-stats">
-          <em>${monster.attack}</em>
-          <em>${monster.hp}</em>
-        </span>
-      </button>
-      ${
-        isActivePlayer
-          ? `<button class="attack-button" type="button" data-action="monster-attack" data-slot-index="${slotIndex}" ${
-              monster.ready ? "" : "disabled"
-            }>Attack</button>`
-          : ""
-      }
-      ${renderEffectSprites(monsterTarget)}
-    </div>
-  `;
-}
-
-function renderManaCrystals(player) {
-  return `
-    <div class="mana-bar" aria-label="Mana ${player.mana} of ${player.manaCrystals}">
-      <strong>${player.mana}/${player.manaCrystals}</strong>
-      <div class="mana-crystals">
-        ${Array.from({ length: player.maxManaCrystals }, (_, index) => {
-          const crystalNumber = index + 1;
-          const className =
-            crystalNumber <= player.mana
-              ? "filled"
-              : crystalNumber <= player.manaCrystals
-                ? "empty"
-                : "locked";
-          return `<span class="mana-crystal ${className}"></span>`;
-        }).join("")}
+      <div class="planned-zone">
+        <div class="zone-header">
+          <strong>Queued Actions</strong>
+          <span>${player.planned.length} cards</span>
+        </div>
+        <div class="planned-cards">
+          ${player.planned.map((cardInstance) => renderQueuedCard(player, cardInstance)).join("")}
+          ${player.planned.length === 0 ? `<span class="empty-plan">No actions queued.</span>` : ""}
+        </div>
       </div>
-    </div>
+
+      <div class="hand-zone coop-hand">
+        ${player.hand.map((cardInstance) => renderHandCard(player, cardInstance)).join("")}
+        ${player.hand.length === 0 ? `<div class="empty-hand">No cards in hand.</div>` : ""}
+      </div>
+
+      <div class="deck-strip">
+        <span>Deck ${player.deck.length}</span>
+        <span>Discard ${player.discard.length}</span>
+      </div>
+    </section>
   `;
 }
 
-function renderHand(player, disabled) {
-  return `
-    <div class="hand-zone">
-      ${player.hand.map((cardInstance, index) => renderHandCard(player, cardInstance, disabled, index, player.hand.length)).join("")}
-      ${player.hand.length === 0 ? `<div class="empty-hand">No cards in hand.</div>` : ""}
-    </div>
-  `;
-}
-
-function renderHiddenHand(player) {
-  return `
-    <div class="hidden-hand" aria-label="${player.name} has ${player.hand.length} cards">
-      ${player.hand.map(() => `<span class="card-back class-${player.classId}"></span>`).join("")}
-    </div>
-  `;
-}
-
-function renderHandCard(player, cardInstance, disabled, index, handSize) {
+function renderHandCard(player, cardInstance) {
   const card = getCardDefinition(cardInstance.cardId);
-  const art = getCardArtDefinition(card);
-  const cardImage = getCardImage(card.id);
-  const usesCardImage = Boolean(cardImage);
-  const cost = getCardCost(player, card);
-  const cannotAfford = player.mana < cost;
-  const offset = index - (handSize - 1) / 2;
-  const rotation = Math.max(-8, Math.min(8, offset * 3));
-  const lift = Math.abs(offset) * 3;
-  const fullCardStyle = usesCardImage ? `--full-card-aspect: ${cardImage.aspectRatio ?? "2 / 3"};` : "";
-
+  const remainingEnergy = getRemainingEnergy(player);
+  const cannotAfford = remainingEnergy < card.cost || player.hp <= 0 || gameState.phase === "game-over";
   return `
     <button
-      class="hand-card ${card.kind} class-${card.classId} ${usesCardImage ? "full-card-image" : ""} ${
-        cannotAfford ? "unplayable" : "playable"
-      }"
-      style="--card-rotation: ${rotation}deg; --card-lift: ${lift}px; ${fullCardStyle}"
+      class="coop-card role-${card.role} class-${card.classId} ${cannotAfford ? "unplayable" : "playable"}"
       type="button"
-      data-action="play-card"
+      data-action="queue-card"
+      data-player-id="${player.id}"
       data-instance-id="${cardInstance.instanceId}"
-      ${disabled || cannotAfford ? "disabled" : ""}
+      ${cannotAfford ? "disabled" : ""}
     >
-      ${
-        usesCardImage
-          ? renderCardImage(card, cardImage)
-          : renderProceduralHandCard(card, art, cost)
-      }
+      ${renderCardFace(card)}
     </button>
   `;
 }
 
-function renderProceduralHandCard(card, art, cost) {
+function renderQueuedCard(player, cardInstance) {
+  const card = getCardDefinition(cardInstance.cardId);
   return `
-    <span class="card-cost">${cost}</span>
+    <button
+      class="queued-card role-${card.role} class-${card.classId}"
+      type="button"
+      data-action="unqueue-card"
+      data-player-id="${player.id}"
+      data-instance-id="${cardInstance.instanceId}"
+      ${gameState.phase === "game-over" ? "disabled" : ""}
+    >
+      <strong>${card.name}</strong>
+      <span>${card.cost} energy</span>
+    </button>
+  `;
+}
+
+function renderCardFace(card) {
+  return `
+    <span class="card-cost">${card.cost}</span>
     <span class="card-name">${card.name}</span>
-    <span class="card-art ${art.className}">
-      <span class="art-symbol">${art.symbol}</span>
-      <span class="art-label">${art.label}</span>
-    </span>
-    <span class="card-type">
-      <span>${card.classId}</span>
-      <span>${card.type ?? card.kind}</span>
-    </span>
+    <span class="card-role">${formatRole(card.role)}</span>
     <span class="card-text">${card.text}</span>
-    ${card.kind === "monster" ? `<span class="card-stats"><em>${card.monster.attack}</em><em>${card.monster.hp}</em></span>` : ""}
   `;
 }
 
-function renderCardImage(card, cardImage) {
-  return `
-    <img
-      class="full-card-face"
-      src="${cardImage.src}"
-      alt=""
-      aria-hidden="true"
-    />
-    <span class="visually-hidden">${card.name}. ${card.text}</span>
-  `;
-}
-
-function getOpponent(activePlayerId) {
-  return gameState.players.find((player) => player.id !== activePlayerId);
+function formatRole(role) {
+  return role === "defense" ? "defend" : role;
 }
 
 function enqueueEffectsFromState(state) {
@@ -759,14 +410,6 @@ function enqueueEffectsFromState(state) {
   activeEffects = activeEffects.slice(-24);
 }
 
-function getLatestEventId(state) {
-  if (!state.events.length) {
-    return 0;
-  }
-
-  return Math.max(...state.events.map((event) => event.id));
-}
-
 function renderEffectSprites(target) {
   const effects = activeEffects.filter((effect) => effect.target === targetKey(target));
   if (!effects.length) {
@@ -794,14 +437,18 @@ function renderEffectSprite(effect) {
 
 function getEffectLabel(effect) {
   if (effect.amount && shouldShowEffectAmount(effect.type)) {
-    return `${getEffectName(effect.type)} ${effect.amount}`;
+    return `${effect.label ?? getEffectName(effect.type)} ${effect.amount}`;
   }
 
-  return getEffectName(effect.type);
+  return effect.label ?? getEffectName(effect.type);
 }
 
-function isPendingTarget(target) {
-  return pendingAction?.targets.includes(targetKey(target));
+function getLatestEventId(state) {
+  if (!state.events.length) {
+    return 0;
+  }
+
+  return Math.max(...state.events.map((event) => event.id));
 }
 
 function escapeHtml(value) {
