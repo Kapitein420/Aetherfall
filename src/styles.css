@@ -3458,3 +3458,874 @@ body.dragging-card .standoff-champion {
     min-height: 184px;
   }
 }
+
+/* ===========================================================================
+ * FACTION CARD FRAME SYSTEM
+ * Per-faction frame visuals: backdrop texture, border, cost pip, role badge,
+ * art emblem. Each class gets a distinct identity that reads at hand size,
+ * standoff-fan size, and queued-mini size.
+ *
+ * Layer order on a hand card:
+ *   .hand-card           -> base frame, faction backdrop gradient + border
+ *   .hand-card::before   -> faction texture / banner (procedural)
+ *   .hand-card::after    -> faction edge-light + corner ornament
+ *   .card-art            -> role-themed emblem block, layered on backdrop
+ *   .card-art::before    -> role glyph (geometric)
+ *   .card-art::after     -> faction-tinted overlay sheen
+ *
+ * No new bitmap assets — everything is CSS gradients, conic, mask, clip-path.
+ * ======================================================================= */
+
+/* ---- Layout: tighten grid so name + text breathe, art slot is meaningful ---- */
+.hand-card {
+  /* override the legacy template: cost is absolute, in-flow rows = name, art, role, text.
+   * Use auto for name/role and let art + text flex so big names don't squish text. */
+  grid-template-rows: auto minmax(56px, 1fr) auto auto;
+  gap: 7px;
+  padding: 12px 10px 10px;
+}
+
+.hand-card .card-name {
+  min-height: 0;
+  padding-left: 22px; /* clear the cost pip */
+  font-size: 0.94rem;
+  line-height: 1.08;
+  letter-spacing: 0.01em;
+}
+
+.hand-card .card-role {
+  width: fit-content;
+  margin: 0 auto;
+  padding: 3px 10px;
+  border: 1px solid rgba(20, 16, 12, 0.42);
+  border-radius: 999px;
+  background: rgba(255, 245, 220, 0.28);
+  color: var(--faction-ink, #2a1d12);
+  font-size: 0.66rem;
+  font-weight: 1000;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hand-card .card-text {
+  min-height: 36px;
+  padding: 6px 6px 4px;
+  border-radius: 4px;
+  background: rgba(255, 248, 226, 0.34);
+  color: var(--faction-ink, #1c130c);
+  font-size: 0.84rem;
+  line-height: 1.22;
+  text-align: center;
+}
+
+/* ---- The art slot ---- */
+.card-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 56px;
+  border-radius: 5px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.18) 0%, rgba(0, 0, 0, 0.34) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 245, 220, 0.18),
+    inset 0 0 22px rgba(0, 0, 0, 0.42);
+}
+
+.card-art::before {
+  /* Faction backdrop, set by each .class-* rule below. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.92;
+}
+
+.card-art::after {
+  /* Subtle gloss / reading-tint shared across all factions. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, transparent 28%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0%, transparent 36%);
+  pointer-events: none;
+}
+
+.card-art-glyph {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 245, 220, 0.45), transparent 60%),
+    rgba(0, 0, 0, 0.42);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 245, 220, 0.46),
+    0 2px 6px rgba(0, 0, 0, 0.55);
+  filter: drop-shadow(0 0 6px var(--class-glow, rgba(245, 208, 131, 0.6)));
+}
+
+.card-art-glyph::before,
+.card-art-glyph::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+/* ---- Role-themed glyphs (drawn on .card-art-glyph) ----
+ * These are shape-only — color tinted by the faction's accent. */
+.card-art.role-attack .card-art-glyph::before {
+  /* crossed slash */
+  inset: 6px;
+  background:
+    linear-gradient(45deg, transparent 42%, var(--class-glow, #e9c879) 43% 57%, transparent 58%),
+    linear-gradient(-45deg, transparent 42%, var(--class-glow, #e9c879) 43% 57%, transparent 58%);
+}
+
+.card-art.role-defense .card-art-glyph::before {
+  /* shield notch */
+  inset: 6px;
+  border-radius: 50% 50% 50% 50% / 40% 40% 70% 70%;
+  background:
+    linear-gradient(180deg, var(--class-glow, #e9c879), rgba(0, 0, 0, 0.38));
+  box-shadow: inset 0 0 0 2px rgba(255, 245, 220, 0.55);
+}
+
+.card-art.role-healing .card-art-glyph::before {
+  /* plus mark */
+  inset: 4px;
+  background:
+    linear-gradient(0deg, transparent 38%, var(--class-glow, #e9c879) 39% 61%, transparent 62%),
+    linear-gradient(90deg, transparent 38%, var(--class-glow, #e9c879) 39% 61%, transparent 62%);
+}
+
+.card-art.role-support .card-art-glyph::before {
+  /* radiant ring */
+  inset: 4px;
+  border-radius: 50%;
+  background:
+    repeating-conic-gradient(from 0deg,
+      var(--class-glow, #e9c879) 0deg 10deg,
+      transparent 11deg 30deg);
+}
+
+.card-art.role-unique .card-art-glyph::before {
+  /* gem facet */
+  inset: 6px;
+  clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+  background:
+    linear-gradient(135deg,
+      rgba(255, 245, 220, 0.85) 0%,
+      var(--class-glow, #e9c879) 40%,
+      rgba(0, 0, 0, 0.4) 100%);
+}
+
+/* =====================================================================
+ * Faction 1: ROOK — Iron Vanguard (heroic-neutral, weathered iron + leather)
+ * Palette: #a97840 brass edge, #d6b574 warm parchment, #3a2418 ink
+ * Mood: stoic medieval, hammered iron banner over warm vellum
+ * ===================================================================== */
+.hand-card.class-rook {
+  --faction-ink: #2a1a10;
+  --faction-paper-1: #f0deae;
+  --faction-paper-2: #c89559;
+  --faction-band: #5a3520;
+  border-color: #8d6235;
+  background:
+    linear-gradient(180deg, rgba(255, 247, 220, 0.32) 0%, transparent 22%),
+    linear-gradient(180deg, var(--faction-paper-1) 0%, var(--faction-paper-2) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 240, 200, 0.46),
+    inset 0 0 0 3px rgba(74, 44, 22, 0.32),
+    0 12px 24px rgba(0, 0, 0, 0.34);
+}
+
+.hand-card.class-rook::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(0deg,
+      rgba(74, 44, 22, 0.05) 0 3px,
+      transparent 3px 9px),
+    repeating-linear-gradient(90deg,
+      rgba(74, 44, 22, 0.04) 0 5px,
+      transparent 5px 12px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-rook::after {
+  /* hammered-iron banner across the top */
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 6px;
+  height: 28px;
+  border-radius: 4px 4px 9px 9px;
+  background:
+    linear-gradient(180deg, #6a4a2c 0%, #3a2418 60%, #2a180e 100%),
+    radial-gradient(circle at 20% 50%, rgba(255, 220, 160, 0.28), transparent 30%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 160, 0.34),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.46);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-rook .card-name {
+  position: relative;
+  z-index: 2;
+  color: #f6e8c4;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.62);
+}
+
+.hand-card.class-rook .card-cost {
+  background: linear-gradient(180deg, #d8a85a, #8d5a24);
+  border-color: #f3dba2;
+  color: #1d100a;
+  text-shadow: 0 1px 0 rgba(255, 230, 180, 0.46);
+}
+
+.hand-card.class-rook .card-art::before {
+  /* riveted iron plate w/ warm rust patina */
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 220, 160, 0.4) 0 5%, transparent 6%),
+    radial-gradient(circle at 82% 22%, rgba(255, 220, 160, 0.4) 0 5%, transparent 6%),
+    radial-gradient(circle at 18% 78%, rgba(255, 220, 160, 0.4) 0 5%, transparent 6%),
+    radial-gradient(circle at 82% 78%, rgba(255, 220, 160, 0.4) 0 5%, transparent 6%),
+    repeating-linear-gradient(115deg,
+      rgba(0, 0, 0, 0.08) 0 6px,
+      transparent 6px 14px),
+    linear-gradient(135deg, #6f4d2b 0%, #a97840 50%, #5a3520 100%);
+}
+
+.hand-card.class-rook .card-art-glyph {
+  filter: drop-shadow(0 0 8px rgba(225, 156, 72, 0.7));
+}
+
+/* =====================================================================
+ * Faction 2: LYRA — Ember Veil (heroic-neutral, sunlit forest + dusk fire)
+ * Palette: #4aa36c forest edge, #ead8a8 sun-warm parchment, #8c4a1d ember
+ * Mood: archer's parchment, vine flourishes, ember accents
+ * ===================================================================== */
+.hand-card.class-lyra {
+  --faction-ink: #1a2a1c;
+  --faction-paper-1: #efe5b4;
+  --faction-paper-2: #b5a463;
+  --faction-band: #295636;
+  border-color: #4a7a4e;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 220, 0.34) 0%, transparent 22%),
+    linear-gradient(180deg, var(--faction-paper-1) 0%, var(--faction-paper-2) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 248, 210, 0.5),
+    inset 0 0 0 3px rgba(38, 64, 40, 0.28),
+    0 12px 24px rgba(0, 0, 0, 0.32);
+}
+
+.hand-card.class-lyra::before {
+  /* vine border lattice */
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(45deg,
+      rgba(38, 86, 54, 0.06) 0 4px,
+      transparent 4px 14px),
+    repeating-linear-gradient(-45deg,
+      rgba(38, 86, 54, 0.04) 0 4px,
+      transparent 4px 14px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-lyra::after {
+  /* leaf-laurel banner */
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 6px;
+  height: 28px;
+  border-radius: 4px 4px 9px 9px;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(255, 200, 130, 0.28), transparent 40%),
+    radial-gradient(ellipse at 80% 50%, rgba(255, 200, 130, 0.28), transparent 40%),
+    linear-gradient(180deg, #2f6843 0%, #1c3d28 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(180, 220, 160, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.42);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-lyra .card-name {
+  position: relative;
+  z-index: 2;
+  color: #f4eccd;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+.hand-card.class-lyra .card-cost {
+  background: linear-gradient(180deg, #e3a85c, #8c4a1d);
+  border-color: #f6dba0;
+  color: #1d100a;
+  text-shadow: 0 1px 0 rgba(255, 224, 168, 0.4);
+}
+
+.hand-card.class-lyra .card-art::before {
+  /* sunlit forest canopy w/ dappled light */
+  background:
+    radial-gradient(circle at 28% 30%, rgba(255, 220, 130, 0.55) 0 12%, transparent 13%),
+    radial-gradient(circle at 72% 60%, rgba(255, 220, 130, 0.4) 0 8%, transparent 9%),
+    radial-gradient(circle at 50% 80%, rgba(255, 180, 100, 0.4) 0 10%, transparent 12%),
+    linear-gradient(135deg, #2a4d2e 0%, #4aa36c 55%, #2a4d2e 100%);
+}
+
+.hand-card.class-lyra .card-art-glyph {
+  filter: drop-shadow(0 0 8px rgba(255, 180, 100, 0.7));
+}
+
+/* =====================================================================
+ * Faction 3: VIREX — Space Pirates (apocalyptic cyberpunk salvage)
+ * Palette: #b56a2e rust, #2a2520 gunmetal, #d97a32 ochre, #6ed8d8 cyan accent
+ * Mood: cracked metal plate, oxygen tubing, faded warning paint, instrument blips
+ * ===================================================================== */
+.hand-card.class-virex {
+  --faction-ink: #f0d8b6;
+  --faction-paper-1: #2e2620;
+  --faction-paper-2: #15110d;
+  --faction-band: #b56a2e;
+  border-color: #6e4222;
+  color: #f0d8b6;
+  background:
+    linear-gradient(180deg, rgba(214, 122, 58, 0.18) 0%, transparent 18%),
+    linear-gradient(180deg, var(--faction-paper-1) 0%, var(--faction-paper-2) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(214, 122, 58, 0.42),
+    inset 0 0 0 3px rgba(8, 6, 4, 0.6),
+    0 12px 26px rgba(0, 0, 0, 0.5);
+}
+
+.hand-card.class-virex::before {
+  /* rust streaks + warning chevrons */
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(115deg,
+      rgba(110, 216, 216, 0.05) 0 2px,
+      transparent 2px 16px),
+    repeating-linear-gradient(0deg,
+      rgba(214, 122, 58, 0.06) 0 2px,
+      transparent 2px 24px),
+    radial-gradient(circle at 12% 86%, rgba(214, 122, 58, 0.18), transparent 28%),
+    radial-gradient(circle at 88% 22%, rgba(214, 122, 58, 0.14), transparent 26%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-virex::after {
+  /* riveted gunmetal plate banner */
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 6px;
+  height: 28px;
+  border-radius: 3px;
+  background:
+    radial-gradient(circle at 6px 50%, #6ed8d8 0 1.5px, transparent 2px),
+    radial-gradient(circle at calc(100% - 6px) 50%, #6ed8d8 0 1.5px, transparent 2px),
+    linear-gradient(180deg, #4a3826 0%, #1f1814 50%, #14100c 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 200, 130, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 2px 0 rgba(0, 0, 0, 0.42);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-virex .card-name {
+  position: relative;
+  z-index: 2;
+  color: #f3d9aa;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 6px rgba(110, 216, 216, 0.32), 0 1px 0 rgba(0, 0, 0, 0.7);
+}
+
+.hand-card.class-virex .card-cost {
+  background: linear-gradient(180deg, #d97a32 0%, #6e3a18 100%);
+  border-color: #6ed8d8;
+  color: #fff5e0;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 0 10px rgba(110, 216, 216, 0.4);
+}
+
+.hand-card.class-virex .card-role {
+  background: rgba(110, 216, 216, 0.18);
+  border-color: rgba(110, 216, 216, 0.46);
+  color: #c8f4f4;
+}
+
+.hand-card.class-virex .card-text {
+  background: rgba(8, 6, 4, 0.52);
+  color: #f0d8b6;
+  border: 1px solid rgba(214, 122, 58, 0.28);
+}
+
+.hand-card.class-virex .card-art::before {
+  /* cracked metal plate w/ glowing cyan instrument crack */
+  background:
+    linear-gradient(125deg,
+      transparent 0 38%,
+      rgba(110, 216, 216, 0.55) 39% 41%,
+      transparent 42%),
+    radial-gradient(circle at 70% 28%, rgba(110, 216, 216, 0.5) 0 3%, transparent 5%),
+    radial-gradient(circle at 22% 72%, rgba(214, 122, 58, 0.42) 0 6%, transparent 8%),
+    repeating-linear-gradient(45deg,
+      rgba(0, 0, 0, 0.18) 0 3px,
+      transparent 3px 8px),
+    linear-gradient(135deg, #3a2c20 0%, #5a3a22 45%, #1a120c 100%);
+}
+
+.hand-card.class-virex .card-art-glyph {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(110, 216, 216, 0.55), transparent 60%),
+    rgba(0, 0, 0, 0.62);
+  box-shadow:
+    inset 0 0 0 1px rgba(110, 216, 216, 0.6),
+    0 2px 6px rgba(0, 0, 0, 0.6);
+  filter: drop-shadow(0 0 8px rgba(110, 216, 216, 0.7));
+}
+
+/* =====================================================================
+ * Faction 4: ELYRA — Bionic Nature Elves (engineered forest)
+ * Palette: #5cb89a moss-cyan, #2a3a2c deep canopy, #c79b4a brass, #9af0c0 bio-light
+ * Mood: living wood w/ bio-luminescent veins, brass+copper bindings, organic curves
+ * ===================================================================== */
+.hand-card.class-elyra {
+  --faction-ink: #e8f6e0;
+  --faction-paper-1: #2a3a2c;
+  --faction-paper-2: #16241a;
+  --faction-band: #5cb89a;
+  border-color: #4a8a72;
+  color: #e8f6e0;
+  background:
+    linear-gradient(180deg, rgba(154, 240, 192, 0.18) 0%, transparent 18%),
+    linear-gradient(180deg, var(--faction-paper-1) 0%, var(--faction-paper-2) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(154, 240, 192, 0.36),
+    inset 0 0 0 3px rgba(199, 155, 74, 0.22),
+    0 12px 26px rgba(0, 0, 0, 0.46);
+}
+
+.hand-card.class-elyra::before {
+  /* bio-luminescent vein lattice + moss texture */
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 6px;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(154, 240, 192, 0.18) 0 12%, transparent 14%),
+    radial-gradient(circle at 82% 78%, rgba(154, 240, 192, 0.18) 0 14%, transparent 16%),
+    radial-gradient(circle at 50% 50%, rgba(199, 155, 74, 0.08), transparent 50%),
+    repeating-linear-gradient(60deg,
+      rgba(154, 240, 192, 0.05) 0 2px,
+      transparent 2px 18px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-elyra::after {
+  /* living-wood banner w/ brass binding */
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 6px;
+  height: 28px;
+  border-radius: 3px 3px 14px 14px;
+  background:
+    radial-gradient(ellipse at 8% 100%, rgba(154, 240, 192, 0.42) 0 14%, transparent 18%),
+    radial-gradient(ellipse at 92% 100%, rgba(154, 240, 192, 0.42) 0 14%, transparent 18%),
+    linear-gradient(180deg, #4a3a1c 0%, #2a2010 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(199, 155, 74, 0.5),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-elyra .card-name {
+  position: relative;
+  z-index: 2;
+  color: #e8f6e0;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  text-shadow: 0 0 8px rgba(154, 240, 192, 0.34), 0 1px 0 rgba(0, 0, 0, 0.7);
+}
+
+.hand-card.class-elyra .card-cost {
+  background: linear-gradient(180deg, #5cb89a 0%, #2a6850 100%);
+  border-color: #c79b4a;
+  color: #f8ffe8;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.34), 0 0 10px rgba(154, 240, 192, 0.46);
+}
+
+.hand-card.class-elyra .card-role {
+  background: rgba(154, 240, 192, 0.16);
+  border-color: rgba(199, 155, 74, 0.5);
+  color: #d6f4d2;
+}
+
+.hand-card.class-elyra .card-text {
+  background: rgba(8, 14, 10, 0.56);
+  color: #e8f6e0;
+  border: 1px solid rgba(154, 240, 192, 0.24);
+}
+
+.hand-card.class-elyra .card-art::before {
+  /* woven branches w/ glowing moss */
+  background:
+    radial-gradient(circle at 28% 32%, rgba(154, 240, 192, 0.55) 0 6%, transparent 8%),
+    radial-gradient(circle at 72% 68%, rgba(154, 240, 192, 0.45) 0 5%, transparent 7%),
+    radial-gradient(ellipse at 50% 40%, rgba(199, 155, 74, 0.34), transparent 36%),
+    repeating-linear-gradient(35deg,
+      rgba(74, 138, 114, 0.42) 0 4px,
+      rgba(34, 64, 50, 0.4) 4px 8px),
+    linear-gradient(135deg, #2a4a3a 0%, #1a2e22 100%);
+}
+
+.hand-card.class-elyra .card-art-glyph {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(154, 240, 192, 0.6), transparent 60%),
+    rgba(0, 0, 0, 0.5);
+  box-shadow:
+    inset 0 0 0 1px rgba(199, 155, 74, 0.7),
+    0 2px 6px rgba(0, 0, 0, 0.5);
+  filter: drop-shadow(0 0 8px rgba(154, 240, 192, 0.7));
+}
+
+/* =====================================================================
+ * Faction 5: GORATH — Abyssal Orcs (deep ocean predator)
+ * Palette: #7a4ec2 abyssal violet, #1a1428 lightless deep, #2a8a8a dim teal
+ *          phosphorescence, #d6c8a4 bone, #4a3022 kelp leather
+ * Mood: bone armor, abyssal violet, dim teal phosphorescence, tribal carvings
+ * ===================================================================== */
+.hand-card.class-gorath {
+  --faction-ink: #e8e0d4;
+  --faction-paper-1: #281c34;
+  --faction-paper-2: #110a1c;
+  --faction-band: #7a4ec2;
+  border-color: #4e2c80;
+  color: #e8e0d4;
+  background:
+    linear-gradient(180deg, rgba(122, 78, 194, 0.22) 0%, transparent 20%),
+    linear-gradient(180deg, var(--faction-paper-1) 0%, var(--faction-paper-2) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(122, 78, 194, 0.5),
+    inset 0 0 0 3px rgba(8, 4, 12, 0.62),
+    0 12px 26px rgba(0, 0, 0, 0.56);
+}
+
+.hand-card.class-gorath::before {
+  /* abyssal pressure haze + tribal carving lines */
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 6px;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(42, 138, 138, 0.22) 0 16%, transparent 20%),
+    radial-gradient(circle at 82% 82%, rgba(42, 138, 138, 0.18) 0 18%, transparent 22%),
+    repeating-linear-gradient(0deg,
+      rgba(214, 200, 164, 0.04) 0 1px,
+      transparent 1px 26px),
+    repeating-linear-gradient(90deg,
+      rgba(122, 78, 194, 0.05) 0 2px,
+      transparent 2px 36px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-gorath::after {
+  /* bone-fragment banner w/ abyssal glow */
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 6px;
+  height: 28px;
+  border-radius: 4px;
+  background:
+    radial-gradient(circle at 50% 100%, rgba(122, 78, 194, 0.5) 0 30%, transparent 32%),
+    linear-gradient(180deg, #d6c8a4 0%, #8a7a52 60%, #4a3a26 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 200, 0.5),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 0 12px rgba(122, 78, 194, 0.5);
+  pointer-events: none;
+  z-index: 0;
+  /* irregular bone-edge */
+  clip-path: polygon(
+    0% 30%, 4% 0%, 12% 22%, 22% 0%, 34% 18%, 50% 0%, 66% 18%, 78% 0%, 88% 22%, 96% 0%, 100% 30%,
+    100% 100%, 0% 100%
+  );
+}
+
+.hand-card.class-gorath .card-name {
+  position: relative;
+  z-index: 2;
+  color: #2a1a0e;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 6px rgba(214, 200, 164, 0.5);
+}
+
+.hand-card.class-gorath .card-cost {
+  background: linear-gradient(180deg, #7a4ec2 0%, #2c1850 100%);
+  border-color: #d6c8a4;
+  color: #f8f0e2;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.42), 0 0 12px rgba(122, 78, 194, 0.6);
+}
+
+.hand-card.class-gorath .card-role {
+  background: rgba(122, 78, 194, 0.22);
+  border-color: rgba(214, 200, 164, 0.42);
+  color: #ece4d2;
+}
+
+.hand-card.class-gorath .card-text {
+  background: rgba(6, 4, 12, 0.62);
+  color: #e8e0d4;
+  border: 1px solid rgba(122, 78, 194, 0.32);
+}
+
+.hand-card.class-gorath .card-art::before {
+  /* bone fragments + dim teal phosphorescence in abyssal violet */
+  background:
+    radial-gradient(circle at 30% 40%, rgba(214, 200, 164, 0.62) 0 5%, transparent 6%),
+    radial-gradient(circle at 70% 60%, rgba(214, 200, 164, 0.55) 0 4%, transparent 5%),
+    radial-gradient(circle at 50% 80%, rgba(214, 200, 164, 0.4) 0 3%, transparent 4%),
+    radial-gradient(circle at 50% 50%, rgba(42, 138, 138, 0.45), transparent 42%),
+    conic-gradient(from 200deg at 50% 50%,
+      #1a0e2c 0deg, #4a2c80 90deg, #1a0e2c 180deg, #2c1448 270deg, #1a0e2c 360deg);
+}
+
+.hand-card.class-gorath .card-art-glyph {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(214, 200, 164, 0.55), transparent 60%),
+    rgba(0, 0, 0, 0.58);
+  box-shadow:
+    inset 0 0 0 1px rgba(214, 200, 164, 0.7),
+    0 2px 6px rgba(0, 0, 0, 0.6);
+  filter: drop-shadow(0 0 10px rgba(122, 78, 194, 0.75));
+}
+
+/* ---- Hover/drag faction-glow polish (works for all factions) ---- */
+.hand-card.class-virex.playable:hover,
+.standoff-hand .hand-card.class-virex.playable:hover {
+  box-shadow:
+    0 0 0 3px rgba(110, 216, 216, 0.6),
+    0 0 22px rgba(214, 122, 58, 0.42),
+    0 22px 40px rgba(0, 0, 0, 0.6);
+}
+
+.hand-card.class-elyra.playable:hover,
+.standoff-hand .hand-card.class-elyra.playable:hover {
+  box-shadow:
+    0 0 0 3px rgba(154, 240, 192, 0.55),
+    0 0 22px rgba(154, 240, 192, 0.34),
+    0 22px 40px rgba(0, 0, 0, 0.6);
+}
+
+.hand-card.class-gorath.playable:hover,
+.standoff-hand .hand-card.class-gorath.playable:hover {
+  box-shadow:
+    0 0 0 3px rgba(122, 78, 194, 0.7),
+    0 0 24px rgba(42, 138, 138, 0.42),
+    0 22px 40px rgba(0, 0, 0, 0.65);
+}
+
+.hand-card.class-rook.playable:hover,
+.standoff-hand .hand-card.class-rook.playable:hover {
+  box-shadow:
+    0 0 0 3px rgba(225, 156, 72, 0.55),
+    0 0 22px rgba(225, 156, 72, 0.36),
+    0 22px 40px rgba(0, 0, 0, 0.55);
+}
+
+.hand-card.class-lyra.playable:hover,
+.standoff-hand .hand-card.class-lyra.playable:hover {
+  box-shadow:
+    0 0 0 3px rgba(74, 163, 108, 0.55),
+    0 0 22px rgba(255, 180, 100, 0.32),
+    0 22px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* ---- Standoff-fan size adjustments: art slot must shrink, text legible ---- */
+.standoff-hand .hand-card {
+  grid-template-rows: auto minmax(40px, 1fr) auto auto;
+  gap: 5px;
+  padding: 10px 8px 8px;
+}
+
+.standoff-hand .hand-card .card-art {
+  min-height: 40px;
+}
+
+.standoff-hand .hand-card .card-art-glyph {
+  width: 28px;
+  height: 28px;
+}
+
+.standoff-hand .hand-card .card-name {
+  padding-left: 18px;
+  font-size: 0.82rem;
+}
+
+.standoff-hand .hand-card .card-text {
+  min-height: 28px;
+  padding: 4px 4px 3px;
+  font-size: 0.7rem;
+  line-height: 1.16;
+}
+
+.standoff-hand .hand-card .card-role {
+  padding: 2px 7px;
+  font-size: 0.6rem;
+}
+
+.standoff-hand .hand-card::after {
+  /* shrink the banner so it doesn't dominate at smaller card size */
+  height: 22px;
+  top: 5px;
+}
+
+/* ---- Queued-mini faction tinting (keeps each player visually identifiable) ---- */
+.queued-mini.class-virex {
+  background:
+    radial-gradient(circle at 16% 50%, rgba(110, 216, 216, 0.42), transparent 60%),
+    linear-gradient(180deg, rgba(74, 56, 38, 0.94), rgba(20, 16, 12, 0.96));
+  border-color: rgba(214, 122, 58, 0.58);
+  color: #f3d9aa;
+}
+
+.queued-mini.class-virex .queued-cost {
+  background: linear-gradient(180deg, #d97a32, #6e3a18);
+  border-color: #6ed8d8;
+}
+
+.queued-mini.class-elyra {
+  background:
+    radial-gradient(circle at 16% 50%, rgba(154, 240, 192, 0.42), transparent 60%),
+    linear-gradient(180deg, rgba(34, 50, 38, 0.94), rgba(14, 22, 16, 0.96));
+  border-color: rgba(199, 155, 74, 0.5);
+  color: #e8f6e0;
+}
+
+.queued-mini.class-elyra .queued-cost {
+  background: linear-gradient(180deg, #5cb89a, #2a6850);
+  border-color: #c79b4a;
+}
+
+.queued-mini.class-gorath {
+  background:
+    radial-gradient(circle at 16% 50%, rgba(122, 78, 194, 0.5), transparent 60%),
+    linear-gradient(180deg, rgba(36, 24, 48, 0.95), rgba(14, 8, 22, 0.97));
+  border-color: rgba(214, 200, 164, 0.42);
+  color: #ece4d2;
+}
+
+.queued-mini.class-gorath .queued-cost {
+  background: linear-gradient(180deg, #7a4ec2, #2c1850);
+  border-color: #d6c8a4;
+}
+
+.queued-mini.class-rook {
+  background:
+    radial-gradient(circle at 16% 50%, rgba(225, 156, 72, 0.4), transparent 60%),
+    linear-gradient(180deg, rgba(48, 32, 22, 0.94), rgba(20, 14, 10, 0.96));
+  border-color: rgba(225, 156, 72, 0.5);
+  color: #f6e8c4;
+}
+
+.queued-mini.class-rook .queued-cost {
+  background: linear-gradient(180deg, #d8a85a, #8d5a24);
+  border-color: #f3dba2;
+  color: #1d100a;
+}
+
+.queued-mini.class-lyra {
+  background:
+    radial-gradient(circle at 16% 50%, rgba(74, 163, 108, 0.42), transparent 60%),
+    linear-gradient(180deg, rgba(32, 44, 32, 0.94), rgba(14, 22, 16, 0.96));
+  border-color: rgba(74, 163, 108, 0.5);
+  color: #e8f0d8;
+}
+
+.queued-mini.class-lyra .queued-cost {
+  background: linear-gradient(180deg, #e3a85c, #8c4a1d);
+  border-color: #f6dba0;
+  color: #1d100a;
+}
+
+/* ---- Drag-ghost preserves the faction frame (faction-tinted shadow) ---- */
+.hand-card.class-virex.being-dragged {
+  box-shadow:
+    0 0 0 3px rgba(110, 216, 216, 0.7),
+    0 0 28px rgba(214, 122, 58, 0.5),
+    0 26px 50px rgba(0, 0, 0, 0.7);
+}
+.hand-card.class-elyra.being-dragged {
+  box-shadow:
+    0 0 0 3px rgba(154, 240, 192, 0.7),
+    0 0 28px rgba(154, 240, 192, 0.46),
+    0 26px 50px rgba(0, 0, 0, 0.7);
+}
+.hand-card.class-gorath.being-dragged {
+  box-shadow:
+    0 0 0 3px rgba(122, 78, 194, 0.8),
+    0 0 30px rgba(42, 138, 138, 0.5),
+    0 26px 50px rgba(0, 0, 0, 0.75);
+}
+.hand-card.class-rook.being-dragged {
+  box-shadow:
+    0 0 0 3px rgba(225, 156, 72, 0.65),
+    0 0 28px rgba(225, 156, 72, 0.46),
+    0 26px 50px rgba(0, 0, 0, 0.65);
+}
+.hand-card.class-lyra.being-dragged {
+  box-shadow:
+    0 0 0 3px rgba(74, 163, 108, 0.65),
+    0 0 28px rgba(255, 180, 100, 0.42),
+    0 26px 50px rgba(0, 0, 0, 0.65);
+}
+
+/* ---- Element layering: ensure card content sits above ::before/::after ---- */
+.hand-card .card-cost,
+.hand-card .card-name,
+.hand-card .card-art,
+.hand-card .card-role,
+.hand-card .card-text {
+  position: relative;
+  z-index: 2;
+}
+.hand-card .card-cost {
+  z-index: 3;
+}

@@ -674,9 +674,15 @@ function renderHandCard(player, cardInstance, cardIndex, totalCards, side) {
 }
 
 function renderCardFace(card) {
+  // The .card-art slot fills the second grid row of .hand-card. The faction
+  // backdrop comes from .hand-card.class-* (set on the parent button); the
+  // .card-art element layers a role-themed emblem on top of that backdrop.
   return `
     <span class="card-cost">${card.cost}</span>
     <span class="card-name">${escapeHtml(card.name)}</span>
+    <span class="card-art role-${card.role}" aria-hidden="true">
+      <span class="card-art-glyph"></span>
+    </span>
     <span class="card-role">${formatRole(card.role)}</span>
     <span class="card-text">${escapeHtml(card.text)}</span>
   `;
