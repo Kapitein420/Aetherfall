@@ -1644,17 +1644,205 @@ body.card-over-play .hand-card.being-dragged {
 }
 
 .log-drawer {
-  padding: 12px 16px;
+  padding: 8px 14px;
 }
 
-.log-drawer ol {
+body[data-game-view="active"] .log-drawer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 160px;
+  overflow: hidden;
+}
+
+body[data-game-view="active"] .log-drawer h2 {
+  flex-shrink: 0;
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #c8d0c7;
+}
+
+body[data-game-view="active"] .log-drawer ol.log-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 208, 131, 0.32) transparent;
+  margin-top: 0;
+}
+
+.log-drawer ol.log-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 6px 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 10px;
   margin: 10px 0 0;
-  padding-left: 22px;
+  padding: 0;
+  list-style: none;
   color: #cbd5cc;
   font-size: 0.86rem;
+}
+
+.log-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  border: 1px solid rgba(246, 240, 223, 0.08);
+  border-radius: 6px;
+  padding: 4px 10px;
+  background: rgba(246, 240, 223, 0.04);
+  line-height: 1.32;
+}
+
+.log-entry .log-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.log-entry-round-start {
+  grid-column: 1 / -1;
+  border-color: rgba(245, 208, 131, 0.36);
+  background: linear-gradient(90deg, rgba(245, 208, 131, 0.18), rgba(245, 208, 131, 0.04) 70%);
+  color: #f5d083;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  margin-top: 6px;
+}
+
+.log-entry-round-start:first-child {
+  margin-top: 0;
+}
+
+.log-round-badge {
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.32);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.log-entry-phase-banner {
+  grid-column: 1 / -1;
+  justify-content: center;
+  border: 0;
+  background: linear-gradient(90deg, transparent, rgba(246, 240, 223, 0.12) 30%, rgba(246, 240, 223, 0.12) 70%, transparent);
+  color: #f6f0df;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+}
+
+.log-entry-phase-banner.phase-monster {
+  background: linear-gradient(90deg, transparent, rgba(217, 93, 77, 0.32) 30%, rgba(217, 93, 77, 0.32) 70%, transparent);
+  color: #f8c4b9;
+}
+
+.log-entry-card-use {
+  border-left: 3px solid var(--class-edge, rgba(245, 208, 131, 0.4));
+  padding-left: 12px;
+}
+
+.log-entry-card-use.class-rook,
+.log-entry-card-use.class-arian {
+  --class-edge: #c87a3a;
+  color: #f1d8b8;
+}
+
+.log-entry-card-use.class-lyra,
+.log-entry-card-use.class-wouter {
+  --class-edge: #4aa36c;
+  color: #d6ecd8;
+}
+
+.log-entry-card-use.class-geert {
+  --class-edge: #4ca8d8;
+  color: #cce6f5;
+}
+
+.log-entry-card-use.class-noah {
+  --class-edge: #b5305b;
+  color: #f3c8d4;
+}
+
+.log-cost {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #d8f4ff;
+  border-radius: 999px;
+  background: #1f5f7a;
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.log-entry-monster-attack {
+  grid-column: 1 / -1;
+  border-color: rgba(217, 93, 77, 0.5);
+  background: rgba(217, 93, 77, 0.12);
+  color: #fde0d8;
+  font-weight: 600;
+}
+
+.log-entry-monster-attack .log-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: #ff8b73;
+  font-size: 1rem;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.log-entry-outcome {
+  grid-column: 1 / -1;
+  justify-content: center;
+  padding: 14px 16px;
+  border: 2px solid currentColor;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  font-size: 1.05rem;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.log-entry-outcome.outcome-victory {
+  color: #7adb96;
+  background: linear-gradient(180deg, rgba(74, 163, 108, 0.18), rgba(0, 0, 0, 0.4));
+}
+
+.log-entry-outcome.outcome-defeat {
+  color: #ff7a66;
+  background: linear-gradient(180deg, rgba(217, 93, 77, 0.22), rgba(0, 0, 0, 0.4));
+}
+
+.log-entry-info {
+  color: #95a298;
+  font-style: italic;
+}
+
+@media (max-width: 720px) {
+  .log-drawer ol.log-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 980px) {
@@ -2178,22 +2366,44 @@ body.card-over-play .hand-card.being-dragged {
  * Inscryption-style baseplates under feet, Wildermyth-style status pips.
  * =========================================================================== */
 
+/* When a game is active, give it the full viewport width and fit-to-height. */
+body[data-game-view="active"] #app {
+  width: 100%;
+  max-width: none;
+  padding: 8px;
+}
+
+body[data-game-view="active"] {
+  overflow: hidden;
+}
+
 .standoff-table {
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  gap: 14px;
-  min-height: calc(100vh - 36px);
+  grid-template-rows: auto auto 1fr 160px;
+  gap: 8px;
+  height: calc(100dvh - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow: hidden;
+}
+
+.standoff-table .table-topbar {
+  padding: 4px 4px 6px;
+}
+
+.standoff-table .table-topbar h1 {
+  font-size: clamp(1.4rem, 2.4vw, 2.4rem);
+  line-height: 1;
 }
 
 .standoff-stage {
   position: relative;
   display: grid;
-  grid-template-rows: minmax(420px, 1fr) auto auto auto;
-  gap: 12px;
-  min-height: 760px;
+  grid-template-rows: minmax(0, 1fr) auto auto auto;
+  gap: 8px;
+  min-height: 0;
   border: 1px solid rgba(246, 240, 223, 0.16);
   border-radius: 12px;
-  padding: 22px 22px 12px;
+  padding: 14px 14px 8px;
   overflow: hidden;
   background:
     radial-gradient(ellipse at 50% 110%, rgba(11, 14, 13, 0.7) 0 35%, transparent 70%),
@@ -2288,7 +2498,7 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   position: relative;
   display: grid;
   place-items: center;
-  width: clamp(320px, 38vw, 480px);
+  width: clamp(220px, 28vh, 360px);
   aspect-ratio: 1 / 1;
   filter: drop-shadow(0 30px 26px rgba(0, 0, 0, 0.52));
   pointer-events: none;
@@ -2670,7 +2880,7 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
 
 .champion-art {
   position: relative;
-  width: clamp(180px, 18vw, 260px);
+  width: clamp(140px, 18vh, 220px);
   aspect-ratio: 3 / 4;
   border-radius: 24px 24px 60% 60% / 18px 18px 40% 40%;
   overflow: hidden;
@@ -3018,13 +3228,13 @@ body.dragging-card .standoff-play-zone {
   align-items: end;
   gap: 0;
   width: 100%;
-  min-height: 230px;
+  min-height: 0;
   overflow: visible;
-  padding: 16px 12px 4px;
+  padding: 8px 8px 2px;
 }
 
-.standoff-hand-cluster.left .coop-hand-arc { justify-content: flex-start; padding-left: 18px; }
-.standoff-hand-cluster.right .coop-hand-arc { justify-content: flex-end; padding-right: 18px; }
+.standoff-hand-cluster.left .coop-hand-arc { justify-content: flex-start; padding-left: 12px; }
+.standoff-hand-cluster.right .coop-hand-arc { justify-content: flex-end; padding-right: 12px; }
 
 /* The hand-card base style is already defined further up — we just override
  * the coop-card-grid sizing it inherited and add fan rotation.
@@ -3032,12 +3242,12 @@ body.dragging-card .standoff-play-zone {
 .standoff-hand .hand-card {
   --card-rotation: 0deg;
   --card-lift: 0px;
-  flex: 0 0 144px;
-  width: 144px;
-  margin-left: -22px;
+  flex: 0 0 clamp(108px, 11vw, 138px);
+  width: clamp(108px, 11vw, 138px);
+  margin-left: -18px;
   transform: translateY(var(--card-lift)) rotate(var(--card-rotation));
   transform-origin: 50% 110%;
-  min-height: 210px;
+  min-height: clamp(150px, 19vh, 200px);
 }
 
 .standoff-hand .hand-card:first-child {

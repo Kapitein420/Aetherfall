@@ -1,0 +1,110 @@
+[
+  {
+    "Faction": "Space Pirates",
+    "Character Name": "Captain Virex",
+    "Role": "Loot Fleet Captain",
+    "Environment / Purpose": "ship graveyard hangar"
+  },
+  {
+    "Faction": "Space Pirates",
+    "Character Name": "Captain Virex",
+    "Role": "Loot Fleet Captain",
+    "Environment / Purpose": "4-angle production sheet"
+  },
+  {
+    "Faction": "Space Pirates",
+    "Character Name": "Nyx Voidrunner",
+    "Role": "Smuggler / Infiltration Scout",
+    "Environment / Purpose": "narrow orbital smuggler alley"
+  },
+  {
+    "Faction": "Space Pirates",
+    "Character Name": "Nyx Voidrunner",
+    "Role": "Smuggler / Infiltration Scout",
+    "Environment / Purpose": "4-angle production sheet"
+  },
+  {
+    "Faction": "Space Pirates",
+    "Character Name": "Rook Salvager",
+    "Role": "Relic Scavenger / Mechanic",
+    "Environment / Purpose": "open docking platform beside a stripped starship"
+  },
+  {
+    "Faction": "Space Pirates",
+    "Character Name": "Rook Salvager",
+    "Role": "Relic Scavenger / Mechanic",
+    "Environment / Purpose": "4-angle production sheet"
+  },
+  {
+    "Faction": "Bionic Nature Elves",
+    "Character Name": "Elyra Rootweaver",
+    "Role": "Forest Golem Architect",
+    "Environment / Purpose": "engineered forest core chamber"
+  },
+  {
+    "Faction": "Bionic Nature Elves",
+    "Character Name": "Elyra Rootweaver",
+    "Role": "Forest Golem Architect",
+    "Environment / Purpose": "4-angle production sheet"
+  },
+  {
+    "Faction": "Bionic Nature Elves",
+    "Character Name": "Thalen Canopy Warden",
+    "Role": "Canopy Guardian",
+    "Environment / Purpose": "high living canopy walkway"
+  },
+  {
+    "Faction": "Bionic Nature Elves",
+    "Character Name": "Thalen Canopy Warden",
+    "Role": "Canopy Guardian",
+    "Environment / Purpose": "4-angle production sheet"
+  },
+  {
+    "Faction": "Bionic Nature Elves",
+    "Character Name": "Sylvein Bioforge",
+    "Role": "Bio-Engineer / Construct Surgeon",
+    "Environment / Purpose": "subterranean root laboratory"
+  },
+  {
+    "Faction": "Bionic Nature Elves",
+    "Character Name": "Sylvein Bioforge",
+    "Role": "Bio-Engineer / Construct Surgeon",
+    "Environment / Purpose": "4-angle production sheet"
+  },
+  {
+    "Faction": "Abyssal Orcs",
+    "Character Name": "Gorath Deepbreaker",
+    "Role": "Abyss Hunter",
+    "Environment / Purpose": "deep ocean floor hunting ground"
+  },
+  {
+    "Faction": "Abyssal Orcs",
+    "Character Name": "Gorath Deepbreaker",
+    "Role": "Abyss Hunter",
+    "Environment / Purpose": "4-angle production sheet"
+  },
+  {
+    "Faction": "Abyssal Orcs",
+    "Character Name": "Mura Tidebinder",
+    "Role": "Tide Caller / Ritual Mediator",
+    "Environment / Purpose": "quiet coral shrine"
+  },
+  {
+    "Faction": "Abyssal Orcs",
+    "Character Name": "Mura Tidebinder",
+    "Role": "Tide Caller / Ritual Mediator",
+    "Environment / Purpose": "4-angle production sheet"
+  },
+  {
+    "Faction": "Abyssal Orcs",
+    "Character Name": "Drogg Symbiarch",
+    "Role": "Symbiote Host / Deep Guardian",
+    "Environment / Purpose": "black abyss cave"
+  },
+  {
+    "Faction": "Abyssal Orcs",
+    "Character Name": "Drogg Symbiarch",
+    "Role": "Symbiote Host / Deep Guardian",
+    "Environment / Purpose": "4-angle production sheet"
+  }
+]

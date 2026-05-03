@@ -31,7 +31,11 @@ export function createCoopBattle(config = {}) {
     drawCards(state, player, DRAW_PER_ROUND);
   }
 
-  pushLog(state, "Round 1 begins. Both players plan their actions.");
+  pushLog(state, {
+    kind: "round-start",
+    round: 1,
+    text: "Round 1 begins. Plan your opening moves together.",
+  });
   return state;
 }
 
@@ -86,15 +90,31 @@ export function resolveRound(currentState) {
     throw new Error("Queue at least one action before resolving the round.");
   }
 
-  pushLog(state, `Round ${state.roundNumber} actions resolve.`);
+  pushLog(state, {
+    kind: "phase-banner",
+    phase: "player",
+    round: state.roundNumber,
+    text: `Round ${state.roundNumber} · Player phase`,
+  });
 
   for (const player of state.players) {
     for (const cardInstance of player.planned) {
       const card = getCardDefinition(cardInstance.cardId);
       player.energy -= card.cost;
+      const monsterHpBefore = state.monster.hp;
       resolveCard(state, player, card);
       player.discard.push(cardInstance);
-      pushLog(state, `${player.name} uses ${card.name}.`);
+      const damageDealt = monsterHpBefore - state.monster.hp;
+      pushLog(state, {
+        kind: "card-use",
+        actor: player.name,
+        classId: player.classId,
+        card: card.name,
+        role: card.role,
+        cost: card.cost,
+        damage: damageDealt > 0 ? damageDealt : 0,
+        text: buildCardUseText(player, card, damageDealt),
+      });
       if (state.monster.hp <= 0) {
         break;
       }
@@ -113,20 +133,42 @@ export function resolveRound(currentState) {
       target: { type: "monster" },
       label: state.monster.name,
     });
-    pushLog(state, `${state.monster.name} falls. The players win.`);
+    pushLog(state, {
+      kind: "outcome",
+      outcome: "victory",
+      text: `${state.monster.name} falls. The party wins.`,
+    });
     return state;
   }
 
+  pushLog(state, {
+    kind: "phase-banner",
+    phase: "monster",
+    round: state.roundNumber,
+    text: `Round ${state.roundNumber} · Monster phase`,
+  });
   resolveMonsterTurn(state);
   if (state.players.every((player) => player.hp <= 0)) {
     state.phase = "game-over";
     state.winner = "monster";
-    pushLog(state, `${state.monster.name} overwhelms the party.`);
+    pushLog(state, {
+      kind: "outcome",
+      outcome: "defeat",
+      text: `${state.monster.name} overwhelms the party.`,
+    });
     return state;
   }
 
   startNextRound(state);
   return state;
+}
+
+function buildCardUseText(player, card, damageDealt) {
+  const verb = card.role === "attack" ? "attacks with" : card.role === "defense" ? "braces" : card.role === "healing" ? "channels" : "plays";
+  if (damageDealt > 0) {
+    return `${player.name} ${verb} ${card.name} — ${damageDealt} damage`;
+  }
+  return `${player.name} ${verb} ${card.name}`;
 }
 
 export function getRemainingEnergy(player) {
@@ -322,8 +364,21 @@ function resolveMonsterTurn(state) {
   const damage = Math.max(1, state.monster.baseAttack + Math.floor(state.roundNumber / 2) - reduction);
   state.monster.statuses.weakened = 0;
 
+  const blockBefore = target.block;
   applyPlayerDamage(state, target, damage);
-  pushLog(state, `${state.monster.name} attacks ${target.name} for ${damage}.`);
+  const blocked = Math.min(blockBefore, damage);
+  const through = damage - blocked;
+  pushLog(state, {
+    kind: "monster-attack",
+    target: target.name,
+    targetClassId: target.classId,
+    damage,
+    blocked,
+    through,
+    text: through > 0
+      ? `${state.monster.name} strikes ${target.name} for ${damage} (${blocked > 0 ? `${blocked} blocked, ` : ""}${through} through)`
+      : `${state.monster.name} strikes ${target.name} — ${damage} fully blocked`,
+  });
   pushEvent(state, "spellHit", {
     target: { type: "player", playerId: target.id },
     amount: damage,
@@ -371,7 +426,15 @@ function startNextRound(state) {
   }
 
   state.roundNumber += 1;
-  pushLog(state, `Round ${state.roundNumber} begins. Energy rises and threat decays by ${THREAT_DECAY}.`);
+  const energyMax = state.players[0]?.energyMax ?? STARTING_ENERGY;
+  const threatSummary = state.players
+    .map((p) => `${p.name} ${getThreat(state, p.id)}`)
+    .join(" / ");
+  pushLog(state, {
+    kind: "round-start",
+    round: state.roundNumber,
+    text: `Round ${state.roundNumber} · Energy ${energyMax}/${MAX_ENERGY} · Threat: ${threatSummary}`,
+  });
 }
 
 function drawCards(state, player, count) {
@@ -468,8 +531,9 @@ function shuffle(items) {
 }
 
 function pushLog(state, entry) {
-  state.log.unshift(entry);
-  state.log = state.log.slice(0, 18);
+  const normalized = typeof entry === "string" ? { kind: "info", text: entry } : entry;
+  state.log.unshift(normalized);
+  state.log = state.log.slice(0, 24);
 }
 
 function pushEvent(state, type, payload = {}) {

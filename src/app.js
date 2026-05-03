@@ -173,6 +173,7 @@ function handleAction(element) {
 
 function render() {
   app.innerHTML = gameState ? renderGame() : renderSetup();
+  document.body.dataset.gameView = gameState ? "active" : "";
 
   if (gameState && gameState.phase !== "game-over") {
     if (!dragInited) {
@@ -399,8 +400,8 @@ function renderGame() {
 
       <section class="log-drawer">
         <h2>Battle log</h2>
-        <ol>
-          ${gameState.log.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}
+        <ol class="log-list">
+          ${gameState.log.map(renderLogEntry).join("")}
         </ol>
       </section>
     </section>
@@ -756,6 +757,38 @@ function getLatestEventId(state) {
   }
 
   return Math.max(...state.events.map((event) => event.id));
+}
+
+function renderLogEntry(entry) {
+  if (typeof entry === "string") {
+    return `<li class="log-entry log-entry-info">${escapeHtml(entry)}</li>`;
+  }
+  if (!entry || typeof entry !== "object") {
+    return "";
+  }
+  const kind = entry.kind ?? "info";
+  const classes = ["log-entry", `log-entry-${kind}`];
+  if (entry.classId) classes.push(`class-${entry.classId}`);
+  if (entry.targetClassId) classes.push(`target-class-${entry.targetClassId}`);
+  if (entry.role) classes.push(`role-${entry.role}`);
+  if (entry.outcome) classes.push(`outcome-${entry.outcome}`);
+  if (entry.phase) classes.push(`phase-${entry.phase}`);
+  const text = entry.text ?? "";
+
+  if (kind === "card-use") {
+    const cost = typeof entry.cost === "number" ? `<span class="log-cost">${entry.cost}</span>` : "";
+    return `<li class="${classes.join(" ")}">${cost}<span class="log-text">${escapeHtml(text)}</span></li>`;
+  }
+  if (kind === "monster-attack") {
+    return `<li class="${classes.join(" ")}"><span class="log-icon" aria-hidden="true">⚔</span><span class="log-text">${escapeHtml(text)}</span></li>`;
+  }
+  if (kind === "phase-banner") {
+    return `<li class="${classes.join(" ")}"><span class="log-text">${escapeHtml(text)}</span></li>`;
+  }
+  if (kind === "round-start") {
+    return `<li class="${classes.join(" ")}"><span class="log-round-badge">R${entry.round ?? ""}</span><span class="log-text">${escapeHtml(text)}</span></li>`;
+  }
+  return `<li class="${classes.join(" ")}"><span class="log-text">${escapeHtml(text)}</span></li>`;
 }
 
 function escapeHtml(value) {
