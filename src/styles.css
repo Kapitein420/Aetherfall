@@ -1924,6 +1924,21 @@ body[data-game-view="active"] .log-drawer ol.log-list {
   --class-glow: rgba(74, 163, 108, 0.42);
 }
 
+.class-virex {
+  --class-edge: #b56a2e;
+  --class-glow: rgba(214, 122, 58, 0.46);
+}
+
+.class-elyra {
+  --class-edge: #5cb89a;
+  --class-glow: rgba(92, 184, 154, 0.44);
+}
+
+.class-gorath {
+  --class-edge: #7a4ec2;
+  --class-glow: rgba(122, 78, 194, 0.48);
+}
+
 .coop-table {
   gap: 14px;
 }
