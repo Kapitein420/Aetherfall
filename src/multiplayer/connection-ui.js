@@ -106,7 +106,7 @@ function renderPanel(status) {
   return `
     <section id="${PANEL_ID}" class="mp-panel mp-state-${escapeHtml(state)}" aria-live="polite">
       <header class="mp-header">
-        <strong>Multiplayer</strong>
+        <span class="mp-title">Multiplayer</span>
         <span class="mp-state-badge">${escapeHtml(state)}</span>
       </header>
       ${body}

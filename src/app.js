@@ -257,34 +257,36 @@ function findTargetElement(targetKeyValue) {
 
 function renderSetup() {
   return `
-    <section class="setup-shell coop-setup">
-      <div class="topbar">
-        <div>
-          <p class="eyebrow">Co-op boss prototype</p>
-          <h1>The Fracture of Aetherfall</h1>
+    <section class="setup-shell setup-shell-v2">
+      <header class="setup-hero">
+        <div class="setup-hero-text">
+          <p class="eyebrow">The Fracture of Aetherfall</p>
+          <h1>Co-op Boss Trial</h1>
+          <p class="setup-tagline">Two champions. One monster. One plan.</p>
         </div>
-        <span class="status-pill">2 players vs 1 monster</span>
-      </div>
+        <div class="setup-hero-meta">
+          <span class="hero-pill">2 vs 1</span>
+          <span class="hero-pill subtle">Drag · Plan · Resolve</span>
+        </div>
+      </header>
 
-      <div class="setup-grid">
+      <div class="setup-grid setup-grid-v2">
         ${renderSetupPlayer("Player 1", "playerOneClass")}
         ${renderSetupPlayer("Player 2", "playerTwoClass")}
       </div>
 
-      <section class="rules-panel">
-        <h2>New Battle Rules</h2>
-        <div class="rules-grid">
-          <span>15-card deck per player</span>
-          <span>Draw 5 cards each round</span>
-          <span>Start at 3 energy</span>
-          <span>+1 max energy per round, max 10</span>
-          <span>Players plan actions together</span>
-          <span>Monster attacks highest threat</span>
-        </div>
-      </section>
+      <div class="rules-strip rules-strip-setup">
+        <span><strong>15-card</strong> deck</span>
+        <span class="rules-sep">·</span>
+        <span><strong>Draw 5</strong> each round</span>
+        <span class="rules-sep">·</span>
+        <span><strong>Start 3 energy</strong>, +1/round (cap 10)</span>
+        <span class="rules-sep">·</span>
+        <span><strong>Plan together</strong>, monster targets highest threat</span>
+      </div>
 
-      <div class="action-row">
-        <button class="primary-button" type="button" data-action="start-game">Start boss fight</button>
+      <div class="action-row setup-cta-row">
+        <button class="primary-button setup-cta" type="button" data-action="start-game">Start boss fight</button>
       </div>
     </section>
   `;
@@ -293,34 +295,44 @@ function renderSetup() {
 function renderSetupPlayer(label, classField) {
   const selectedClass = classDefinitions[setup[classField]];
   const championVisual = getChampionVisual(selectedClass.id);
+  const factionLabel = selectedClass.faction ?? "Free Champion";
+  const aspectChips = (selectedClass.aspect ?? "")
+    .split(/\s*\/\s*/)
+    .filter(Boolean)
+    .map((chip) => `<span class="aspect-chip">${escapeHtml(chip)}</span>`)
+    .join("");
   return `
-    <section class="setup-panel class-${selectedClass.id}">
+    <section class="setup-panel setup-panel-v2 class-${selectedClass.id}">
       <div class="setup-panel-header">
-        <img class="setup-champion-portrait" src="${championVisual.portrait}" alt="" aria-hidden="true" />
-        <div>
-          <h2>${label}</h2>
-          <strong>${selectedClass.shortName}</strong>
+        <span class="setup-player-tag">${escapeHtml(label)}</span>
+        <span class="setup-faction-tag">${escapeHtml(factionLabel)}</span>
+      </div>
+      <div class="setup-panel-body">
+        <div class="setup-portrait-wrap">
+          <img class="setup-champion-portrait" src="${championVisual.portrait}" alt="${escapeHtml(selectedClass.shortName)}" />
+        </div>
+        <div class="setup-character-info">
+          <h2 class="setup-class-name">${escapeHtml(selectedClass.shortName)}</h2>
+          <p class="setup-class-role">${escapeHtml(selectedClass.role)}</p>
+          <div class="aspect-chips">${aspectChips}</div>
+          <p class="setup-class-summary">${escapeHtml(selectedClass.summary)}</p>
+          <p class="setup-class-personality">${escapeHtml(selectedClass.personality)}</p>
         </div>
       </div>
-      <label>
-        Character Deck
+      <label class="setup-deck-selector">
+        <span class="setup-deck-label">Character deck</span>
         <select data-setup-field="${classField}">
           ${selectableClasses
             .map(
               (classDef) => `
                 <option value="${classDef.id}" ${setup[classField] === classDef.id ? "selected" : ""}>
-                  ${classDef.shortName} - ${classDef.role}
+                  ${classDef.shortName} — ${classDef.role}
                 </option>
               `,
             )
             .join("")}
         </select>
       </label>
-      <div class="champion-summary">
-        <strong>${selectedClass.aspect}</strong>
-        <span>${selectedClass.summary}</span>
-        <small>${selectedClass.personality}</small>
-      </div>
     </section>
   `;
 }
