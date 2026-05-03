@@ -338,16 +338,33 @@ function renderGame() {
   return `
     <section class="game-table standoff-table">
       <div class="table-topbar">
-        <div>
+        <div class="topbar-title">
           <p class="eyebrow">Round ${gameState.roundNumber}</p>
           <h1>${gameOver ? renderWinnerTitle() : "Plan the round"}</h1>
         </div>
-        <div class="topbar-actions">
-          <span class="status-pill">${totalQueued} queued actions</span>
+        <div class="topbar-center">
+          <span class="status-pill">${totalQueued} queued</span>
           <button class="end-turn-button" type="button" data-action="resolve-round" ${gameOver ? "disabled" : ""}>Resolve round</button>
+        </div>
+        <div class="topbar-actions">
           <button class="secondary-button" type="button" data-action="new-game">New fight</button>
         </div>
       </div>
+
+      <div class="rules-strip" aria-label="Round flow">
+        <span><strong>Plan</strong> together · drag cards onto a target</span>
+        <span class="rules-sep">›</span>
+        <span><strong>Resolve</strong> · player phase, then monster strikes highest threat</span>
+        <span class="rules-sep">›</span>
+        <span><strong>New round</strong> · draw 5, +1 energy (cap 10), threat decays 3</span>
+      </div>
+
+      <section class="log-drawer log-drawer-top">
+        <h2>Battle log</h2>
+        <ol class="log-list">
+          ${gameState.log.map(renderLogEntry).join("")}
+        </ol>
+      </section>
 
       ${message ? `<div class="message-bar">${escapeHtml(message)}</div>` : ""}
 
@@ -397,13 +414,6 @@ function renderGame() {
       </div>
 
       <div class="standoff-drag-ghost" data-drag-ghost aria-hidden="true"></div>
-
-      <section class="log-drawer">
-        <h2>Battle log</h2>
-        <ol class="log-list">
-          ${gameState.log.map(renderLogEntry).join("")}
-        </ol>
-      </section>
     </section>
   `;
 }
