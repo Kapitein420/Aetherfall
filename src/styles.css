@@ -6,6 +6,24 @@
   color: #f6f0df;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+
+  /* ===== Element palette (canonical-rules §4 + §8) ===== */
+  /* The three primary tokens are bio / hydro / storm — every other element
+     is a secondary tag (physical, spell, toxic, net, etc.). Canonical names
+     and engine ids are aliased so either CSS class works. */
+  --element-bio: #5cd66b;
+  --element-biohack: #5cd66b;
+  --element-bio-growth: #5cd66b;
+  --element-hydro: #3ec4ff;
+  --element-water: #3ec4ff;
+  --element-hydroflow: #3ec4ff;
+  --element-storm: #c084ff;
+  --element-overclock: #c084ff;
+  --element-storm-charge: #c084ff;
+  --element-physical: #a8b3bd;
+  --element-spell: #b58cff;
+  --element-toxic: #9bd24b;
+  --element-net: #7be0c8;
 }
 
 * {
@@ -1355,6 +1373,54 @@ body.card-over-play .hand-card.being-dragged {
   font-size: 1.1rem;
   font-weight: 900;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+/* Top-right corner element badge — mirrors the cost orb, picks up the
+   canonical element colour. The shape inside the badge is the primary
+   affordance; the colour is reinforcement (so badges stay distinguishable
+   in grayscale). */
+.card-element {
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #0e1620;
+  border: 2px solid currentColor;
+  font-size: 14px;
+  line-height: 1;
+  z-index: 2;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+.card-element svg {
+  display: block;
+}
+.card-element.elem-water,
+.card-element.elem-hydroflow {
+  color: var(--element-water);
+}
+.card-element.elem-toxic {
+  color: var(--element-toxic);
+}
+.card-element.elem-biohack,
+.card-element.elem-bio-growth {
+  color: var(--element-biohack);
+}
+.card-element.elem-overclock,
+.card-element.elem-storm-charge {
+  color: var(--element-overclock);
+}
+.card-element.elem-net {
+  color: var(--element-net);
+}
+.card-element.elem-physical {
+  color: var(--element-physical);
+}
+.card-element.elem-spell {
+  color: var(--element-spell);
 }
 
 .card-name {
@@ -5096,6 +5162,15 @@ body.dragging-card .standoff-champion {
 .resist-chip em {
   font-style: normal;
 }
+.resist-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+.resist-chip-icon svg {
+  display: block;
+}
 .resist-chip.resist-vuln {
   background: rgba(110, 50, 60, 0.46);
   border-color: rgba(220, 110, 120, 0.5);
@@ -5109,6 +5184,58 @@ body.dragging-card .standoff-champion {
 }
 .resist-chip.resist-resist em {
   color: #a4d2ee;
+}
+
+/* Element-tinted chips — pick up the canonical palette from :root. The
+   element class provides the accent border + label colour while the
+   resist/vuln class above provides the muted fill. */
+.resist-chip.elem-water,
+.resist-chip.elem-hydroflow {
+  border-color: var(--element-water);
+}
+.resist-chip.elem-water strong,
+.resist-chip.elem-hydroflow strong {
+  color: var(--element-water);
+}
+.resist-chip.elem-toxic {
+  border-color: var(--element-toxic);
+}
+.resist-chip.elem-toxic strong {
+  color: var(--element-toxic);
+}
+.resist-chip.elem-biohack,
+.resist-chip.elem-bio-growth {
+  border-color: var(--element-biohack);
+}
+.resist-chip.elem-biohack strong,
+.resist-chip.elem-bio-growth strong {
+  color: var(--element-biohack);
+}
+.resist-chip.elem-overclock,
+.resist-chip.elem-storm-charge {
+  border-color: var(--element-overclock);
+}
+.resist-chip.elem-overclock strong,
+.resist-chip.elem-storm-charge strong {
+  color: var(--element-overclock);
+}
+.resist-chip.elem-net {
+  border-color: var(--element-net);
+}
+.resist-chip.elem-net strong {
+  color: var(--element-net);
+}
+.resist-chip.elem-physical {
+  border-color: var(--element-physical);
+}
+.resist-chip.elem-physical strong {
+  color: var(--element-physical);
+}
+.resist-chip.elem-spell {
+  border-color: var(--element-spell);
+}
+.resist-chip.elem-spell strong {
+  color: var(--element-spell);
 }
 
 .threat-pip.is-fixated {
@@ -5288,7 +5415,11 @@ body.dragging-card .standoff-champion {
   display: none;
 }
 
-/* Corner log widget — fixed top-right */
+/* Corner log widget — fixed top-right.
+   Subtle chamfer on the top-left + top-right corners gives the panel a
+   hex/octagonal silhouette consistent with the canonical Aetherfall art
+   direction (canonical-rules §8). Bottom corners stay rounded to keep the
+   readout grounded against the viewport edge. */
 .log-corner {
   position: fixed;
   top: 16px;
@@ -5307,6 +5438,14 @@ body.dragging-card .standoff-champion {
   pointer-events: auto;
   font-size: 12.5px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+  clip-path: polygon(
+    10px 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% 100%,
+    0 100%,
+    0 10px
+  );
 }
 
 .log-corner-header {
@@ -5391,7 +5530,10 @@ body.dragging-card .standoff-champion {
   }
 }
 
-/* Fixed action bar at bottom of viewport */
+/* Fixed action bar at bottom of viewport.
+   Top corners chamfered — same hex/octagonal cue as the log corner.
+   Bottom edge stays flush against the viewport so the bar still reads as
+   anchored UI furniture. */
 .action-bar {
   position: fixed;
   left: 0;
@@ -5408,6 +5550,14 @@ body.dragging-card .standoff-champion {
   backdrop-filter: blur(10px);
   font-size: 13px;
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.45);
+  clip-path: polygon(
+    0 12px,
+    12px 0,
+    calc(100% - 12px) 0,
+    100% 12px,
+    100% 100%,
+    0 100%
+  );
 }
 
 .ab-section {
