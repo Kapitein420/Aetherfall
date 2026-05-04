@@ -4,6 +4,12 @@ const uiAsset = (path) => assetUrl(`ui/${path}`);
 
 export const battlefieldImage = uiAsset("battlefield-aetherfall.png");
 
+export const monsterVisuals = {
+  "hollow-titan": {
+    portrait: uiAsset("monsters/hollow-titan.png"),
+  },
+};
+
 export const championVisuals = {
   rook: {
     portrait: uiAsset("portraits/arian.png"),
@@ -77,6 +83,10 @@ export const effectVisuals = {
 
 export function getChampionVisual(classId) {
   return championVisuals[classId] ?? championVisuals.arian;
+}
+
+export function getMonsterVisual(monsterId) {
+  return monsterVisuals[monsterId] ?? null;
 }
 
 export function getEffectVisual(type) {
