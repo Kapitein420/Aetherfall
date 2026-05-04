@@ -399,6 +399,117 @@ function resolveAction(state, player, action) {
     return;
   }
 
+  if (action.type === "moveThreat") {
+    // Move threat from one player to another. The "moving" player is the
+    // card's owner; `from` and `to` are resolved via getPlayerTargets, but
+    // we only honor the first match for each so a single moveThreat action
+    // is unambiguous. `highest` and `lowest` extend getPlayerTargets to
+    // pick the threat-extreme target if needed.
+    const fromPlayer = pickMoveTarget(state, player, action.from, "from");
+    const toPlayer = pickMoveTarget(state, player, action.to, "to");
+    if (!fromPlayer || !toPlayer || fromPlayer.id === toPlayer.id) {
+      return;
+    }
+    const requested = Math.max(0, action.amount ?? 0);
+    const available = getThreat(state, fromPlayer.id);
+    const moved = Math.min(requested, available);
+    if (moved <= 0) {
+      return;
+    }
+    state.monster.threat[fromPlayer.id] = available - moved;
+    pushEvent(state, "evasion", {
+      target: { type: "player", playerId: fromPlayer.id },
+      amount: moved,
+    });
+    // Add to `to` directly (bypassing addThreat) so passives/combinations
+    // don't re-fire on a transferred amount — moveThreat is a relocation,
+    // not a fresh threat source.
+    const cap = state.monster.threatMax ?? 20;
+    const toBefore = getThreat(state, toPlayer.id);
+    state.monster.threat[toPlayer.id] = Math.min(cap, toBefore + moved);
+    pushEvent(state, "threat", {
+      target: { type: "player", playerId: toPlayer.id },
+      amount: moved,
+    });
+    pushLog(state, {
+      kind: "info",
+      text: `${player.name} redirects ${moved} threat from ${fromPlayer.name} to ${toPlayer.name}.`,
+    });
+
+    // Hydroflow generation (canonical, Step 3 deferral): the moving player
+    // gains 1 Hydroflow token whenever they relocate threat with at least
+    // one Hydroflow held. We use "any held" rather than "moved 5+" because
+    // the canonical Step-3 spec ties generation to the moveThreat action
+    // existing — content controls how often it actually fires.
+    if (!player.tokens) player.tokens = { bioGrowth: 0, hydroflow: 0, stormCharge: 0 };
+    if ((player.tokens.hydroflow ?? 0) > 0) {
+      player.tokens.hydroflow = (player.tokens.hydroflow ?? 0) + 1;
+      pushEvent(state, "criticalLine", {
+        target: { type: "player", playerId: player.id },
+        label: "Hydroflow +1",
+        amount: 1,
+      });
+    }
+
+    // Combination — Conductive Surge (Hydroflow + Storm Charge):
+    // deal `moved` damage to the monster; if the dealt damage is 5+, gain
+    // 1 Storm Charge token. Damage routes through dealMonsterDamage so
+    // element / surge / passives all apply normally.
+    if (
+      (player.tokens.hydroflow ?? 0) > 0
+      && (player.tokens.stormCharge ?? 0) > 0
+    ) {
+      const monsterHpBefore = state.monster.hp;
+      dealMonsterDamage(state, player, moved);
+      const dealt = monsterHpBefore - state.monster.hp;
+      if (dealt >= 5) {
+        player.tokens.stormCharge = (player.tokens.stormCharge ?? 0) + 1;
+        pushLog(state, {
+          kind: "info",
+          text: `${player.name} channels Conductive Surge — ${dealt} damage. +1 Storm Charge.`,
+        });
+        pushEvent(state, "criticalLine", {
+          target: { type: "player", playerId: player.id },
+          label: "Conductive Surge",
+          amount: dealt,
+        });
+      } else {
+        pushLog(state, {
+          kind: "info",
+          text: `${player.name} channels Conductive Surge — ${dealt} damage.`,
+        });
+      }
+    }
+    return;
+  }
+
+}
+
+// moveThreat target picker — accepts the standard `self` / `ally` /
+// `lowest` keywords plus `highest` (highest current threat). Returns a
+// single player or null.
+function pickMoveTarget(state, player, target, role) {
+  if (target === "self") return player;
+  if (target === "highest") {
+    return [...state.players]
+      .filter((p) => p.hp > 0)
+      .sort((a, b) => getThreat(state, b.id) - getThreat(state, a.id))[0]
+      ?? null;
+  }
+  if (target === "lowest") {
+    // For moveThreat, "lowest" means lowest threat among living players —
+    // not lowest HP (which is what getPlayerTargets uses). Disambiguated
+    // here so the action vocabulary stays expressive.
+    return [...state.players]
+      .filter((p) => p.hp > 0)
+      .sort((a, b) => getThreat(state, a.id) - getThreat(state, b.id))[0]
+      ?? null;
+  }
+  // ally / all / unknown → first matching ally for both endpoints. The
+  // moving player is excluded so `from: ally` and `to: ally` resolve to a
+  // teammate, not the actor.
+  const list = state.players.filter((p) => p.id !== player.id && p.hp > 0);
+  return list[0] ?? null;
 }
 
 function dealMonsterDamage(state, player, amount, element) {
@@ -439,6 +550,49 @@ function dealMonsterDamage(state, player, amount, element) {
     amount: finalDamage,
     label: el === "physical" ? undefined : capitalize(el),
   });
+
+  // Combination — Overgrowth Chain (Bio-Growth + Storm Charge):
+  // when the player deals damage holding both element types, heal half the
+  // damage (rounded down) and gain Bio-Growth tokens at 5+ / 10+ damage
+  // thresholds. Uses finalDamage (the post-mitigation amount that actually
+  // landed) so high-defense monsters don't free-roll the heal.
+  if (
+    finalDamage > 0
+    && (player.tokens?.bioGrowth ?? 0) > 0
+    && (player.tokens?.stormCharge ?? 0) > 0
+  ) {
+    const healAmount = Math.floor(finalDamage / 2);
+    if (healAmount > 0) {
+      const before = player.hp;
+      player.hp = Math.min(player.maxHp, player.hp + healAmount);
+      const healed = player.hp - before;
+      if (healed > 0) {
+        pushEvent(state, "heal", {
+          target: { type: "player", playerId: player.id },
+          amount: healed,
+        });
+      }
+    }
+    let bioGain = 0;
+    if (finalDamage >= 10) {
+      bioGain = 2;
+    } else if (finalDamage >= 5) {
+      bioGain = 1;
+    }
+    if (bioGain > 0) {
+      if (!player.tokens) player.tokens = { bioGrowth: 0, hydroflow: 0, stormCharge: 0 };
+      player.tokens.bioGrowth = (player.tokens.bioGrowth ?? 0) + bioGain;
+      pushEvent(state, "criticalLine", {
+        target: { type: "player", playerId: player.id },
+        label: `Overgrowth +${bioGain}`,
+        amount: bioGain,
+      });
+    }
+    pushLog(state, {
+      kind: "info",
+      text: `${player.name} channels Overgrowth Chain — heal ${healAmount}${bioGain > 0 ? `, +${bioGain} Bio-Growth` : ""}.`,
+    });
+  }
 
   // Phase machine: descending HP triggers thresholds.
   checkPhaseTransition(state);
@@ -858,7 +1012,32 @@ function addThreat(state, playerId, amount) {
   if (amount >= 2 && (player?.tokens?.hydroflow ?? 0) > 0) {
     reduction += 1;
   }
-  const adjusted = Math.max(0, amount - reduction);
+  let adjusted = Math.max(0, amount - reduction);
+  // Combination — Adaptive Control (Bio-Growth + Hydroflow):
+  // when the player would gain 5+ threat from a single source (post the
+  // standard Hydroflow −1 reduction), clamp it to 2 and grant 1 Bio-Growth.
+  // The full canonical rule also lets the holder convert up to 4 threat into
+  // healing, but that's a card-level action — handled by content, not engine.
+  if (
+    player
+    && adjusted >= 5
+    && (player.tokens?.bioGrowth ?? 0) > 0
+    && (player.tokens?.hydroflow ?? 0) > 0
+  ) {
+    const prevented = adjusted - 2;
+    adjusted = 2;
+    if (!player.tokens) player.tokens = { bioGrowth: 0, hydroflow: 0, stormCharge: 0 };
+    player.tokens.bioGrowth = (player.tokens.bioGrowth ?? 0) + 1;
+    pushLog(state, {
+      kind: "info",
+      text: `${player.name} channels Adaptive Control — threat clamped to 2 (prevented ${prevented}). +1 Bio-Growth.`,
+    });
+    pushEvent(state, "criticalLine", {
+      target: { type: "player", playerId: player.id },
+      label: "Adaptive Control",
+      amount: prevented,
+    });
+  }
   const before = getThreat(state, playerId);
   const after = Math.min(cap, before + adjusted);
   state.monster.threat[playerId] = after;
