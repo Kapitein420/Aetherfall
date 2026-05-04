@@ -2,12 +2,13 @@ import { classDefinitions, selectableClasses } from "./content/classes.js";
 import { getCardDefinition } from "./content/cards.js";
 import { getChampionVisual, getEffectVisual, getMonsterVisual } from "./content/game-assets.js";
 import { listMonsters, DEFAULT_MONSTER_ID } from "./content/monsters.js";
-import { randomBlessingDraft, getBlessingById } from "./content/blessings.js";
+import { getPartyDeckCard } from "./content/party-deck.js";
 import { getElementIcon } from "./content/element-icons.js";
 import { getEffectDuration, getEffectName, shouldShowEffectAmount } from "./effects/effect-library.js";
 import {
   createCoopBattle,
   getRemainingEnergy,
+  playPartyCard,
   queueCard,
   resolveRound,
   targetKey,
@@ -38,9 +39,6 @@ let lastSeenEventId = 0;
 let activeEffects = [];
 let effectInstanceId = 1;
 let dragInited = false;
-// Blessing draft sits between setup and battle. Null until the player
-// triggers `start-game`; cleared once `confirm-blessing` creates the battle.
-let draftState = null;
 
 installMultiplayerHooks({
   runAction: (action) => {
@@ -131,38 +129,8 @@ function handleAction(element) {
   }
 
   if (action === "start-game") {
-    // Open the blessing draft instead of going straight to battle. The
-    // host rolls the random blessings; client multiplayer mirrors the
-    // resulting battle state once the host confirms.
-    draftState = {
-      options: randomBlessingDraft(3),
-      selectedId: null,
-    };
-    message = "";
-    render();
-    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
-    return;
-  }
-
-  if (action === "select-blessing") {
-    if (!draftState) return;
-    draftState = { ...draftState, selectedId: element.dataset.blessingId };
-    render();
-    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
-    return;
-  }
-
-  if (action === "back-to-setup") {
-    draftState = null;
-    message = "";
-    render();
-    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
-    return;
-  }
-
-  if (action === "confirm-blessing") {
-    if (!draftState || !draftState.selectedId) return;
-    const blessingId = draftState.selectedId;
+    // Canonical: setup → battle directly. Party Deck draws auto-fire each
+    // round inside the engine; no pre-fight pick.
     const activeClasses = setup.playerClasses.slice(0, setup.playerCount);
     gameState = createCoopBattle({
       players: activeClasses.map((classId, index) => ({
@@ -171,9 +139,7 @@ function handleAction(element) {
         classId,
       })),
       monsterId: setup.monsterId,
-      blessingId,
     });
-    draftState = null;
     lastSeenEventId = getLatestEventId(gameState);
     activeEffects = [];
     message = "Plan together. Drag a card onto a target, or click to queue. Then resolve the round.";
@@ -182,9 +148,20 @@ function handleAction(element) {
     return;
   }
 
+  if (action === "play-party-card") {
+    gameState = playPartyCard(gameState, {
+      playerId: element.dataset.playerId,
+      partyInstanceId: element.dataset.partyInstanceId,
+    });
+    enqueueEffectsFromState(gameState);
+    message = "";
+    render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
+    return;
+  }
+
   if (action === "new-game") {
     gameState = null;
-    draftState = null;
     message = "";
     activeEffects = [];
     lastSeenEventId = 0;
@@ -238,8 +215,6 @@ function render() {
   let html;
   if (gameState) {
     html = renderGame();
-  } else if (draftState) {
-    html = renderDraft();
   } else {
     html = renderSetup();
   }
@@ -469,57 +444,60 @@ function renderSetupPlayer(label, slotIndex) {
   `;
 }
 
-function renderDraft() {
-  const options = draftState?.options ?? [];
-  const selectedId = draftState?.selectedId ?? null;
-  const monster = listMonsters().find((m) => m.id === setup.monsterId);
-  const monsterLabel = monster ? `${monster.name} — ${monster.role}` : "";
-  const cards = options
-    .map((blessing) => {
-      const isSelected = blessing.id === selectedId;
+function renderPartyZone(state) {
+  const hand = state.partyHand ?? [];
+  const auras = state.activeAuras ?? [];
+  if (hand.length === 0 && auras.length === 0) return "";
+  const players = state.players ?? [];
+  const cards = hand
+    .map((entry) => {
+      const card = getPartyDeckCard(entry.cardId);
+      if (!card) return "";
+      const playerOptions = players
+        .filter((p) => p.hp > 0 && getRemainingEnergy(p) >= card.cost)
+        .map(
+          (p) => `
+            <button
+              type="button"
+              class="party-card-play class-${p.classId}"
+              data-action="play-party-card"
+              data-player-id="${p.id}"
+              data-party-instance-id="${entry.partyInstanceId}"
+              title="${escapeHtml(p.name)} plays ${escapeHtml(card.name)}"
+            >
+              ${escapeHtml(p.name)}
+            </button>`,
+        )
+        .join("");
       return `
-        <button
-          type="button"
-          class="blessing-card ${isSelected ? "is-selected" : ""}"
-          data-action="select-blessing"
-          data-blessing-id="${blessing.id}"
-        >
-          <span class="blessing-eyebrow">Blessing</span>
-          <h3 class="blessing-name">${escapeHtml(blessing.name)}</h3>
-          <p class="blessing-description">${escapeHtml(blessing.description)}</p>
-          ${blessing.flavor ? `<p class="blessing-flavor">${escapeHtml(blessing.flavor)}</p>` : ""}
-          <span class="blessing-pick-marker">${isSelected ? "Chosen" : "Choose"}</span>
-        </button>
+        <article class="party-card category-${card.category}">
+          <header class="party-card-head">
+            <span class="party-card-cost">${card.cost}</span>
+            <span class="party-card-cat">${card.category}</span>
+          </header>
+          <h4 class="party-card-name">${escapeHtml(card.name)}</h4>
+          <p class="party-card-desc">${escapeHtml(card.description)}</p>
+          <footer class="party-card-actions">
+            ${playerOptions || "<span class=\"party-card-noplay\">No one can afford</span>"}
+          </footer>
+        </article>
       `;
     })
     .join("");
+  const aurasMarkup = auras.length
+    ? `<div class="party-auras">
+        <span class="party-auras-label">Auras:</span>
+        ${auras.map((a) => `<span class="party-aura-chip" title="${escapeHtml(a.description)}">${escapeHtml(a.name)}</span>`).join("")}
+      </div>`
+    : "";
   return `
-    <section class="setup-shell setup-shell-v2 draft-shell">
-      <header class="setup-hero">
-        <div class="setup-hero-text">
-          <p class="eyebrow">Party deck — pre-fight blessing</p>
-          <h1>Choose your blessing</h1>
-          <p class="setup-tagline">Three boons drawn from the party deck. One applies for this fight.</p>
-        </div>
-        <div class="setup-hero-meta">
-          <span class="hero-pill subtle">vs ${escapeHtml(monsterLabel)}</span>
-          <span class="hero-pill">1 of 3</span>
-        </div>
+    <section class="party-zone" aria-label="Party Deck">
+      <header class="party-zone-head">
+        <span class="party-zone-eyebrow">Party Deck</span>
+        <span class="party-zone-hint">${hand.length} card${hand.length === 1 ? "" : "s"} · anyone can play</span>
       </header>
-      <div class="blessing-grid">
-        ${cards}
-      </div>
-      <div class="draft-controls">
-        <button type="button" class="ghost-button" data-action="back-to-setup">Back to setup</button>
-        <button
-          type="button"
-          class="primary-button setup-cta"
-          data-action="confirm-blessing"
-          ${selectedId ? "" : "disabled"}
-        >
-          ${selectedId ? "Begin the fight" : "Select a blessing"}
-        </button>
-      </div>
+      ${aurasMarkup}
+      <div class="party-card-row">${cards}</div>
     </section>
   `;
 }
@@ -562,6 +540,8 @@ function renderGame() {
         </div>
       </div>
 
+      ${renderPartyZone(gameState)}
+
       <div class="standoff-bottom">
         <div class="standoff-play-zone" data-target-zone="play-zone">
           <span>Drop here for an untargeted play</span>
@@ -599,12 +579,12 @@ function renderGame() {
 }
 
 function renderActionBar(state, totalQueued, gameOver) {
-  const blessing = getBlessingById(state.blessingId);
   const threatSummary = state.players
     .map((p) => `<span class="ab-threat-pip class-${p.classId}">${escapeHtml(p.name)} <strong>${state.monster.threat[p.id] ?? 0}</strong></span>`)
     .join("");
   const energyMax = state.players[0]?.energyMax ?? 0;
   const title = gameOver ? renderWinnerTitle() : `Round ${state.roundNumber}`;
+  const auraCount = (state.activeAuras ?? []).length;
   return `
     <div class="action-bar" role="toolbar" aria-label="Round controls">
       <div class="ab-section ab-status">
@@ -612,10 +592,10 @@ function renderActionBar(state, totalQueued, gameOver) {
         <span class="ab-energy" title="Energy cap">⚡ ${energyMax}</span>
         <span class="ab-threat" title="Threat per champion">${threatSummary}</span>
       </div>
-      ${blessing ? `
-      <div class="ab-section ab-blessing" title="${escapeHtml(blessing.description)}">
-        <span class="ab-blessing-label">Blessing</span>
-        <strong class="ab-blessing-name">${escapeHtml(blessing.name)}</strong>
+      ${auraCount > 0 ? `
+      <div class="ab-section ab-blessing" title="${auraCount} aura${auraCount === 1 ? "" : "s"} in play">
+        <span class="ab-blessing-label">Auras</span>
+        <strong class="ab-blessing-name">${auraCount}</strong>
       </div>` : ""}
       <div class="ab-section ab-controls">
         <span class="ab-queued">${totalQueued} queued</span>

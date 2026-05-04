@@ -5,7 +5,10 @@ import {
   createMonsterById,
   phaseHooks,
 } from "../content/monsters.js";
-import { getBlessingById } from "../content/blessings.js";
+import {
+  partyDeckCards,
+  getPartyDeckCard,
+} from "../content/party-deck.js";
 
 export const DRAW_PER_ROUND = 5;
 // Canonical energy: 4 per turn, no raw carryover. Unused energy at the
@@ -17,6 +20,11 @@ export const SURGE_CAP = 3;
 export const THREAT_DECAY = 3;
 export const FIXATE_THREAT_THRESHOLD = 15;
 export const FIXATE_DURATION = 2;
+// Canonical Party Deck: each round draws 1-2 random Party Cards. Anyone
+// can play them; cost is paid from the playing player's energy. Auras
+// (persistent effects) move to `state.activeAuras` instead of being
+// discarded after play.
+export const PARTY_CARDS_PER_ROUND = 2;
 
 export function createCoopBattle(config = {}) {
   const playerConfigs =
@@ -41,28 +49,22 @@ export function createCoopBattle(config = {}) {
     log: [],
     events: [],
     nextEventId: 1,
-    // Per-fight blessing. Only the ID lives on state (functions can't be
-    // structuredClone'd); helpers re-resolve via getBlessingById.
-    blessingId: config.blessingId ?? null,
-    blessingFlags: {},
+    // Canonical Party Deck (replaces the old per-fight blessing draft):
+    //   partyHand     — cards drawn this round, available for any player to play
+    //   activeAuras   — persistent Aura cards still in effect
+    //   partyPlayedThisTurn — count of Party Cards played this round (chain
+    //                         scaling)
+    partyHand: [],
+    activeAuras: [],
+    partyPlayedThisTurn: 0,
   };
 
   for (const player of state.players) {
     drawCards(state, player, DRAW_PER_ROUND);
   }
 
-  // Apply blessing — `apply` runs once at fight start, before round 1's
-  // onRoundStart so per-round bonuses (Quickdraw, Healer's Cradle) layer
-  // on top of any apply-time mutations.
-  const blessing = getBlessingById(state.blessingId);
-  if (blessing) {
-    blessing.apply?.(state);
-    pushLog(state, {
-      kind: "info",
-      text: `${blessing.name} blesses the party — ${blessing.description}`,
-    });
-    blessing.onRoundStart?.(state);
-  }
+  // Round 1: draw the opening Party hand.
+  drawPartyCards(state, PARTY_CARDS_PER_ROUND);
 
   pushLog(state, {
     kind: "round-start",
@@ -87,23 +89,8 @@ export function queueCard(currentState, command) {
 
   const cardInstance = player.hand[handIndex];
   const card = getCardDefinition(cardInstance.cardId);
-  // Crit Vision blessing: the first card a player queues this round costs
-  // 1 less energy. "First this round" = no other card currently planned
-  // already carries a discount. If they unqueue and re-queue, the discount
-  // transfers naturally.
-  let effectiveCost = card.cost;
-  if (
-    state.blessingFlags?.firstCardDiscount &&
-    !player.planned.some((c) => c.discountedCost !== undefined)
-  ) {
-    effectiveCost = Math.max(0, card.cost - 1);
-  }
-  if (getRemainingEnergy(player) < effectiveCost) {
+  if (getRemainingEnergy(player) < card.cost) {
     throw new Error(`${player.name} does not have enough energy for ${card.name}.`);
-  }
-
-  if (effectiveCost !== card.cost) {
-    cardInstance.discountedCost = effectiveCost;
   }
   player.hand.splice(handIndex, 1);
   player.planned.push(cardInstance);
@@ -125,10 +112,6 @@ export function unqueueCard(currentState, command) {
   }
 
   const [cardInstance] = player.planned.splice(planIndex, 1);
-  // Returning the card to hand wipes any discount it carried — if it gets
-  // re-queued and there's still no other discounted card planned, queueCard
-  // will reapply the discount cleanly.
-  delete cardInstance.discountedCost;
   player.hand.push(cardInstance);
   return state;
 }
@@ -151,7 +134,7 @@ export function resolveRound(currentState) {
   for (const player of state.players) {
     for (const cardInstance of player.planned) {
       const card = getCardDefinition(cardInstance.cardId);
-      const cost = cardInstance.discountedCost ?? card.cost;
+      const cost = card.cost;
       player.energy -= cost;
       const monsterHpBefore = state.monster.hp;
       resolveCard(state, player, card);
@@ -254,8 +237,7 @@ function buildCardUseText(player, card, damageDealt) {
 export function getRemainingEnergy(player) {
   const plannedCost = player.planned.reduce((total, cardInstance) => {
     const card = getCardDefinition(cardInstance.cardId);
-    const cost = cardInstance.discountedCost ?? card.cost;
-    return total + cost;
+    return total + card.cost;
   }, 0);
 
   return Math.max(0, player.energy - plannedCost);
@@ -338,10 +320,6 @@ function resolveCard(state, player, card) {
   for (const action of card.actions) {
     resolveAction(state, player, action);
   }
-  // Per-card blessing hook (Mending Tide etc.). Re-resolve via id so the
-  // function reference survives state cloning across operations.
-  const blessing = getBlessingById(state.blessingId);
-  blessing?.onCardResolve?.(state, player, card);
 }
 
 function resolveAction(state, player, action) {
@@ -436,9 +414,6 @@ function dealMonsterDamage(state, player, amount, element) {
   let finalDamage = Math.max(0, afterElement - defense);
   // Glass Cannon blessing: +1 to any non-zero damage hit, applied after
   // mitigation so the bonus survives even high-defense monsters.
-  if (state.blessingFlags?.glassCannon && finalDamage > 0) {
-    finalDamage += 1;
-  }
   // Storm Charge passive: holding any storm-charge tokens adds +1 to each
   // damage action that lands.
   if (finalDamage > 0 && (player.tokens?.stormCharge ?? 0) > 0) {
@@ -700,10 +675,8 @@ function applyPlayerDamage(state, player, amount) {
 }
 
 function startNextRound(state) {
-  const threatDecay = THREAT_DECAY + (state.blessingFlags?.threatDecayBonus ?? 0);
-  // Canonical: base energy is 4 per turn, no carryover. The `energyCapBonus`
-  // blessing flag (Slow Burn) is now a no-op since the cap concept is gone;
-  // blessings will be retired entirely in Step 5.
+  const threatDecay = THREAT_DECAY;
+  // Canonical: base energy is 4 per turn, no carryover.
   for (const player of state.players) {
     player.block = 0;
     player.energy = STARTING_ENERGY;
@@ -731,9 +704,17 @@ function startNextRound(state) {
 
   state.roundNumber += 1;
 
-  // Per-round blessing hook fires AFTER the standard reset so things like
-  // Quickdraw add cards on top of the round's normal 5-card draw.
-  getBlessingById(state.blessingId)?.onRoundStart?.(state);
+  // Canonical Party Deck: draw 1-2 new Party Cards into the shared zone.
+  // Reset the per-turn play counter for chain-scaling cards like Chain
+  // Reaction.
+  state.partyPlayedThisTurn = 0;
+  drawPartyCards(state, PARTY_CARDS_PER_ROUND);
+  // Run end-of-round Aura hooks (e.g. Growth Protocol's regen tick).
+  for (const aura of state.activeAuras ?? []) {
+    if (typeof aura.onEndOfRound === "function") {
+      try { aura.onEndOfRound(state); } catch (_) { /* never crash on aura */ }
+    }
+  }
 
   const threatSummary = state.players
     .map((p) => `${p.name} ${getThreat(state, p.id)}`)
@@ -973,4 +954,176 @@ function pushEvent(state, type, payload = {}) {
   });
   state.nextEventId += 1;
   state.events = state.events.slice(-80);
+}
+
+// ===== Canonical Party Deck =====
+//
+// Per `docs/canonical-rules.md` §6, each round draws 1-2 cards into a
+// shared `partyHand` that any player may play (paying the cost from
+// their own energy). Cards with `category: "aura"` move to
+// `state.activeAuras` instead of being discarded after play.
+//
+// This is the engine entry point. App-level code calls `playPartyCard`
+// when a player clicks a Party Card; `drawPartyCards` is invoked by the
+// engine itself (createCoopBattle + startNextRound).
+
+const PARTY_CARDS_DRAWABLE_REQUIRES_OK = new Set([
+  // List the engine systems that ARE built. Cards whose `requires` lists
+  // anything outside this set are filtered from draws so the Party Deck
+  // never offers a card whose effect can't fire.
+  "aura-system",
+]);
+
+function partyCardIsPlayableNow(card) {
+  if (!Array.isArray(card.requires) || card.requires.length === 0) return true;
+  return card.requires.every((req) => PARTY_CARDS_DRAWABLE_REQUIRES_OK.has(req));
+}
+
+export function drawPartyCards(state, count = PARTY_CARDS_PER_ROUND) {
+  const pool = partyDeckCards.filter(partyCardIsPlayableNow);
+  if (pool.length === 0) return;
+  if (!Array.isArray(state.partyHand)) state.partyHand = [];
+  for (let i = 0; i < count; i += 1) {
+    const card = pool[Math.floor(Math.random() * pool.length)];
+    state.partyHand.push({
+      partyInstanceId: `party-${state.roundNumber}-${i}-${state.partyHand.length}`,
+      cardId: card.id,
+    });
+  }
+  pushLog(state, {
+    kind: "info",
+    text: `Party Deck draws ${count} card${count === 1 ? "" : "s"}.`,
+  });
+}
+
+export function playPartyCard(currentState, command) {
+  const state = cloneState(currentState);
+  ensurePlanning(state);
+  const player = getPlayer(state, command.playerId);
+  if (player.hp <= 0) {
+    throw new Error(`${player.name} cannot play a Party Card while defeated.`);
+  }
+  const handIndex = (state.partyHand ?? []).findIndex(
+    (entry) => entry.partyInstanceId === command.partyInstanceId,
+  );
+  if (handIndex < 0) {
+    throw new Error("That Party Card is no longer in the deck.");
+  }
+  const entry = state.partyHand[handIndex];
+  const card = getPartyDeckCard(entry.cardId);
+  if (!card) {
+    throw new Error(`Unknown Party Card: ${entry.cardId}`);
+  }
+  if (getRemainingEnergy(player) < card.cost) {
+    throw new Error(`${player.name} cannot afford ${card.name} (cost ${card.cost}).`);
+  }
+  player.energy -= card.cost;
+  applyPartyCardEffects(state, player, card);
+  state.partyPlayedThisTurn = (state.partyPlayedThisTurn ?? 0) + 1;
+  if (card.persistent) {
+    if (!Array.isArray(state.activeAuras)) state.activeAuras = [];
+    state.activeAuras.push({ id: card.id, name: card.name, description: card.description });
+  }
+  state.partyHand.splice(handIndex, 1);
+  pushLog(state, {
+    kind: "info",
+    text: `${player.name} plays Party Card "${card.name}".`,
+  });
+  pushEvent(state, "plan", {
+    target: { type: "player", playerId: player.id },
+    label: card.name,
+  });
+  return state;
+}
+
+function applyPartyCardEffects(state, player, card) {
+  for (const effect of card.effects ?? []) {
+    applyPartyEffect(state, player, effect, card);
+  }
+}
+
+function applyPartyEffect(state, player, effect, card) {
+  switch (effect.type) {
+    case "block": {
+      // Reuse the standard target resolver.
+      for (const target of getPlayerTargets(state, player, effect.target ?? "self")) {
+        target.block += effect.amount;
+      }
+      return;
+    }
+    case "heal": {
+      for (const target of getPlayerTargets(state, player, effect.target ?? "self")) {
+        const before = target.hp;
+        target.hp = Math.min(target.maxHp, target.hp + effect.amount);
+        const healed = target.hp - before;
+        if (healed > 0) {
+          addThreat(state, player.id, Math.floor(healed / 2));
+        }
+      }
+      return;
+    }
+    case "draw": {
+      for (const target of getPlayerTargets(state, player, effect.target ?? "self")) {
+        drawCards(state, target, effect.count ?? 1);
+      }
+      return;
+    }
+    case "threat": {
+      const targets = getPlayerTargets(state, player, effect.target ?? "self");
+      for (const target of targets) {
+        addThreat(state, target.id, effect.amount);
+      }
+      return;
+    }
+    case "energy": {
+      const targets = getPlayerTargets(state, player, effect.target ?? "self");
+      for (const target of targets) {
+        target.energy = Math.max(0, target.energy + effect.amount);
+      }
+      return;
+    }
+    case "blockHighestThreatEqualToThreat": {
+      const living = state.players.filter((p) => p.hp > 0);
+      if (living.length === 0) return;
+      const top = [...living].sort(
+        (a, b) => (state.monster.threat[b.id] ?? 0) - (state.monster.threat[a.id] ?? 0),
+      )[0];
+      const threat = state.monster.threat[top.id] ?? 0;
+      top.block += threat;
+      return;
+    }
+    case "forceFixateHighestThreat": {
+      const living = state.players.filter((p) => p.hp > 0);
+      if (living.length === 0) return;
+      const top = [...living].sort(
+        (a, b) => (state.monster.threat[b.id] ?? 0) - (state.monster.threat[a.id] ?? 0),
+      )[0];
+      state.monster.fixate = {
+        playerId: top.id,
+        roundsRemaining: effect.duration ?? 1,
+      };
+      addPlayerStatus(state, top.id, "marked", effect.duration ?? 1);
+      return;
+    }
+    case "damageAllPlayers": {
+      for (const target of state.players) {
+        if (target.hp <= 0) continue;
+        applyPlayerDamage(state, target, effect.amount);
+      }
+      return;
+    }
+    case "damageMonster": {
+      // Single-monster shortcut for Party damage cards (until multi-monster lands).
+      dealMonsterDamage(state, player, effect.amount, effect.element);
+      return;
+    }
+    default: {
+      // Unsupported effects (multi-monster damage, infusion, fusion, buff
+      // stacks, next-card flags, randomization) become no-ops with a log.
+      pushLog(state, {
+        kind: "info",
+        text: `[${card.name}] effect "${effect.type}" not yet wired (deferred).`,
+      });
+    }
+  }
 }
