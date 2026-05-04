@@ -55,7 +55,7 @@ export const cardDefinitions = {
     damage(4),
     drawSelf(1),
   ]),
-  "lyra.ember_lance": attack("lyra", "Ember Lance", 2, "Deal 8 damage.", [damage(8)]),
+  "lyra.ember_lance": attack("lyra", "Ember Lance", 2, "Deal 8 spell damage.", [damage(8, "spell")]),
   "lyra.twin_cut": attack("lyra", "Twin Cut", 2, "Deal 4 damage twice.", [damage(4), damage(4)]),
   "lyra.marked_pierce": attack("lyra", "Marked Pierce", 3, "Deal 9 damage. If Exposed, deal +4.", [
     { type: "damage", amount: 9, exposedBonus: 4 },
@@ -83,8 +83,8 @@ export const cardDefinitions = {
     expose(3),
   ]),
 
-  "lyra.ember_veil": unique("lyra", "Ember Veil", 2, "Deal 5 damage. Reduce your threat by 4.", [
-    damage(5),
+  "lyra.ember_veil": unique("lyra", "Ember Veil", 2, "Deal 5 spell damage. Reduce your threat by 4.", [
+    damage(5, "spell"),
     reduceThreat(4),
   ]),
   "lyra.hunters_tempo": unique("lyra", "Hunter's Tempo", 1, "Draw 2 cards.", [drawSelf(2)]),
@@ -215,8 +215,8 @@ export const cardDefinitions = {
     damage(5),
     expose(3),
   ]),
-  "gorath.tide_lung": attack("gorath", "Tide Lung", 3, "Deal 11 damage. If Exposed, deal +5.", [
-    { type: "damage", amount: 11, exposedBonus: 5 },
+  "gorath.tide_lung": attack("gorath", "Tide Lung", 3, "Deal 11 water damage. If Exposed, deal +5.", [
+    { type: "damage", amount: 11, exposedBonus: 5, element: "water" },
   ]),
   "gorath.deep_strike": attack("gorath", "Deep Strike", 3, "Deal 12 damage. Gain 5 threat.", [
     damage(12),
@@ -255,8 +255,8 @@ export const cardDefinitions = {
     damage(10),
     threat(6),
   ]),
-  "gorath.crush_depth": unique("gorath", "Crush Depth", 4, "Deal 14 damage. Monster is Weakened 3.", [
-    damage(14),
+  "gorath.crush_depth": unique("gorath", "Crush Depth", 4, "Deal 14 water damage. Monster is Weakened 3.", [
+    damage(14, "water"),
     weaken(3),
   ]),
   "gorath.deepbreaker_finish": unique("gorath", "Deepbreaker Finish", 5, "Deal 17 damage. If monster has 30 or less HP, deal +10.", [
@@ -400,8 +400,12 @@ function slug(name) {
   return name.toLowerCase().replaceAll("'", "").replaceAll(" ", "_");
 }
 
-function damage(amount) {
-  return { type: "damage", amount };
+function damage(amount, element) {
+  const action = { type: "damage", amount };
+  if (element) {
+    action.element = element;
+  }
+  return action;
 }
 
 function block(amount) {
