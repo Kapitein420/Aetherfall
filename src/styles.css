@@ -2810,7 +2810,10 @@ select option:checked,
 }
 
 @media (max-width: 880px) {
-  .setup-grid-v2 {
+  .setup-grid-v2,
+  .setup-grid-v2.player-count-2,
+  .setup-grid-v2.player-count-3,
+  .setup-grid-v2.player-count-4 {
     grid-template-columns: 1fr;
   }
   .setup-hero {
@@ -3522,6 +3525,12 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   z-index: 3;
 }
 
+/* Player-count modifiers. The default 1fr 1fr already covers 2 players. */
+.standoff-flanks.players-1 { grid-template-columns: 1fr; }
+.standoff-flanks.players-2 { grid-template-columns: 1fr 1fr; }
+.standoff-flanks.players-3 { grid-template-columns: 1fr 1fr 1fr; }
+.standoff-flanks.players-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
 .standoff-champion {
   position: relative;
   display: grid;
@@ -3530,10 +3539,18 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   padding: 6px;
   cursor: default;
   transition: transform 200ms ease, filter 200ms ease;
+  min-width: 0;
 }
 
 .standoff-champion.side-left { justify-self: start; }
 .standoff-champion.side-right { justify-self: end; }
+.standoff-champion.side-center { justify-self: center; }
+
+/* Tighten champion art at higher player counts so the row still fits. */
+.standoff-flanks.players-3 .champion-art { width: clamp(120px, 14vh, 180px); }
+.standoff-flanks.players-4 .champion-art { width: clamp(104px, 12vh, 156px); }
+.standoff-flanks.players-3 .champion-baseplate,
+.standoff-flanks.players-4 .champion-baseplate { min-width: 0; width: 100%; }
 
 .standoff-champion.defeated {
   filter: grayscale(0.85) brightness(0.5);
@@ -3856,6 +3873,11 @@ body.dragging-card .standoff-play-zone {
   margin-top: 4px;
 }
 
+.standoff-hand-shelf.players-1 { grid-template-columns: 1fr; }
+.standoff-hand-shelf.players-2 { grid-template-columns: 1fr 1fr; }
+.standoff-hand-shelf.players-3 { grid-template-columns: 1fr 1fr 1fr; }
+.standoff-hand-shelf.players-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
 .standoff-hand-cluster {
   display: grid;
   gap: 6px;
@@ -3864,6 +3886,27 @@ body.dragging-card .standoff-play-zone {
 
 .standoff-hand-cluster.right {
   text-align: right;
+}
+
+.standoff-hand-cluster.center {
+  text-align: center;
+}
+
+.standoff-hand-cluster.center .coop-hand-arc {
+  justify-content: center;
+}
+
+/* At 3-4 players the hands need to be smaller so 3-4 fans fit side by side. */
+.standoff-hand-shelf.players-3 .standoff-hand .hand-card,
+.standoff-hand-shelf.players-4 .standoff-hand .hand-card {
+  flex: 0 0 clamp(96px, 6.5vw, 124px);
+  width: clamp(96px, 6.5vw, 124px);
+  margin-left: -36px;
+  min-height: clamp(140px, 17vh, 178px);
+}
+.standoff-hand-shelf.players-3 .standoff-hand .hand-card:first-child,
+.standoff-hand-shelf.players-4 .standoff-hand .hand-card:first-child {
+  margin-left: 0;
 }
 
 .standoff-hand-label {
@@ -4069,8 +4112,16 @@ body.dragging-card .standoff-champion {
     grid-template-columns: 1fr;
   }
 
-  .standoff-hand-shelf {
+  .standoff-hand-shelf,
+  .standoff-hand-shelf.players-2,
+  .standoff-hand-shelf.players-3,
+  .standoff-hand-shelf.players-4 {
     grid-template-columns: 1fr;
+  }
+
+  .standoff-flanks.players-3,
+  .standoff-flanks.players-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .standoff-hand-cluster.right .coop-hand-arc {
@@ -4981,7 +5032,7 @@ body.dragging-card .standoff-champion {
 
 .setup-encounter-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(220px, 1fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr);
   gap: 18px;
   align-items: end;
   padding: 14px 18px;
@@ -4991,6 +5042,76 @@ body.dragging-card .standoff-champion {
     linear-gradient(180deg, rgba(20, 26, 23, 0.86), rgba(14, 18, 17, 0.86)),
     radial-gradient(circle at 20% 0%, rgba(245, 208, 131, 0.18), transparent 60%);
   margin-bottom: 18px;
+}
+
+.setup-encounter-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.setup-player-count {
+  display: grid;
+  gap: 6px;
+}
+
+.player-count-segment {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(246, 240, 223, 0.18);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(20, 24, 22, 0.94), rgba(14, 18, 16, 0.94));
+  width: max-content;
+}
+
+.player-count-pill {
+  min-width: 36px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #d6cfb6;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.player-count-pill:hover {
+  color: #f5d083;
+  border-color: rgba(245, 208, 131, 0.35);
+}
+
+.player-count-pill.is-active {
+  background: linear-gradient(180deg, rgba(245, 208, 131, 0.92), rgba(193, 111, 58, 0.92));
+  color: #1a1411;
+  border-color: rgba(245, 208, 131, 0.6);
+  box-shadow: 0 0 0 1px rgba(245, 208, 131, 0.4), 0 8px 18px rgba(193, 111, 58, 0.32);
+}
+
+.player-count-pill:focus-visible {
+  outline: 2px solid #f5d083;
+  outline-offset: 2px;
+}
+
+/* Setup grid responds to player count: 3-4 players use 3-4 columns. */
+.setup-grid-v2.player-count-1 { grid-template-columns: minmax(0, 1fr); max-width: 520px; margin: 0 auto; }
+.setup-grid-v2.player-count-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.setup-grid-v2.player-count-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.setup-grid-v2.player-count-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+@media (min-width: 1280px) {
+  .setup-grid-v2.player-count-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1024px) {
+  .setup-grid-v2.player-count-3,
+  .setup-grid-v2.player-count-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .setup-encounter-info {
   display: grid;
