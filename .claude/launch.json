@@ -5,7 +5,8 @@
       "name": "aetherfall-static",
       "runtimeExecutable": "node",
       "runtimeArgs": ["tools/serve-static.mjs"],
-      "port": 4173
+      "port": 4173,
+      "autoPort": true
     }
   ]
 }

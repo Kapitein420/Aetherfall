@@ -3188,6 +3188,41 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   60% { transform: translateX(2px); }
 }
 
+.monster-portrait {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 22%;
+  border-radius: 10%;
+  filter:
+    drop-shadow(0 0 26px rgba(229, 116, 78, 0.45))
+    drop-shadow(0 0 60px rgba(190, 70, 48, 0.32));
+  z-index: 2;
+  pointer-events: none;
+}
+
+.monster-figure.wounded .monster-portrait {
+  filter:
+    drop-shadow(0 0 26px rgba(229, 116, 78, 0.7))
+    drop-shadow(0 0 60px rgba(190, 70, 48, 0.5));
+  animation: monster-wounded-flicker 1.6s ease-in-out infinite;
+}
+
+.monster-figure.critical .monster-portrait {
+  animation: monster-critical-flicker 0.8s ease-in-out infinite;
+}
+
+.monster-figure.has-portrait .monster-aura {
+  inset: -8%;
+  filter: blur(22px);
+}
+
+.monster-figure.has-portrait .monster-glow {
+  z-index: 3;
+}
+
 .monster-region {
   position: absolute;
   border-radius: 50%;

@@ -1,6 +1,6 @@
 import { classDefinitions, selectableClasses } from "./content/classes.js";
 import { getCardDefinition } from "./content/cards.js";
-import { getChampionVisual, getEffectVisual } from "./content/game-assets.js";
+import { getChampionVisual, getEffectVisual, getMonsterVisual } from "./content/game-assets.js";
 import { listMonsters, DEFAULT_MONSTER_ID } from "./content/monsters.js";
 import { randomBlessingDraft, getBlessingById } from "./content/blessings.js";
 import { getEffectDuration, getEffectName, shouldShowEffectAmount } from "./effects/effect-library.js";
@@ -593,16 +593,24 @@ function renderMonsterFigure(monster) {
   const hpFrac = Math.max(0, Math.min(1, monster.hp / monster.maxHp));
   const wounded = hpFrac < 0.5 ? "wounded" : "";
   const critical = hpFrac < 0.25 ? "critical" : "";
-  return `
-    <div class="monster-figure ${wounded} ${critical}" data-monster-art aria-hidden="true">
-      <div class="monster-aura"></div>
-      <div class="monster-silhouette">
+  const visual = getMonsterVisual(monster.monsterId);
+  const hasPortrait = !!visual?.portrait;
+  const figureClasses = ["monster-figure", wounded, critical, hasPortrait ? "has-portrait" : ""]
+    .filter(Boolean)
+    .join(" ");
+  const body = hasPortrait
+    ? `<img class="monster-portrait" src="${visual.portrait}" alt="" />`
+    : `<div class="monster-silhouette">
         <div class="monster-region region-head" data-monster-region="head"></div>
         <div class="monster-region region-core" data-monster-region="core"></div>
         <div class="monster-region region-arm region-arm-left" data-monster-region="arm-left"></div>
         <div class="monster-region region-arm region-arm-right" data-monster-region="arm-right"></div>
         <div class="monster-eyes"></div>
-      </div>
+      </div>`;
+  return `
+    <div class="${figureClasses}" data-monster-art aria-hidden="true">
+      <div class="monster-aura"></div>
+      ${body}
       <div class="monster-glow"></div>
       ${renderMonsterStatusPips(monster)}
       <div class="monster-effect-mount" data-effect-mount="${targetKey({ type: "monster" })}">
