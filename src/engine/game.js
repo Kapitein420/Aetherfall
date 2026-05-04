@@ -301,9 +301,7 @@ function resolveCard(state, player, card) {
 
 function resolveAction(state, player, action) {
   if (action.type === "damage") {
-    const exposed = consumeExposedBonus(state);
-    const amount = action.amount + exposed + (exposed > 0 ? action.exposedBonus ?? 0 : 0);
-    dealMonsterDamage(state, player, amount, action.element);
+    dealMonsterDamage(state, player, action.amount, action.element);
     return;
   }
 
@@ -374,24 +372,6 @@ function resolveAction(state, player, action) {
     return;
   }
 
-  if (action.type === "weaken") {
-    state.monster.statuses.weakened = Math.max(state.monster.statuses.weakened, action.amount);
-    pushEvent(state, "ward", {
-      target: { type: "monster" },
-      amount: action.amount,
-      label: "Weakened",
-    });
-    return;
-  }
-
-  if (action.type === "expose") {
-    state.monster.statuses.exposed += action.amount;
-    pushEvent(state, "criticalLine", {
-      target: { type: "monster" },
-      amount: action.amount,
-      label: "Exposed",
-    });
-  }
 }
 
 function dealMonsterDamage(state, player, amount, element) {
@@ -513,8 +493,6 @@ function resolveMonsterTurn(state) {
   }
 
   const actions = Math.max(1, state.monster.actionsPerTurn ?? 1);
-  // Weakened reduction applies to the first hit only (consumes once).
-  let weakenConsumed = false;
 
   for (let actionIndex = 0; actionIndex < actions; actionIndex += 1) {
     if (state.players.every((player) => player.hp <= 0)) {
@@ -526,14 +504,9 @@ function resolveMonsterTurn(state) {
       return;
     }
 
-    const reduction = weakenConsumed ? 0 : (state.monster.statuses.weakened ?? 0);
-    if (!weakenConsumed) {
-      state.monster.statuses.weakened = 0;
-      weakenConsumed = true;
-    }
     const damage = Math.max(
       1,
-      state.monster.baseAttack + Math.floor(state.roundNumber / 2) - reduction,
+      state.monster.baseAttack + Math.floor(state.roundNumber / 2),
     );
 
     const blockBefore = target.block;
@@ -671,14 +644,8 @@ function startNextRound(state) {
 
   state.roundNumber += 1;
 
-  // Warden of Targeting — Phase 1 "Surveillance": every other round,
-  // mark the lowest-threat living player as "tracked" for 2 rounds.
-  // Runs first so blessing hooks below see the post-surveillance state.
-  applyWardenSurveillance(state);
-
-  // Per-round blessing hook fires AFTER the standard reset (and after the
-  // monster's start-of-round effects) so things like Quickdraw add cards
-  // on top of the round's normal 5-card draw.
+  // Per-round blessing hook fires AFTER the standard reset so things like
+  // Quickdraw add cards on top of the round's normal 5-card draw.
   getBlessingById(state.blessingId)?.onRoundStart?.(state);
 
   const energyMax = state.players[0]?.energyMax ?? STARTING_ENERGY;
@@ -689,35 +656,6 @@ function startNextRound(state) {
     kind: "round-start",
     round: state.roundNumber,
     text: `Round ${state.roundNumber} · Energy ${energyMax}/${energyCap} · Threat: ${threatSummary}`,
-  });
-}
-
-function applyWardenSurveillance(state) {
-  const monster = state.monster;
-  const phase = monster.phases?.[monster.activePhaseIndex ?? 0];
-  if (!phase || phase.id !== "surveillance") {
-    return;
-  }
-  if (state.roundNumber % 2 !== 0) {
-    return;
-  }
-  const living = state.players.filter((p) => p.hp > 0);
-  if (living.length === 0) {
-    return;
-  }
-  // Find the lowest current threat. Ties broken by player order.
-  const target = [...living].sort(
-    (a, b) => getThreat(state, a.id) - getThreat(state, b.id),
-  )[0];
-  addPlayerStatus(state, target.id, "tracked", 2, { mode: "max", decay: 1 });
-  pushLog(state, {
-    kind: "info",
-    text: `${monster.name} marks ${target.name} for surveillance — threat gain amplified.`,
-  });
-  pushEvent(state, "criticalLine", {
-    target: { type: "player", playerId: target.id },
-    label: "Tracked",
-    amount: 2,
   });
 }
 
@@ -840,13 +778,6 @@ function getPlayerTargets(state, player, targetType) {
 
 function addThreat(state, playerId, amount) {
   const cap = state.monster.threatMax ?? 20;
-  // Warden phase 1 "tracked" status amplifies any threat gain by +2.
-  // Applies whenever the player has tracked > 0 and we're adding a
-  // positive amount (no boost when amount is 0/negative).
-  let bonus = 0;
-  if (amount > 0 && getPlayerStatus(state, playerId, "tracked") > 0) {
-    bonus = 2;
-  }
   // Canonical rule: while a monster is fixated on someone else, every other
   // player's positive threat gain is reduced by 1 (floor 0). The fixated
   // player themselves is unaffected.
@@ -855,7 +786,7 @@ function addThreat(state, playerId, amount) {
   if (amount > 0 && fix && fix.roundsRemaining > 0 && fix.playerId !== playerId) {
     reduction = 1;
   }
-  const adjusted = Math.max(0, amount + bonus - reduction);
+  const adjusted = Math.max(0, amount - reduction);
   state.monster.threat[playerId] = Math.min(cap, getThreat(state, playerId) + adjusted);
   pushEvent(state, "threat", {
     target: { type: "player", playerId },
@@ -877,16 +808,6 @@ function decayThreat(state, playerId, amount) {
 
 function getThreat(state, playerId) {
   return state.monster.threat[playerId] ?? 0;
-}
-
-function consumeExposedBonus(state) {
-  if (state.monster.statuses.exposed > 0) {
-    const bonus = state.monster.statuses.exposed;
-    state.monster.statuses.exposed = 0;
-    return bonus;
-  }
-
-  return 0;
 }
 
 function ensurePlanning(state) {

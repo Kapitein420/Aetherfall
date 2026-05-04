@@ -627,17 +627,10 @@ function renderMonsterFigure(monster) {
 }
 
 function renderMonsterStatusPips(monster) {
-  const pips = [];
-  if (monster.statuses.exposed > 0) {
-    pips.push(`<span class="status-pip pip-exposed" title="Exposed +${monster.statuses.exposed}">E${monster.statuses.exposed}</span>`);
-  }
-  if (monster.statuses.weakened > 0) {
-    pips.push(`<span class="status-pip pip-weakened" title="Weakened ${monster.statuses.weakened}">W${monster.statuses.weakened}</span>`);
-  }
-  if (!pips.length) {
-    return "";
-  }
-  return `<div class="monster-pips">${pips.join("")}</div>`;
+  // Future canonical statuses (Enrage, monster-card-driven punishments, etc.)
+  // will render here. The orphan exposed/weakened pips were retired.
+  void monster;
+  return "";
 }
 
 function renderMonsterBaseplate(monster) {
