@@ -5959,36 +5959,111 @@ body.dragging-card .standoff-champion {
   max-height: calc(50vh - 48px);
 }
 
-/* ===== Canonical Party Deck zone (per-turn shared cards) ===== */
+/* ===== Canonical Party Deck — fixed top-center pill, hover-reveal ===== */
 
 .party-zone {
-  margin: 12px 0 0;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(28, 36, 48, 0.7) 0%, rgba(14, 18, 26, 0.7) 100%);
-  border: 1px solid rgba(180, 200, 220, 0.18);
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 55;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  pointer-events: auto;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  gap: 0;
 }
 
-.party-zone-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+.party-zone-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 13px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(28, 36, 48, 0.92) 0%, rgba(14, 18, 26, 0.92) 100%);
+  border: 1px solid rgba(255, 220, 140, 0.32);
+  color: #f5e9c8;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.party-zone-pill:hover,
+.party-zone:hover .party-zone-pill,
+.party-zone:focus-within .party-zone-pill {
+  border-color: rgba(255, 220, 140, 0.7);
 }
 
 .party-zone-eyebrow {
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(255, 220, 140, 0.78);
+  color: rgba(255, 220, 140, 0.85);
   font-weight: 700;
 }
 
-.party-zone-hint {
-  font-size: 11px;
+.party-zone-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 220, 140, 0.2);
+  color: #f5e9c8;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.party-zone-aura-mark {
+  font-size: 10.5px;
+  color: rgba(220, 170, 80, 0.85);
+  letter-spacing: 0.08em;
+}
+
+.party-zone-chevron {
+  font-size: 10px;
   color: rgba(180, 200, 220, 0.6);
+  transition: transform 160ms ease;
+}
+
+.party-zone:hover .party-zone-chevron,
+.party-zone:focus-within .party-zone-chevron {
+  transform: rotate(180deg);
+}
+
+.party-zone-detail {
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(20, 26, 32, 0.96) 0%, rgba(12, 16, 20, 0.96) 100%);
+  border: 1px solid rgba(180, 200, 220, 0.2);
+  backdrop-filter: blur(8px);
+  width: clamp(420px, 60vw, 820px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  opacity: 0;
+  pointer-events: none;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 180ms ease, max-height 220ms ease;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.5);
+}
+
+.party-zone:hover .party-zone-detail,
+.party-zone:focus-within .party-zone-detail {
+  opacity: 1;
+  pointer-events: auto;
+  max-height: 70vh;
+  overflow-y: auto;
 }
 
 .party-card-row {
@@ -6212,27 +6287,13 @@ body.dragging-card .standoff-champion {
   font-size: 11px;
 }
 
-/* ===== Hand peek-and-lift: rest position low, hover/focus lifts ===== */
-
-.standoff-table.compact-ui .standoff-hand-cluster {
-  transform: translateY(70px);
-  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+/* Stop the standoff-stage from creating an internal scrollbar — the
+   tiered layout was overflowing inside the stage box at 100% zoom,
+   producing a "scroll inside scroll" feeling. Let it just clip. */
+.standoff-table.compact-ui .standoff-stage {
+  overflow: hidden;
 }
 
-.standoff-table.compact-ui .standoff-hand-cluster:hover,
-.standoff-table.compact-ui .standoff-hand-cluster:focus-within,
-.standoff-table.compact-ui .standoff-hand-cluster.is-focused {
-  transform: translateY(0);
-  z-index: 4;
-}
-
-/* While one cluster is focused, other clusters stay tucked. */
-.standoff-table.compact-ui .standoff-hand-shelf.has-focus .standoff-hand-cluster.is-collapsed {
-  transform: translateY(70px);
-}
-
-/* The standoff-bottom keeps a bit of headroom so hover-lift actually
-   reveals card tops above the action bar at 100% zoom. */
 .standoff-table.compact-ui .standoff-bottom {
   padding-bottom: 8px;
 }
