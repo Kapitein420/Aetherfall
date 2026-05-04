@@ -440,13 +440,26 @@ function describePhase(monster, phase) {
   if (phase.id === "pack-convergence") {
     return `${monster.name} calls the pack — Pack Convergence: extra strike per turn. [${pct}% HP]`;
   }
-  if (phase.id === "p1") {
+  if (phase.id === "override-protocol") {
+    return `${monster.name} engages Override Protocol — threat values inverted, surveillance dampens each turn. [${pct}% HP]`;
+  }
+  if (phase.id === "judgement-mode") {
+    return `${monster.name} enters Judgement Mode — converges on the highest threat, twice per turn. [${pct}% HP]`;
+  }
+  if (phase.id === "p1" || phase.id === "surveillance") {
     return `${monster.name} engages.`;
   }
   return `${monster.name} enters phase ${phase.id} (${pct}% HP).`;
 }
 
 function resolveMonsterTurn(state) {
+  // Optional per-monster pre-turn hook. Phase hooks may install a
+  // function on `monster.onMonsterTurnStart` to run side-effects (e.g.
+  // Warden's Override Protocol dampening all threat by 2 each turn).
+  if (typeof state.monster.onMonsterTurnStart === "function") {
+    state.monster.onMonsterTurnStart(state);
+  }
+
   const actions = Math.max(1, state.monster.actionsPerTurn ?? 1);
   // Weakened reduction applies to the first hit only (consumes once).
   let weakenConsumed = false;
@@ -536,9 +549,11 @@ function selectTargetWithFixate(state, livingPlayers) {
   }
 
   // Otherwise, check if any living player has crossed the fixate threshold
-  // and lock onto the highest-threat one.
+  // and lock onto the highest-threat one. Monsters can override the
+  // threshold via `monster.fixateThreshold` (e.g. Warden phase 3 = 10).
+  const threshold = monster.fixateThreshold ?? FIXATE_THREAT_THRESHOLD;
   const candidates = livingPlayers
-    .filter((p) => getThreat(state, p.id) >= FIXATE_THREAT_THRESHOLD)
+    .filter((p) => getThreat(state, p.id) >= threshold)
     .sort((a, b) => getThreat(state, b.id) - getThreat(state, a.id));
 
   if (candidates.length === 0) {
@@ -594,6 +609,11 @@ function startNextRound(state) {
   decayFixate(state);
 
   state.roundNumber += 1;
+
+  // Warden of Targeting — Phase 1 "Surveillance": every other round,
+  // mark the lowest-threat living player as "tracked" for 2 rounds.
+  applyWardenSurveillance(state);
+
   const energyMax = state.players[0]?.energyMax ?? STARTING_ENERGY;
   const threatSummary = state.players
     .map((p) => `${p.name} ${getThreat(state, p.id)}`)
@@ -602,6 +622,35 @@ function startNextRound(state) {
     kind: "round-start",
     round: state.roundNumber,
     text: `Round ${state.roundNumber} · Energy ${energyMax}/${MAX_ENERGY} · Threat: ${threatSummary}`,
+  });
+}
+
+function applyWardenSurveillance(state) {
+  const monster = state.monster;
+  const phase = monster.phases?.[monster.activePhaseIndex ?? 0];
+  if (!phase || phase.id !== "surveillance") {
+    return;
+  }
+  if (state.roundNumber % 2 !== 0) {
+    return;
+  }
+  const living = state.players.filter((p) => p.hp > 0);
+  if (living.length === 0) {
+    return;
+  }
+  // Find the lowest current threat. Ties broken by player order.
+  const target = [...living].sort(
+    (a, b) => getThreat(state, a.id) - getThreat(state, b.id),
+  )[0];
+  addPlayerStatus(state, target.id, "tracked", 2, { mode: "max", decay: 1 });
+  pushLog(state, {
+    kind: "info",
+    text: `${monster.name} marks ${target.name} for surveillance — threat gain amplified.`,
+  });
+  pushEvent(state, "criticalLine", {
+    target: { type: "player", playerId: target.id },
+    label: "Tracked",
+    amount: 2,
   });
 }
 
@@ -724,10 +773,17 @@ function getPlayerTargets(state, player, targetType) {
 
 function addThreat(state, playerId, amount) {
   const cap = state.monster.threatMax ?? 20;
-  state.monster.threat[playerId] = Math.min(cap, getThreat(state, playerId) + amount);
+  // Warden phase 1 "tracked" status amplifies any threat gain by +2.
+  // Applies whenever the player has tracked > 0 and we're adding a
+  // positive amount (no boost when amount is 0/negative).
+  let bonus = 0;
+  if (amount > 0 && getPlayerStatus(state, playerId, "tracked") > 0) {
+    bonus = 2;
+  }
+  state.monster.threat[playerId] = Math.min(cap, getThreat(state, playerId) + amount + bonus);
   pushEvent(state, "threat", {
     target: { type: "player", playerId },
-    amount,
+    amount: amount + bonus,
   });
 }
 

@@ -125,6 +125,67 @@ export const monsterRegistry = {
       };
     },
   },
+
+  "warden-of-targeting": {
+    id: "warden-of-targeting",
+    name: "Warden of Targeting",
+    role: "Surveillance Construct",
+    faction: "Aetherfall",
+    factory: (playerCount, playerIds = []) => {
+      const hpPerPlayer = 10;
+      const totalHp = Math.max(playerCount, 1) * hpPerPlayer;
+      return {
+        id: "monster",
+        name: "Warden of Targeting",
+        monsterId: "warden-of-targeting",
+        role: "Surveillance Construct",
+        faction: "Aetherfall",
+        maxHp: totalHp,
+        hp: totalHp,
+        baseAttack: 6,
+        defense: 2,
+        actionsPerTurn: 1,
+        elementResistances: {
+          overclock: 1.25,
+          biohack: 0.85,
+        },
+        statuses: {
+          exposed: 0,
+          weakened: 0,
+        },
+        // Surveillance is the entry phase — its periodic tracking lives
+        // in the engine's startNextRound (see applyWardenSurveillance),
+        // so no onEnter hook is needed. Override Protocol swaps threat
+        // and installs a per-turn dampening pass. Judgement Mode locks
+        // fixate at a lower threshold and gains a second action per turn.
+        phases: [
+          { id: "surveillance", hpThresholdPct: 1.0, onEnter: null },
+          {
+            id: "override-protocol",
+            hpThresholdPct: 0.65,
+            onEnter: "wardenOverrideProtocol",
+          },
+          {
+            id: "judgement-mode",
+            hpThresholdPct: 0.3,
+            onEnter: "wardenJudgementMode",
+          },
+        ],
+        activePhaseIndex: 0,
+        threat: makeThreat(playerIds),
+        fixate: null,
+        // Per-turn hook installed by Override Protocol; cleared on entry
+        // to Judgement Mode. Engine reads this in resolveMonsterTurn.
+        onMonsterTurnStart: null,
+        traits: [
+          "Surveillance Lock",
+          "Override Protocol",
+          "Judgement Convergence",
+        ],
+        threatMax: DEFAULT_THREAT_MAX,
+      };
+    },
+  },
 };
 
 // Hook registry for phase-enter side-effects. Hooks get the live state and
@@ -149,6 +210,49 @@ export const phaseHooks = {
       state.monster.actionsPerTurn ?? 1,
       2,
     );
+  },
+
+  // Warden of Targeting — phase 2: one-shot swap of highest/lowest
+  // threat, then install a per-turn dampening hook that reduces every
+  // living player's threat by 2 at the top of each monster turn.
+  wardenOverrideProtocol: (state) => {
+    const monster = state.monster;
+    const livingIds = state.players
+      .filter((p) => p.hp > 0)
+      .map((p) => p.id);
+    if (livingIds.length >= 2) {
+      const sorted = [...livingIds].sort(
+        (a, b) => (monster.threat[a] ?? 0) - (monster.threat[b] ?? 0),
+      );
+      const lowId = sorted[0];
+      const highId = sorted[sorted.length - 1];
+      if (lowId !== highId) {
+        const lowVal = monster.threat[lowId] ?? 0;
+        const highVal = monster.threat[highId] ?? 0;
+        monster.threat[lowId] = highVal;
+        monster.threat[highId] = lowVal;
+      }
+    }
+    monster.baseAttack = Math.max(monster.baseAttack ?? 0, 7);
+    monster.onMonsterTurnStart = (liveState) => {
+      for (const player of liveState.players) {
+        if (player.hp <= 0) continue;
+        const current = liveState.monster.threat[player.id] ?? 0;
+        liveState.monster.threat[player.id] = Math.max(0, current - 2);
+      }
+    };
+  },
+
+  // Warden of Targeting — phase 3: lock onto the highest-threat target
+  // at a lower fixate threshold, gain a second action per turn, and
+  // stop dampening threat (we want it to climb so fixate can land).
+  wardenJudgementMode: (state) => {
+    const monster = state.monster;
+    monster.targetSelector = "fixate";
+    monster.fixateThreshold = 10;
+    monster.actionsPerTurn = Math.max(monster.actionsPerTurn ?? 1, 2);
+    monster.baseAttack = Math.max(monster.baseAttack ?? 0, 9);
+    monster.onMonsterTurnStart = null;
   },
 };
 
