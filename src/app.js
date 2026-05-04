@@ -1,6 +1,7 @@
 import { classDefinitions, selectableClasses } from "./content/classes.js";
 import { getCardDefinition } from "./content/cards.js";
 import { getChampionVisual, getEffectVisual } from "./content/game-assets.js";
+import { listMonsters, DEFAULT_MONSTER_ID } from "./content/monsters.js";
 import { getEffectDuration, getEffectName, shouldShowEffectAmount } from "./effects/effect-library.js";
 import {
   createCoopBattle,
@@ -22,6 +23,7 @@ const app = document.querySelector("#app");
 let setup = {
   playerOneClass: "rook",
   playerTwoClass: "lyra",
+  monsterId: DEFAULT_MONSTER_ID,
 };
 
 let gameState = null;
@@ -111,6 +113,7 @@ function handleAction(element) {
           classId: setup.playerTwoClass,
         },
       ],
+      monsterId: setup.monsterId,
     });
     lastSeenEventId = getLatestEventId(gameState);
     activeEffects = [];
@@ -270,6 +273,8 @@ function renderSetup() {
         </div>
       </header>
 
+      ${renderEncounterPicker()}
+
       <div class="setup-grid setup-grid-v2">
         ${renderSetupPlayer("Player 1", "playerOneClass")}
         ${renderSetupPlayer("Player 2", "playerTwoClass")}
@@ -289,6 +294,34 @@ function renderSetup() {
         <button class="primary-button setup-cta" type="button" data-action="start-game">Start boss fight</button>
       </div>
     </section>
+  `;
+}
+
+function renderEncounterPicker() {
+  const monsters = listMonsters();
+  const selected = monsters.find((m) => m.id === setup.monsterId) ?? monsters[0];
+  return `
+    <div class="setup-encounter-row">
+      <div class="setup-encounter-info">
+        <p class="eyebrow">Encounter</p>
+        <h2>${escapeHtml(selected.name)}</h2>
+        <p class="setup-encounter-role">${escapeHtml(selected.role)} · ${escapeHtml(selected.faction)}</p>
+      </div>
+      <label class="setup-encounter-selector">
+        <span class="setup-deck-label">Choose monster</span>
+        <select data-setup-field="monsterId">
+          ${monsters
+            .map(
+              (entry) => `
+                <option value="${entry.id}" ${setup.monsterId === entry.id ? "selected" : ""}>
+                  ${entry.name} — ${entry.role}
+                </option>
+              `,
+            )
+            .join("")}
+        </select>
+      </label>
+    </div>
   `;
 }
 
@@ -484,6 +517,7 @@ function renderMonsterBaseplate(monster) {
       <div class="baseplate-name">
         <p class="eyebrow">Threat encounter</p>
         <h2>${escapeHtml(monster.name)}</h2>
+        ${renderMonsterStatLine(monster)}
       </div>
       <div class="baseplate-meter">
         <div class="meter-track meter-hp">
@@ -491,16 +525,19 @@ function renderMonsterBaseplate(monster) {
         </div>
         <strong>${monster.hp} / ${monster.maxHp} HP</strong>
       </div>
+      ${renderMonsterResistances(monster)}
       <div class="threat-pip-row">
         ${gameState.players
           .map((player) => {
             const threat = gameState.monster.threat[player.id] ?? 0;
-            const percent = Math.min(100, Math.round((threat / 20) * 100));
+            const cap = gameState.monster.threatMax ?? 20;
+            const percent = Math.min(100, Math.round((threat / cap) * 100));
+            const isFixated = gameState.monster.fixate?.playerId === player.id;
             return `
-              <div class="threat-pip class-${player.classId}">
-                <span>${escapeHtml(player.name)}</span>
+              <div class="threat-pip class-${player.classId} ${isFixated ? "is-fixated" : ""}">
+                <span>${escapeHtml(player.name)}${isFixated ? " · Marked" : ""}</span>
                 <div class="meter-track meter-threat"><em style="width: ${percent}%"></em></div>
-                <strong>${threat}/20</strong>
+                <strong>${threat}/${cap}</strong>
               </div>
             `;
           })
@@ -510,14 +547,64 @@ function renderMonsterBaseplate(monster) {
   `;
 }
 
+function renderMonsterStatLine(monster) {
+  const parts = [];
+  if (typeof monster.defense === "number" && monster.defense > 0) {
+    parts.push(`<span class="monster-stat-chip stat-defense" title="Damage reduction (after element multiplier)">DEF ${monster.defense}</span>`);
+  }
+  const actions = monster.actionsPerTurn ?? 1;
+  if (actions > 1) {
+    parts.push(`<span class="monster-stat-chip stat-actions" title="Actions per monster turn">${actions} actions</span>`);
+  }
+  if (monster.phases && monster.phases.length > 1) {
+    const phaseIdx = monster.activePhaseIndex ?? 0;
+    const phase = monster.phases[phaseIdx];
+    if (phase) {
+      parts.push(`<span class="monster-stat-chip stat-phase" title="Active phase">Phase: ${escapeHtml(phase.id)}</span>`);
+    }
+  }
+  if (!parts.length) {
+    return "";
+  }
+  return `<div class="monster-stat-line">${parts.join("")}</div>`;
+}
+
+function renderMonsterResistances(monster) {
+  const resists = monster.elementResistances ?? {};
+  const entries = Object.entries(resists).filter(([, mul]) => typeof mul === "number" && mul !== 1);
+  if (!entries.length) {
+    return "";
+  }
+  const chips = entries
+    .map(([element, multiplier]) => {
+      const sign = multiplier > 1 ? "vuln" : "resist";
+      const display = multiplier > 1
+        ? `+${Math.round((multiplier - 1) * 100)}%`
+        : `−${Math.round((1 - multiplier) * 100)}%`;
+      return `<span class="resist-chip resist-${sign} element-${escapeHtml(element)}" title="${escapeHtml(element)} ${sign}">
+        <strong>${escapeHtml(element)}</strong>
+        <em>${display}</em>
+      </span>`;
+    })
+    .join("");
+  return `<div class="monster-resists">${chips}</div>`;
+}
+
 function renderMonsterIntent(intent) {
   if (!intent) {
     return "";
   }
+  const actions = intent.actions ?? 1;
+  const totalLabel = actions > 1
+    ? `${intent.damage} × ${actions}`
+    : `${intent.damage}`;
+  const titleLabel = actions > 1
+    ? `Next attacks: ${actions} × ${intent.damage} damage to ${intent.targetName}`
+    : `Next attack: ${intent.damage} damage to ${intent.targetName}`;
   return `
-    <div class="monster-intent" title="Next attack: ${intent.damage} damage to ${escapeHtml(intent.targetName)}">
+    <div class="monster-intent" title="${escapeHtml(titleLabel)}">
       <span class="intent-icon" aria-hidden="true"></span>
-      <strong>${intent.damage}</strong>
+      <strong>${totalLabel}</strong>
       <span class="intent-target">to ${escapeHtml(intent.targetName)}</span>
     </div>
   `;
@@ -649,19 +736,33 @@ function computeMonsterIntent(state) {
   if (!livingPlayers.length || state.phase === "game-over") {
     return null;
   }
-  const target = [...livingPlayers].sort((a, b) => {
-    const threatDiff = (state.monster.threat[b.id] ?? 0) - (state.monster.threat[a.id] ?? 0);
-    if (threatDiff !== 0) {
-      return threatDiff;
-    }
-    return a.hp - b.hp;
-  })[0];
+  // Mirror the engine target picker. Fixate locks onto the marked player.
+  let target = null;
+  const fixate = state.monster.fixate;
+  if (fixate && fixate.roundsRemaining > 0) {
+    target = livingPlayers.find((p) => p.id === fixate.playerId) ?? null;
+  }
+  if (!target) {
+    target = [...livingPlayers].sort((a, b) => {
+      const threatDiff = (state.monster.threat[b.id] ?? 0) - (state.monster.threat[a.id] ?? 0);
+      if (threatDiff !== 0) {
+        return threatDiff;
+      }
+      return a.hp - b.hp;
+    })[0];
+  }
   // baseAttack scales by floor(roundNumber / 2) per engine.
-  const damage = Math.max(1, state.monster.baseAttack + Math.floor(state.roundNumber / 2));
+  const weakened = state.monster.statuses?.weakened ?? 0;
+  const damage = Math.max(
+    1,
+    state.monster.baseAttack + Math.floor(state.roundNumber / 2) - weakened,
+  );
+  const actions = Math.max(1, state.monster.actionsPerTurn ?? 1);
   return {
     targetId: target.id,
     targetName: target.name,
     damage,
+    actions,
   };
 }
 
