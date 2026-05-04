@@ -192,6 +192,17 @@ export function resolveRound(currentState) {
       });
     }
     player.energy = 0;
+    // Storm Charge "Overload": gain 1 Storm Charge token if this player
+    // gained 5+ threat during their turn. Fires per turn, not per round —
+    // the counter resets at the top of the next round in startNextRound.
+    if ((player.threatGainedThisTurn ?? 0) >= 5) {
+      if (!player.tokens) player.tokens = { bioGrowth: 0, hydroflow: 0, stormCharge: 0 };
+      player.tokens.stormCharge = (player.tokens.stormCharge ?? 0) + 1;
+      pushLog(state, {
+        kind: "info",
+        text: `${player.name} overloads — gains 1 Storm Charge token.`,
+      });
+    }
   }
 
   if (state.monster.hp <= 0) {
@@ -307,6 +318,19 @@ function createPlayer(playerConfig, index) {
     // keys (marked, frenzy, ...). See addPlayerStatus / getPlayerStatus.
     statuses: {},
     statusDecay: {},
+    // Canonical element tokens. Held tokens drive always-on passives:
+    //   bioGrowth   — your healing actions heal +1 (any held)
+    //   hydroflow   — when you would gain 2+ threat, reduce by 1 (any held)
+    //   stormCharge — your damage actions deal +1 (any held)
+    // Generation:
+    //   bioGrowth   — gain 1 when targeted by a monster
+    //   stormCharge — gain 1 when you gain 5+ threat in your turn (Overload)
+    //   hydroflow   — gain 1 when you move 5+ threat from one player to
+    //                 another (deferred — needs a `moveThreat` action type)
+    tokens: { bioGrowth: 0, hydroflow: 0, stormCharge: 0 },
+    // Per-turn threat tally for the Storm Charge "Overload" trigger. Reset
+    // at end of player phase so the threshold is per-turn, not cumulative.
+    threatGainedThisTurn: 0,
   };
 }
 
@@ -354,9 +378,13 @@ function resolveAction(state, player, action) {
   }
 
   if (action.type === "heal") {
+    // Bio-Growth passive: holding any bio-growth tokens adds +1 to each
+    // healing action's amount before clamping at maxHp.
+    const bioBonus = (player.tokens?.bioGrowth ?? 0) > 0 ? 1 : 0;
+    const healAmount = action.amount + bioBonus;
     for (const target of getPlayerTargets(state, player, action.target)) {
       const before = target.hp;
-      target.hp = Math.min(target.maxHp, target.hp + action.amount);
+      target.hp = Math.min(target.maxHp, target.hp + healAmount);
       const healed = target.hp - before;
       if (healed > 0) {
         addThreat(state, player.id, Math.floor(healed / 2));
@@ -409,6 +437,11 @@ function dealMonsterDamage(state, player, amount, element) {
   // Glass Cannon blessing: +1 to any non-zero damage hit, applied after
   // mitigation so the bonus survives even high-defense monsters.
   if (state.blessingFlags?.glassCannon && finalDamage > 0) {
+    finalDamage += 1;
+  }
+  // Storm Charge passive: holding any storm-charge tokens adds +1 to each
+  // damage action that lands.
+  if (finalDamage > 0 && (player.tokens?.stormCharge ?? 0) > 0) {
     finalDamage += 1;
   }
   // Canonical surge: consume 1 stack to add +1 damage to this hit.
@@ -535,6 +568,17 @@ function resolveMonsterTurn(state) {
       return;
     }
 
+    // Bio-Growth generation: a player gains 1 Bio-Growth token whenever
+    // a monster targets them. Fires per attack action (multi-action
+    // monsters can grant multiple tokens in one turn).
+    if (!target.tokens) target.tokens = { bioGrowth: 0, hydroflow: 0, stormCharge: 0 };
+    target.tokens.bioGrowth = (target.tokens.bioGrowth ?? 0) + 1;
+    pushEvent(state, "criticalLine", {
+      target: { type: "player", playerId: target.id },
+      label: "Bio-Growth +1",
+      amount: 1,
+    });
+
     const damage = Math.max(
       1,
       state.monster.baseAttack + Math.floor(state.roundNumber / 2),
@@ -657,6 +701,9 @@ function startNextRound(state) {
     player.block = 0;
     player.energy = STARTING_ENERGY;
     player.energyMax = STARTING_ENERGY;
+    // Reset per-turn threat tally so Storm Charge Overload checks fresh
+    // each round.
+    player.threatGainedThisTurn = 0;
     // Canonical rule: fixated players do not lose threat during end-of-round
     // decay. Their threat only drops via the post-fixate halve in decayFixate.
     const fix = state.monster.fixate;
@@ -810,6 +857,7 @@ function getPlayerTargets(state, player, targetType) {
 
 function addThreat(state, playerId, amount) {
   const cap = state.monster.threatMax ?? 20;
+  const player = state.players.find((p) => p.id === playerId);
   // Canonical rule: while a monster is fixated on someone else, every other
   // player's positive threat gain is reduced by 1 (floor 0). The fixated
   // player themselves is unaffected.
@@ -818,8 +866,16 @@ function addThreat(state, playerId, amount) {
   if (amount > 0 && fix && fix.roundsRemaining > 0 && fix.playerId !== playerId) {
     reduction = 1;
   }
+  // Hydroflow passive: holding any hydroflow tokens reduces gains of 2+ by 1.
+  if (amount >= 2 && (player?.tokens?.hydroflow ?? 0) > 0) {
+    reduction += 1;
+  }
   const adjusted = Math.max(0, amount - reduction);
   state.monster.threat[playerId] = Math.min(cap, getThreat(state, playerId) + adjusted);
+  // Track per-turn threat gain for Storm Charge "Overload" trigger.
+  if (player && adjusted > 0) {
+    player.threatGainedThisTurn = (player.threatGainedThisTurn ?? 0) + adjusted;
+  }
   pushEvent(state, "threat", {
     target: { type: "player", playerId },
     amount: adjusted,
