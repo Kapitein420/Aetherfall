@@ -3752,6 +3752,90 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   color: #b6e3ff;
 }
 
+/* ---- Element-token chips on the baseplate ---- */
+/* One chip per element (Bio-Growth, Hydroflow, Storm Charge). Hidden when
+   count is 0 (handled in renderPlayerTokens). Each chip uses its canonical
+   element color via the existing :root CSS custom properties. */
+
+.player-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.token-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px 0 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.36);
+  border: 1px solid rgba(246, 240, 223, 0.16);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: #d6cfb6;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.token-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  line-height: 0;
+}
+
+.token-chip strong {
+  font-style: normal;
+  font-weight: 900;
+  font-size: 0.92rem;
+}
+
+.token-chip.token-bio {
+  background: rgba(92, 214, 107, 0.14);
+  border-color: rgba(92, 214, 107, 0.55);
+}
+.token-chip.token-bio strong {
+  color: var(--element-bio);
+}
+
+.token-chip.token-hydro {
+  background: rgba(62, 196, 255, 0.14);
+  border-color: rgba(62, 196, 255, 0.55);
+}
+.token-chip.token-hydro strong {
+  color: var(--element-hydro);
+}
+
+.token-chip.token-storm {
+  background: rgba(192, 132, 255, 0.14);
+  border-color: rgba(192, 132, 255, 0.55);
+}
+.token-chip.token-storm strong {
+  color: var(--element-storm);
+}
+
+.token-chip:hover {
+  transform: translateY(-1px);
+  background: rgba(0, 0, 0, 0.46);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+}
+
+.token-chip.token-bio:hover {
+  box-shadow: 0 0 0 1px rgba(92, 214, 107, 0.65), 0 4px 10px rgba(0, 0, 0, 0.45);
+}
+.token-chip.token-hydro:hover {
+  box-shadow: 0 0 0 1px rgba(62, 196, 255, 0.65), 0 4px 10px rgba(0, 0, 0, 0.45);
+}
+.token-chip.token-storm:hover {
+  box-shadow: 0 0 0 1px rgba(192, 132, 255, 0.65), 0 4px 10px rgba(0, 0, 0, 0.45);
+}
+
 /* ---- Status pips on silhouettes ---- */
 
 .status-pip {

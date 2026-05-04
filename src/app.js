@@ -855,9 +855,61 @@ function renderChampion(player, side, intent) {
             <em>${player.block}</em><span>Block</span>
           </span>
         </div>
+        ${renderPlayerTokens(player)}
       </div>
     </div>
   `;
+}
+
+// Element-token cluster rendered on the player baseplate. Three chips, one
+// per canonical element token (Bio-Growth, Hydroflow, Storm Charge). Chips
+// are hidden when the count is zero so empty plates stay clean. Tooltip
+// describes the always-on passive each token grants while held — see
+// docs/canonical-rules.md §4.
+const TOKEN_CHIP_DEFS = [
+  {
+    key: "bioGrowth",
+    cls: "token-bio",
+    elementId: "bio-growth",
+    label: "Bio-Growth",
+    title: "Bio-Growth: your healing actions heal +1 (any held)",
+  },
+  {
+    key: "hydroflow",
+    cls: "token-hydro",
+    elementId: "hydroflow",
+    label: "Hydroflow",
+    title: "Hydroflow: when you would gain 2+ threat, reduce by 1 (any held)",
+  },
+  {
+    key: "stormCharge",
+    cls: "token-storm",
+    elementId: "storm-charge",
+    label: "Storm Charge",
+    title: "Storm Charge: your damage actions deal +1 (any held)",
+  },
+];
+
+function renderPlayerTokens(player) {
+  const tokens = player?.tokens ?? {};
+  const counts = TOKEN_CHIP_DEFS.map((def) => ({ def, count: tokens[def.key] ?? 0 }));
+  // If the player holds nothing, render no markup at all — keeps the
+  // baseplate uncluttered when tokens aren't in play.
+  if (!counts.some(({ count }) => count > 0)) {
+    return "";
+  }
+  const chips = counts
+    .filter(({ count }) => count > 0)
+    .map(({ def, count }) => {
+      const icon = getElementIcon(def.elementId, { title: def.label });
+      return `
+        <span class="token-chip ${def.cls}" title="${escapeHtml(def.title)}" aria-label="${escapeHtml(def.label)}: ${count}">
+          <span class="token-chip-icon" aria-hidden="true">${icon}</span>
+          <strong>${count}</strong>
+        </span>
+      `;
+    });
+  return `<div class="player-tokens" role="group" aria-label="Element tokens">${chips.join("")}</div>`;
 }
 
 function renderChampionStatusPips(player) {
