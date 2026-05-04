@@ -5273,3 +5273,333 @@ body.dragging-card .standoff-champion {
     display: none;
   }
 }
+
+/* ===== Compact UI: corner log + fixed bottom action bar ===== */
+
+.standoff-table.compact-ui {
+  padding-bottom: 80px;
+}
+
+/* Hide legacy chrome when compact-ui is active */
+.standoff-table.compact-ui .table-topbar,
+.standoff-table.compact-ui .rules-strip,
+.standoff-table.compact-ui .log-drawer-top,
+.standoff-table.compact-ui .active-blessing-chip {
+  display: none;
+}
+
+/* Corner log widget — fixed top-right */
+.log-corner {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: clamp(240px, 22vw, 320px);
+  max-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(20, 26, 32, 0.78) 0%, rgba(12, 16, 20, 0.7) 100%);
+  border: 1px solid rgba(180, 200, 220, 0.14);
+  backdrop-filter: blur(8px);
+  z-index: 60;
+  pointer-events: auto;
+  font-size: 12.5px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+}
+
+.log-corner-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(180, 200, 220, 0.1);
+}
+
+.log-corner-eyebrow {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 220, 140, 0.78);
+  font-weight: 600;
+}
+
+.log-corner-hint {
+  font-size: 10px;
+  color: rgba(180, 200, 220, 0.46);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.log-corner-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  max-height: calc(50vh - 48px);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180, 200, 220, 0.3) transparent;
+}
+
+.log-corner-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.log-corner-list::-webkit-scrollbar-thumb {
+  background: rgba(180, 200, 220, 0.28);
+  border-radius: 3px;
+}
+
+.log-corner-list .log-entry,
+.log-corner-list li {
+  font-size: 12px;
+  line-height: 1.35;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgba(28, 34, 42, 0.4);
+  border-left: 2px solid rgba(255, 220, 140, 0.32);
+  color: #d8e1ea;
+}
+
+.log-corner-list .log-entry.phase-banner,
+.log-corner-list li.phase-banner {
+  background: rgba(60, 48, 22, 0.5);
+  border-left-color: rgba(255, 220, 140, 0.7);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.log-corner-list .log-entry.outcome,
+.log-corner-list li.outcome {
+  background: rgba(80, 30, 30, 0.55);
+  border-left-color: rgba(220, 110, 110, 0.7);
+}
+
+.log-corner-list .log-entry.round-start,
+.log-corner-list li.round-start {
+  background: rgba(28, 50, 48, 0.5);
+  border-left-color: rgba(120, 220, 200, 0.5);
+}
+
+@media (max-width: 900px) {
+  .log-corner {
+    width: clamp(200px, 40vw, 280px);
+  }
+}
+
+/* Fixed action bar at bottom of viewport */
+.action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 18px;
+  background: linear-gradient(180deg, rgba(14, 18, 22, 0.78) 0%, rgba(8, 11, 14, 0.92) 100%);
+  border-top: 1px solid rgba(255, 220, 140, 0.18);
+  backdrop-filter: blur(10px);
+  font-size: 13px;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.45);
+}
+
+.ab-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ab-status {
+  flex: 0 1 auto;
+}
+
+.ab-controls {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.ab-round {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f5e9c8;
+  font-size: 13.5px;
+}
+
+.ab-energy {
+  color: rgba(220, 232, 240, 0.85);
+  font-weight: 600;
+}
+
+.ab-threat {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ab-threat-pip {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(28, 34, 42, 0.6);
+  border: 1px solid rgba(180, 200, 220, 0.18);
+  color: rgba(220, 232, 240, 0.85);
+  font-size: 12px;
+}
+
+.ab-threat-pip strong {
+  color: #f5e9c8;
+}
+
+.ab-blessing {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(60, 48, 22, 0.45);
+  border: 1px solid rgba(255, 220, 140, 0.32);
+}
+
+.ab-blessing-label {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 220, 140, 0.78);
+}
+
+.ab-blessing-name {
+  color: #f5e9c8;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.ab-queued {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(28, 34, 42, 0.55);
+  border: 1px solid rgba(180, 200, 220, 0.18);
+  color: rgba(220, 232, 240, 0.85);
+  font-size: 12px;
+}
+
+.ab-resolve {
+  padding: 9px 22px;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #f5c97a 0%, #d49b3e 100%);
+  border: 1px solid rgba(255, 220, 140, 0.7);
+  color: #1a120a;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+  box-shadow: 0 6px 18px rgba(220, 170, 80, 0.32);
+}
+
+.ab-resolve:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(220, 170, 80, 0.45);
+}
+
+.ab-resolve:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.ab-secondary {
+  padding: 8px 16px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12.5px;
+  background: rgba(28, 34, 42, 0.7);
+  border: 1px solid rgba(180, 200, 220, 0.28);
+  color: rgba(220, 232, 240, 0.9);
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+
+.ab-secondary:hover {
+  border-color: rgba(255, 220, 140, 0.5);
+  color: #f5e9c8;
+}
+
+@media (max-width: 720px) {
+  .action-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .ab-blessing-label {
+    display: none;
+  }
+  .ab-energy {
+    display: none;
+  }
+}
+
+/* Hover-reveal: secondary buttons that aren't needed every round.
+   Hidden by default; appear when the user moves near the action bar
+   or focuses anything inside it. `.is-pinned` keeps them visible
+   (e.g. when the fight ends — New fight becomes the primary action). */
+.ab-utility {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0;
+  transform: translateX(8px);
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.action-bar:hover .ab-utility,
+.action-bar:focus-within .ab-utility,
+.ab-utility.is-pinned {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* Multiplayer panel — hover-reveal when idle. Active sessions
+   (hosting / joining / connected / error) keep the full panel
+   visible because the user needs to see live status. */
+.mp-panel.mp-state-idle .mp-row,
+.mp-panel.mp-state-idle .mp-hint,
+.mp-panel.mp-state-idle .mp-error {
+  display: none;
+}
+
+.mp-panel.mp-state-idle:hover .mp-row,
+.mp-panel.mp-state-idle:focus-within .mp-row {
+  display: flex;
+}
+
+.mp-panel.mp-state-idle:hover .mp-hint,
+.mp-panel.mp-state-idle:focus-within .mp-hint {
+  display: block;
+}
+
+.mp-panel.mp-state-idle:hover .mp-error,
+.mp-panel.mp-state-idle:focus-within .mp-error {
+  display: block;
+}
+
+/* Log corner — collapse to the latest entry by default, expand
+   on hover to show the full 12-entry list. */
+.log-corner-list {
+  max-height: 60px;
+  transition: max-height 220ms ease;
+}
+
+.log-corner:hover .log-corner-list,
+.log-corner:focus-within .log-corner-list {
+  max-height: calc(50vh - 48px);
+}

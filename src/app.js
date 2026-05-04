@@ -417,18 +417,6 @@ function renderSetupPlayer(label, classField) {
   `;
 }
 
-function renderBlessingChip(state) {
-  const blessing = getBlessingById(state?.blessingId);
-  if (!blessing) return "";
-  return `
-    <div class="active-blessing-chip" title="${escapeHtml(blessing.description)}">
-      <span class="active-blessing-eyebrow">Active blessing</span>
-      <strong class="active-blessing-name">${escapeHtml(blessing.name)}</strong>
-      <span class="active-blessing-description">${escapeHtml(blessing.description)}</span>
-    </div>
-  `;
-}
-
 function renderDraft() {
   const options = draftState?.options ?? [];
   const selectedId = draftState?.selectedId ?? null;
@@ -495,37 +483,8 @@ function renderGame() {
   const intent = MONSTER_INTENT_ENABLED ? computeMonsterIntent(gameState) : null;
 
   return `
-    <section class="game-table standoff-table">
-      <div class="table-topbar">
-        <div class="topbar-title">
-          <p class="eyebrow">Round ${gameState.roundNumber}</p>
-          <h1>${gameOver ? renderWinnerTitle() : "Plan the round"}</h1>
-        </div>
-        <div class="topbar-center">
-          <span class="status-pill">${totalQueued} queued</span>
-          <button class="end-turn-button" type="button" data-action="resolve-round" ${gameOver ? "disabled" : ""}>Resolve round</button>
-        </div>
-        <div class="topbar-actions">
-          <button class="secondary-button" type="button" data-action="new-game">New fight</button>
-        </div>
-      </div>
-
-      <div class="rules-strip" aria-label="Round flow">
-        <span><strong>Plan</strong> together · drag cards onto a target</span>
-        <span class="rules-sep">›</span>
-        <span><strong>Resolve</strong> · player phase, then monster strikes highest threat</span>
-        <span class="rules-sep">›</span>
-        <span><strong>New round</strong> · draw 5, +1 energy (cap 10), threat decays 3</span>
-      </div>
-
-      ${renderBlessingChip(gameState)}
-
-      <section class="log-drawer log-drawer-top">
-        <h2>Battle log</h2>
-        <ol class="log-list">
-          ${gameState.log.map(renderLogEntry).join("")}
-        </ol>
-      </section>
+    <section class="game-table standoff-table compact-ui">
+      ${renderLogCorner(gameState)}
 
       ${message ? `<div class="message-bar">${escapeHtml(message)}</div>` : ""}
 
@@ -576,8 +535,55 @@ function renderGame() {
         </div>
       </div>
 
+      ${renderActionBar(gameState, totalQueued, gameOver)}
+
       <div class="standoff-drag-ghost" data-drag-ghost aria-hidden="true"></div>
     </section>
+  `;
+}
+
+function renderActionBar(state, totalQueued, gameOver) {
+  const blessing = getBlessingById(state.blessingId);
+  const threatSummary = state.players
+    .map((p) => `<span class="ab-threat-pip class-${p.classId}">${escapeHtml(p.name)} <strong>${state.monster.threat[p.id] ?? 0}</strong></span>`)
+    .join("");
+  const energyMax = state.players[0]?.energyMax ?? 0;
+  const title = gameOver ? renderWinnerTitle() : `Round ${state.roundNumber}`;
+  return `
+    <div class="action-bar" role="toolbar" aria-label="Round controls">
+      <div class="ab-section ab-status">
+        <span class="ab-round">${escapeHtml(title)}</span>
+        <span class="ab-energy" title="Energy cap">⚡ ${energyMax}</span>
+        <span class="ab-threat" title="Threat per champion">${threatSummary}</span>
+      </div>
+      ${blessing ? `
+      <div class="ab-section ab-blessing" title="${escapeHtml(blessing.description)}">
+        <span class="ab-blessing-label">Blessing</span>
+        <strong class="ab-blessing-name">${escapeHtml(blessing.name)}</strong>
+      </div>` : ""}
+      <div class="ab-section ab-controls">
+        <span class="ab-queued">${totalQueued} queued</span>
+        <button class="ab-resolve" type="button" data-action="resolve-round" ${gameOver ? "disabled" : ""}>${gameOver ? "Round closed" : "Resolve round"}</button>
+        <span class="ab-utility ${gameOver ? "is-pinned" : ""}">
+          <button class="ab-secondary" type="button" data-action="new-game">New fight</button>
+        </span>
+      </div>
+    </div>
+  `;
+}
+
+function renderLogCorner(state) {
+  const recent = state.log.slice(0, 12);
+  if (recent.length === 0) return "";
+  const items = recent.map(renderLogEntry).join("");
+  return `
+    <aside class="log-corner" aria-label="Battle log">
+      <header class="log-corner-header">
+        <span class="log-corner-eyebrow">Log</span>
+        <span class="log-corner-hint">latest first</span>
+      </header>
+      <ol class="log-corner-list">${items}</ol>
+    </aside>
   `;
 }
 
