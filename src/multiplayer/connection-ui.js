@@ -44,10 +44,12 @@ function buildShareUrl(roomCode) {
 function renderPanel(status) {
   const { state, roomCode, error } = status;
   const shareUrl = roomCode ? buildShareUrl(roomCode) : "";
+  // With 4-player support, computing the joined slot index requires engine
+  // state we don't have here. Show the role only.
   const slot = state === "connected"
     ? roomCode
-      ? "Player 1 (host)"
-      : "Player 2 (joined)"
+      ? "Host"
+      : "Joined"
     : null;
 
   let body = "";

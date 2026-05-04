@@ -21,9 +21,13 @@ import {
 
 const app = document.querySelector("#app");
 
+// Up to 4 players. The first `playerCount` slots in `playerClasses` are
+// active; the rest are kept as defaults so the picker can grow without
+// dropping previous selections.
+const MAX_PLAYERS = 4;
 let setup = {
-  playerOneClass: "rook",
-  playerTwoClass: "lyra",
+  playerCount: 2,
+  playerClasses: ["rook", "lyra", "rook", "lyra"],
   monsterId: DEFAULT_MONSTER_ID,
 };
 
@@ -82,6 +86,19 @@ app.addEventListener("change", (event) => {
     return;
   }
 
+  // `playerClass-<index>` slots write into the `playerClasses` array. All
+  // other fields are scalar properties on `setup`.
+  if (field.startsWith("playerClass-")) {
+    const index = Number.parseInt(field.slice("playerClass-".length), 10);
+    if (Number.isInteger(index) && index >= 0 && index < MAX_PLAYERS) {
+      const next = setup.playerClasses.slice();
+      next[index] = event.target.value;
+      setup = { ...setup, playerClasses: next };
+      render();
+    }
+    return;
+  }
+
   setup = { ...setup, [field]: event.target.value };
   render();
 });
@@ -102,6 +119,15 @@ app.addEventListener("click", (event) => {
 
 function handleAction(element) {
   const action = element.dataset.action;
+
+  if (action === "set-player-count") {
+    const next = Number.parseInt(element.dataset.playerCount, 10);
+    if (Number.isInteger(next) && next >= 1 && next <= MAX_PLAYERS) {
+      setup = { ...setup, playerCount: next };
+      render();
+    }
+    return;
+  }
 
   if (action === "start-game") {
     // Open the blessing draft instead of going straight to battle. The
@@ -136,19 +162,13 @@ function handleAction(element) {
   if (action === "confirm-blessing") {
     if (!draftState || !draftState.selectedId) return;
     const blessingId = draftState.selectedId;
+    const activeClasses = setup.playerClasses.slice(0, setup.playerCount);
     gameState = createCoopBattle({
-      players: [
-        {
-          id: "player-1",
-          name: classDefinitions[setup.playerOneClass].shortName,
-          classId: setup.playerOneClass,
-        },
-        {
-          id: "player-2",
-          name: classDefinitions[setup.playerTwoClass].shortName,
-          classId: setup.playerTwoClass,
-        },
-      ],
+      players: activeClasses.map((classId, index) => ({
+        id: `player-${index + 1}`,
+        name: classDefinitions[classId].shortName,
+        classId,
+      })),
       monsterId: setup.monsterId,
       blessingId,
     });
@@ -306,25 +326,33 @@ function findTargetElement(targetKeyValue) {
 }
 
 function renderSetup() {
+  const playerCount = setup.playerCount;
+  const heroPill = `${playerCount} vs 1`;
+  const tagline = playerCount === 1
+    ? "One champion. One monster. One plan."
+    : `${playerCount} champions. One monster. One plan.`;
+  const panels = [];
+  for (let i = 0; i < playerCount; i += 1) {
+    panels.push(renderSetupPlayer(`Player ${i + 1}`, i));
+  }
   return `
     <section class="setup-shell setup-shell-v2">
       <header class="setup-hero">
         <div class="setup-hero-text">
           <p class="eyebrow">The Fracture of Aetherfall</p>
           <h1>Co-op Boss Trial</h1>
-          <p class="setup-tagline">Two champions. One monster. One plan.</p>
+          <p class="setup-tagline">${escapeHtml(tagline)}</p>
         </div>
         <div class="setup-hero-meta">
-          <span class="hero-pill">2 vs 1</span>
+          <span class="hero-pill">${escapeHtml(heroPill)}</span>
           <span class="hero-pill subtle">Drag · Plan · Resolve</span>
         </div>
       </header>
 
       ${renderEncounterPicker()}
 
-      <div class="setup-grid setup-grid-v2">
-        ${renderSetupPlayer("Player 1", "playerOneClass")}
-        ${renderSetupPlayer("Player 2", "playerTwoClass")}
+      <div class="setup-grid setup-grid-v2 player-count-${playerCount}">
+        ${panels.join("")}
       </div>
 
       <div class="rules-strip rules-strip-setup">
@@ -347,6 +375,19 @@ function renderSetup() {
 function renderEncounterPicker() {
   const monsters = listMonsters();
   const selected = monsters.find((m) => m.id === setup.monsterId) ?? monsters[0];
+  const countOptions = [2, 3, 4]
+    .map(
+      (count) => `
+        <button
+          type="button"
+          class="player-count-pill ${setup.playerCount === count ? "is-active" : ""}"
+          data-action="set-player-count"
+          data-player-count="${count}"
+          aria-pressed="${setup.playerCount === count ? "true" : "false"}"
+        >${count}</button>
+      `,
+    )
+    .join("");
   return `
     <div class="setup-encounter-row">
       <div class="setup-encounter-info">
@@ -354,28 +395,38 @@ function renderEncounterPicker() {
         <h2>${escapeHtml(selected.name)}</h2>
         <p class="setup-encounter-role">${escapeHtml(selected.role)} · ${escapeHtml(selected.faction)}</p>
       </div>
-      <label class="setup-encounter-selector">
-        <span class="setup-deck-label">Choose monster</span>
-        <select data-setup-field="monsterId">
-          ${monsters
-            .map(
-              (entry) => `
-                <option value="${entry.id}" ${setup.monsterId === entry.id ? "selected" : ""}>
-                  ${entry.name} — ${entry.role}
-                </option>
-              `,
-            )
-            .join("")}
-        </select>
-      </label>
+      <div class="setup-encounter-controls">
+        <div class="setup-player-count" role="group" aria-label="Number of players">
+          <span class="setup-deck-label">Players</span>
+          <div class="player-count-segment">
+            ${countOptions}
+          </div>
+        </div>
+        <label class="setup-encounter-selector">
+          <span class="setup-deck-label">Choose monster</span>
+          <select data-setup-field="monsterId">
+            ${monsters
+              .map(
+                (entry) => `
+                  <option value="${entry.id}" ${setup.monsterId === entry.id ? "selected" : ""}>
+                    ${entry.name} — ${entry.role}
+                  </option>
+                `,
+              )
+              .join("")}
+          </select>
+        </label>
+      </div>
     </div>
   `;
 }
 
-function renderSetupPlayer(label, classField) {
-  const selectedClass = classDefinitions[setup[classField]];
+function renderSetupPlayer(label, slotIndex) {
+  const classId = setup.playerClasses[slotIndex] ?? selectableClasses[0].id;
+  const selectedClass = classDefinitions[classId] ?? selectableClasses[0];
   const championVisual = getChampionVisual(selectedClass.id);
   const factionLabel = selectedClass.faction ?? "Free Champion";
+  const fieldName = `playerClass-${slotIndex}`;
   const aspectChips = (selectedClass.aspect ?? "")
     .split(/\s*\/\s*/)
     .filter(Boolean)
@@ -401,11 +452,11 @@ function renderSetupPlayer(label, classField) {
       </div>
       <label class="setup-deck-selector">
         <span class="setup-deck-label">Character deck</span>
-        <select data-setup-field="${classField}">
+        <select data-setup-field="${fieldName}">
           ${selectableClasses
             .map(
               (classDef) => `
-                <option value="${classDef.id}" ${setup[classField] === classDef.id ? "selected" : ""}>
+                <option value="${classDef.id}" ${classId === classDef.id ? "selected" : ""}>
                   ${classDef.shortName} — ${classDef.role}
                 </option>
               `,
@@ -497,9 +548,12 @@ function renderGame() {
           ${renderMonsterBaseplate(gameState.monster)}
         </div>
 
-        <div class="standoff-flanks">
-          ${renderChampion(gameState.players[0], "left", intent)}
-          ${renderChampion(gameState.players[1], "right", intent)}
+        <div class="standoff-flanks players-${gameState.players.length}">
+          ${gameState.players
+            .map((player, index) =>
+              renderChampion(player, championSideForIndex(index, gameState.players.length), intent),
+            )
+            .join("")}
         </div>
 
         <div class="standoff-queue-strip" data-queue-strip>
@@ -512,11 +566,12 @@ function renderGame() {
           <span>Drop here for an untargeted play</span>
         </div>
 
-        <div class="standoff-hand-shelf">
+        <div class="standoff-hand-shelf players-${gameState.players.length}">
           ${gameState.players
-            .map(
-              (player, index) => `
-                <div class="standoff-hand-cluster ${index === 0 ? "left" : "right"}">
+            .map((player, index) => {
+              const side = championSideForIndex(index, gameState.players.length);
+              return `
+                <div class="standoff-hand-cluster ${side}">
                   <div class="standoff-hand-label">
                     <strong>${escapeHtml(player.name)}</strong>
                     <span>Energy ${getRemainingEnergy(player)}/${player.energy}</span>
@@ -525,12 +580,12 @@ function renderGame() {
                     ${player.hand.length === 0
                       ? `<div class="empty-hand">No cards in hand.</div>`
                       : player.hand.map((cardInstance, cardIndex, arr) =>
-                          renderHandCard(player, cardInstance, cardIndex, arr.length, index === 0 ? "left" : "right"),
+                          renderHandCard(player, cardInstance, cardIndex, arr.length, side),
                         ).join("")}
                   </div>
                 </div>
-              `,
-            )
+              `;
+            })
             .join("")}
         </div>
       </div>
@@ -731,6 +786,30 @@ function renderMonsterIntent(intent) {
       <span class="intent-target">to ${escapeHtml(intent.targetName)}</span>
     </div>
   `;
+}
+
+// Map a player slot to a layout side ("left" / "right" / "center"). The
+// side controls hand-fan direction, portrait flipping, and pip placement.
+// 1 player  -> [left]
+// 2 players -> [left, right]
+// 3 players -> [left, center, right]
+// 4 players -> [left, center, center, right]
+function championSideForIndex(index, total) {
+  if (total <= 1) {
+    return "left";
+  }
+  if (total === 2) {
+    return index === 0 ? "left" : "right";
+  }
+  if (total === 3) {
+    if (index === 0) return "left";
+    if (index === total - 1) return "right";
+    return "center";
+  }
+  // 4+ players: ends are flanks, middles are center.
+  if (index === 0) return "left";
+  if (index === total - 1) return "right";
+  return "center";
 }
 
 function renderChampion(player, side, intent) {
