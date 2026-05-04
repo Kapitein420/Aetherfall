@@ -8,8 +8,12 @@ import {
 import { getBlessingById } from "../content/blessings.js";
 
 export const DRAW_PER_ROUND = 5;
-export const STARTING_ENERGY = 3;
-export const MAX_ENERGY = 10;
+// Canonical energy: 4 per turn, no raw carryover. Unused energy at the
+// end of the player phase converts to "surge" stacks (+1 damage on the
+// next damage action, capped at SURGE_CAP per turn — diminishing returns).
+export const STARTING_ENERGY = 4;
+export const MAX_ENERGY = 4;
+export const SURGE_CAP = 3;
 export const THREAT_DECAY = 3;
 export const FIXATE_THREAT_THRESHOLD = 15;
 export const FIXATE_DURATION = 2;
@@ -171,6 +175,23 @@ export function resolveRound(currentState) {
     if (state.monster.hp <= 0) {
       break;
     }
+  }
+
+  // Canonical energy rule: unused energy at the end of the player phase
+  // converts to surge stacks (+1 damage on the next damage action, capped
+  // at SURGE_CAP per turn — diminishing returns). No raw carryover.
+  for (const player of state.players) {
+    if (player.hp <= 0) continue;
+    const unused = Math.max(0, player.energy);
+    if (unused > 0) {
+      const gained = Math.min(unused, SURGE_CAP);
+      addPlayerStatus(state, player.id, "surge", gained, { mode: "max", decay: SURGE_CAP });
+      pushLog(state, {
+        kind: "info",
+        text: `${player.name} converts ${unused} unused energy into +${gained} surge.`,
+      });
+    }
+    player.energy = 0;
   }
 
   if (state.monster.hp <= 0) {
@@ -389,6 +410,16 @@ function dealMonsterDamage(state, player, amount, element) {
   // mitigation so the bonus survives even high-defense monsters.
   if (state.blessingFlags?.glassCannon && finalDamage > 0) {
     finalDamage += 1;
+  }
+  // Canonical surge: consume 1 stack to add +1 damage to this hit.
+  // Each damage action consumes at most one stack.
+  if (finalDamage > 0) {
+    const stacks = player.statuses?.surge ?? 0;
+    if (stacks > 0) {
+      player.statuses.surge = stacks - 1;
+      if (player.statuses.surge <= 0) delete player.statuses.surge;
+      finalDamage += 1;
+    }
   }
 
   state.monster.hp = Math.max(0, state.monster.hp - finalDamage);
@@ -618,12 +649,14 @@ function applyPlayerDamage(state, player, amount) {
 }
 
 function startNextRound(state) {
-  const energyCap = MAX_ENERGY + (state.blessingFlags?.energyCapBonus ?? 0);
   const threatDecay = THREAT_DECAY + (state.blessingFlags?.threatDecayBonus ?? 0);
+  // Canonical: base energy is 4 per turn, no carryover. The `energyCapBonus`
+  // blessing flag (Slow Burn) is now a no-op since the cap concept is gone;
+  // blessings will be retired entirely in Step 5.
   for (const player of state.players) {
     player.block = 0;
-    player.energyMax = Math.min(energyCap, player.energyMax + 1);
-    player.energy = player.energyMax;
+    player.energy = STARTING_ENERGY;
+    player.energyMax = STARTING_ENERGY;
     // Canonical rule: fixated players do not lose threat during end-of-round
     // decay. Their threat only drops via the post-fixate halve in decayFixate.
     const fix = state.monster.fixate;
@@ -648,14 +681,13 @@ function startNextRound(state) {
   // Quickdraw add cards on top of the round's normal 5-card draw.
   getBlessingById(state.blessingId)?.onRoundStart?.(state);
 
-  const energyMax = state.players[0]?.energyMax ?? STARTING_ENERGY;
   const threatSummary = state.players
     .map((p) => `${p.name} ${getThreat(state, p.id)}`)
     .join(" / ");
   pushLog(state, {
     kind: "round-start",
     round: state.roundNumber,
-    text: `Round ${state.roundNumber} · Energy ${energyMax}/${energyCap} · Threat: ${threatSummary}`,
+    text: `Round ${state.roundNumber} · Energy ${STARTING_ENERGY}/${MAX_ENERGY} · Threat: ${threatSummary}`,
   });
 }
 
