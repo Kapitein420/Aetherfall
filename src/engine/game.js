@@ -5,6 +5,7 @@ import {
   createMonsterById,
   phaseHooks,
 } from "../content/monsters.js";
+import { getBlessingById } from "../content/blessings.js";
 
 export const DRAW_PER_ROUND = 5;
 export const STARTING_ENERGY = 3;
@@ -36,10 +37,27 @@ export function createCoopBattle(config = {}) {
     log: [],
     events: [],
     nextEventId: 1,
+    // Per-fight blessing. Only the ID lives on state (functions can't be
+    // structuredClone'd); helpers re-resolve via getBlessingById.
+    blessingId: config.blessingId ?? null,
+    blessingFlags: {},
   };
 
   for (const player of state.players) {
     drawCards(state, player, DRAW_PER_ROUND);
+  }
+
+  // Apply blessing — `apply` runs once at fight start, before round 1's
+  // onRoundStart so per-round bonuses (Quickdraw, Healer's Cradle) layer
+  // on top of any apply-time mutations.
+  const blessing = getBlessingById(state.blessingId);
+  if (blessing) {
+    blessing.apply?.(state);
+    pushLog(state, {
+      kind: "info",
+      text: `${blessing.name} blesses the party — ${blessing.description}`,
+    });
+    blessing.onRoundStart?.(state);
   }
 
   pushLog(state, {
@@ -65,10 +83,24 @@ export function queueCard(currentState, command) {
 
   const cardInstance = player.hand[handIndex];
   const card = getCardDefinition(cardInstance.cardId);
-  if (getRemainingEnergy(player) < card.cost) {
+  // Crit Vision blessing: the first card a player queues this round costs
+  // 1 less energy. "First this round" = no other card currently planned
+  // already carries a discount. If they unqueue and re-queue, the discount
+  // transfers naturally.
+  let effectiveCost = card.cost;
+  if (
+    state.blessingFlags?.firstCardDiscount &&
+    !player.planned.some((c) => c.discountedCost !== undefined)
+  ) {
+    effectiveCost = Math.max(0, card.cost - 1);
+  }
+  if (getRemainingEnergy(player) < effectiveCost) {
     throw new Error(`${player.name} does not have enough energy for ${card.name}.`);
   }
 
+  if (effectiveCost !== card.cost) {
+    cardInstance.discountedCost = effectiveCost;
+  }
   player.hand.splice(handIndex, 1);
   player.planned.push(cardInstance);
   pushEvent(state, "plan", {
@@ -89,6 +121,10 @@ export function unqueueCard(currentState, command) {
   }
 
   const [cardInstance] = player.planned.splice(planIndex, 1);
+  // Returning the card to hand wipes any discount it carried — if it gets
+  // re-queued and there's still no other discounted card planned, queueCard
+  // will reapply the discount cleanly.
+  delete cardInstance.discountedCost;
   player.hand.push(cardInstance);
   return state;
 }
@@ -111,7 +147,8 @@ export function resolveRound(currentState) {
   for (const player of state.players) {
     for (const cardInstance of player.planned) {
       const card = getCardDefinition(cardInstance.cardId);
-      player.energy -= card.cost;
+      const cost = cardInstance.discountedCost ?? card.cost;
+      player.energy -= cost;
       const monsterHpBefore = state.monster.hp;
       resolveCard(state, player, card);
       player.discard.push(cardInstance);
@@ -122,7 +159,7 @@ export function resolveRound(currentState) {
         classId: player.classId,
         card: card.name,
         role: card.role,
-        cost: card.cost,
+        cost,
         damage: damageDealt > 0 ? damageDealt : 0,
         text: buildCardUseText(player, card, damageDealt),
       });
@@ -185,7 +222,8 @@ function buildCardUseText(player, card, damageDealt) {
 export function getRemainingEnergy(player) {
   const plannedCost = player.planned.reduce((total, cardInstance) => {
     const card = getCardDefinition(cardInstance.cardId);
-    return total + card.cost;
+    const cost = cardInstance.discountedCost ?? card.cost;
+    return total + cost;
   }, 0);
 
   return Math.max(0, player.energy - plannedCost);
@@ -255,6 +293,10 @@ function resolveCard(state, player, card) {
   for (const action of card.actions) {
     resolveAction(state, player, action);
   }
+  // Per-card blessing hook (Mending Tide etc.). Re-resolve via id so the
+  // function reference survives state cloning across operations.
+  const blessing = getBlessingById(state.blessingId);
+  blessing?.onCardResolve?.(state, player, card);
 }
 
 function resolveAction(state, player, action) {
@@ -357,7 +399,12 @@ function dealMonsterDamage(state, player, amount, element) {
   const defense = state.monster.defense ?? 0;
   // Element first, then defense subtraction. Floor at 0.
   const afterElement = Math.ceil(rawDamage * multiplier);
-  const finalDamage = Math.max(0, afterElement - defense);
+  let finalDamage = Math.max(0, afterElement - defense);
+  // Glass Cannon blessing: +1 to any non-zero damage hit, applied after
+  // mitigation so the bonus survives even high-defense monsters.
+  if (state.blessingFlags?.glassCannon && finalDamage > 0) {
+    finalDamage += 1;
+  }
 
   state.monster.hp = Math.max(0, state.monster.hp - finalDamage);
   // Threat tracks the actual damage applied (post-mitigation) so
@@ -593,11 +640,13 @@ function applyPlayerDamage(state, player, amount) {
 }
 
 function startNextRound(state) {
+  const energyCap = MAX_ENERGY + (state.blessingFlags?.energyCapBonus ?? 0);
+  const threatDecay = THREAT_DECAY + (state.blessingFlags?.threatDecayBonus ?? 0);
   for (const player of state.players) {
     player.block = 0;
-    player.energyMax = Math.min(MAX_ENERGY, player.energyMax + 1);
+    player.energyMax = Math.min(energyCap, player.energyMax + 1);
     player.energy = player.energyMax;
-    decayThreat(state, player.id, THREAT_DECAY);
+    decayThreat(state, player.id, threatDecay);
     player.discard.push(...player.hand);
     player.hand = [];
     drawCards(state, player, DRAW_PER_ROUND);
@@ -612,7 +661,13 @@ function startNextRound(state) {
 
   // Warden of Targeting — Phase 1 "Surveillance": every other round,
   // mark the lowest-threat living player as "tracked" for 2 rounds.
+  // Runs first so blessing hooks below see the post-surveillance state.
   applyWardenSurveillance(state);
+
+  // Per-round blessing hook fires AFTER the standard reset (and after the
+  // monster's start-of-round effects) so things like Quickdraw add cards
+  // on top of the round's normal 5-card draw.
+  getBlessingById(state.blessingId)?.onRoundStart?.(state);
 
   const energyMax = state.players[0]?.energyMax ?? STARTING_ENERGY;
   const threatSummary = state.players
@@ -621,7 +676,7 @@ function startNextRound(state) {
   pushLog(state, {
     kind: "round-start",
     round: state.roundNumber,
-    text: `Round ${state.roundNumber} · Energy ${energyMax}/${MAX_ENERGY} · Threat: ${threatSummary}`,
+    text: `Round ${state.roundNumber} · Energy ${energyMax}/${energyCap} · Threat: ${threatSummary}`,
   });
 }
 
@@ -731,7 +786,7 @@ function decayFixate(state) {
   }
 }
 
-function drawCards(state, player, count) {
+export function drawCards(state, player, count) {
   for (let index = 0; index < count; index += 1) {
     if (player.deck.length === 0) {
       if (player.discard.length === 0) {

@@ -2,6 +2,7 @@ import { classDefinitions, selectableClasses } from "./content/classes.js";
 import { getCardDefinition } from "./content/cards.js";
 import { getChampionVisual, getEffectVisual, getMonsterVisual } from "./content/game-assets.js";
 import { listMonsters, DEFAULT_MONSTER_ID } from "./content/monsters.js";
+import { randomBlessingDraft, getBlessingById } from "./content/blessings.js";
 import { getEffectDuration, getEffectName, shouldShowEffectAmount } from "./effects/effect-library.js";
 import {
   createCoopBattle,
@@ -32,6 +33,9 @@ let lastSeenEventId = 0;
 let activeEffects = [];
 let effectInstanceId = 1;
 let dragInited = false;
+// Blessing draft sits between setup and battle. Null until the player
+// triggers `start-game`; cleared once `confirm-blessing` creates the battle.
+let draftState = null;
 
 installMultiplayerHooks({
   runAction: (action) => {
@@ -100,6 +104,38 @@ function handleAction(element) {
   const action = element.dataset.action;
 
   if (action === "start-game") {
+    // Open the blessing draft instead of going straight to battle. The
+    // host rolls the random blessings; client multiplayer mirrors the
+    // resulting battle state once the host confirms.
+    draftState = {
+      options: randomBlessingDraft(3),
+      selectedId: null,
+    };
+    message = "";
+    render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
+    return;
+  }
+
+  if (action === "select-blessing") {
+    if (!draftState) return;
+    draftState = { ...draftState, selectedId: element.dataset.blessingId };
+    render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
+    return;
+  }
+
+  if (action === "back-to-setup") {
+    draftState = null;
+    message = "";
+    render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
+    return;
+  }
+
+  if (action === "confirm-blessing") {
+    if (!draftState || !draftState.selectedId) return;
+    const blessingId = draftState.selectedId;
     gameState = createCoopBattle({
       players: [
         {
@@ -114,7 +150,9 @@ function handleAction(element) {
         },
       ],
       monsterId: setup.monsterId,
+      blessingId,
     });
+    draftState = null;
     lastSeenEventId = getLatestEventId(gameState);
     activeEffects = [];
     message = "Plan together. Drag a card onto a target, or click to queue. Then resolve the round.";
@@ -125,6 +163,7 @@ function handleAction(element) {
 
   if (action === "new-game") {
     gameState = null;
+    draftState = null;
     message = "";
     activeEffects = [];
     lastSeenEventId = 0;
@@ -175,7 +214,15 @@ function handleAction(element) {
 }
 
 function render() {
-  app.innerHTML = gameState ? renderGame() : renderSetup();
+  let html;
+  if (gameState) {
+    html = renderGame();
+  } else if (draftState) {
+    html = renderDraft();
+  } else {
+    html = renderSetup();
+  }
+  app.innerHTML = html;
   document.body.dataset.gameView = gameState ? "active" : "";
 
   if (gameState && gameState.phase !== "game-over") {
@@ -370,6 +417,73 @@ function renderSetupPlayer(label, classField) {
   `;
 }
 
+function renderBlessingChip(state) {
+  const blessing = getBlessingById(state?.blessingId);
+  if (!blessing) return "";
+  return `
+    <div class="active-blessing-chip" title="${escapeHtml(blessing.description)}">
+      <span class="active-blessing-eyebrow">Active blessing</span>
+      <strong class="active-blessing-name">${escapeHtml(blessing.name)}</strong>
+      <span class="active-blessing-description">${escapeHtml(blessing.description)}</span>
+    </div>
+  `;
+}
+
+function renderDraft() {
+  const options = draftState?.options ?? [];
+  const selectedId = draftState?.selectedId ?? null;
+  const monster = listMonsters().find((m) => m.id === setup.monsterId);
+  const monsterLabel = monster ? `${monster.name} — ${monster.role}` : "";
+  const cards = options
+    .map((blessing) => {
+      const isSelected = blessing.id === selectedId;
+      return `
+        <button
+          type="button"
+          class="blessing-card ${isSelected ? "is-selected" : ""}"
+          data-action="select-blessing"
+          data-blessing-id="${blessing.id}"
+        >
+          <span class="blessing-eyebrow">Blessing</span>
+          <h3 class="blessing-name">${escapeHtml(blessing.name)}</h3>
+          <p class="blessing-description">${escapeHtml(blessing.description)}</p>
+          ${blessing.flavor ? `<p class="blessing-flavor">${escapeHtml(blessing.flavor)}</p>` : ""}
+          <span class="blessing-pick-marker">${isSelected ? "Chosen" : "Choose"}</span>
+        </button>
+      `;
+    })
+    .join("");
+  return `
+    <section class="setup-shell setup-shell-v2 draft-shell">
+      <header class="setup-hero">
+        <div class="setup-hero-text">
+          <p class="eyebrow">Party deck — pre-fight blessing</p>
+          <h1>Choose your blessing</h1>
+          <p class="setup-tagline">Three boons drawn from the party deck. One applies for this fight.</p>
+        </div>
+        <div class="setup-hero-meta">
+          <span class="hero-pill subtle">vs ${escapeHtml(monsterLabel)}</span>
+          <span class="hero-pill">1 of 3</span>
+        </div>
+      </header>
+      <div class="blessing-grid">
+        ${cards}
+      </div>
+      <div class="draft-controls">
+        <button type="button" class="ghost-button" data-action="back-to-setup">Back to setup</button>
+        <button
+          type="button"
+          class="primary-button setup-cta"
+          data-action="confirm-blessing"
+          ${selectedId ? "" : "disabled"}
+        >
+          ${selectedId ? "Begin the fight" : "Select a blessing"}
+        </button>
+      </div>
+    </section>
+  `;
+}
+
 // Feature flags for the staged UI overhaul. Phase 3 turns on the monster
 // intent telegraph and the queued-card tether lines.
 const MONSTER_INTENT_ENABLED = true;
@@ -403,6 +517,8 @@ function renderGame() {
         <span class="rules-sep">›</span>
         <span><strong>New round</strong> · draw 5, +1 energy (cap 10), threat decays 3</span>
       </div>
+
+      ${renderBlessingChip(gameState)}
 
       <section class="log-drawer log-drawer-top">
         <h2>Battle log</h2>
