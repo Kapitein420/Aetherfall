@@ -35,16 +35,23 @@ export function createCoopBattle(config = {}) {
     ];
 
   const players = playerConfigs.map((playerConfig, index) => createPlayer(playerConfig, index + 1));
-  const monsterId = config.monsterId ?? DEFAULT_MONSTER_ID;
+  // Multi-monster support: config.monsterIds (array) takes precedence; if
+  // only `monsterId` (singular) is given, fall back to a single-monster
+  // encounter. `state.monster` continues to alias the primary monster for
+  // backward compat with existing single-monster code paths.
+  const monsterIds = Array.isArray(config.monsterIds) && config.monsterIds.length > 0
+    ? config.monsterIds
+    : [config.monsterId ?? DEFAULT_MONSTER_ID];
   const playerIds = players.map((p) => p.id);
-  const monster = createMonsterById(monsterId, players.length, playerIds);
+  const monsters = monsterIds.map((id) => createMonsterById(id, players.length, playerIds));
 
   const state = {
     mode: "coop-boss",
     phase: "planning",
     roundNumber: 1,
     players,
-    monster,
+    monsters,
+    monster: monsters[0], // alias for backward compat (primary monster)
     winner: null,
     log: [],
     events: [],
@@ -66,12 +73,26 @@ export function createCoopBattle(config = {}) {
   // Round 1: draw the opening Party hand.
   drawPartyCards(state, PARTY_CARDS_PER_ROUND);
 
+  const arenaName = monsters.length === 1 ? monsters[0].name : `${monsters.map((m) => m.name).join(" + ")}`;
   pushLog(state, {
     kind: "round-start",
     round: 1,
-    text: `Round 1 begins. ${monster.name} steps into the arena. Plan your opening moves together.`,
+    text: `Round 1 begins. ${arenaName} step${monsters.length === 1 ? "s" : ""} into the arena. Plan your opening moves together.`,
   });
   return state;
+}
+
+// Helpers for the multi-monster schema. `primaryMonster` returns the first
+// living monster (or the first if all are dead) for legacy single-monster
+// reads. `livingMonsters` is for iteration.
+export function primaryMonster(state) {
+  const list = state.monsters ?? (state.monster ? [state.monster] : []);
+  return list.find((m) => m.hp > 0) ?? list[0];
+}
+
+export function livingMonsters(state) {
+  const list = state.monsters ?? (state.monster ? [state.monster] : []);
+  return list.filter((m) => m.hp > 0);
 }
 
 export function queueCard(currentState, command) {
@@ -541,6 +562,7 @@ function dealMonsterDamage(state, player, amount, element) {
     }
   }
 
+  const hpBefore = state.monster.hp;
   state.monster.hp = Math.max(0, state.monster.hp - finalDamage);
   // Threat tracks the actual damage applied (post-mitigation) so
   // defense doesn't accidentally mute fixate / target priority.
@@ -550,6 +572,27 @@ function dealMonsterDamage(state, player, amount, element) {
     amount: finalDamage,
     label: el === "physical" ? undefined : capitalize(el),
   });
+  // Canonical Killing Blow: when this hit drops a monster to 0 HP and
+  // OTHER monsters are still alive in the encounter, the killing player
+  // gains +5 threat on each surviving monster. (Single-monster fights
+  // are a no-op since `state.monsters` has only one entry.)
+  if (hpBefore > 0 && state.monster.hp <= 0) {
+    const others = (state.monsters ?? []).filter((m) => m !== state.monster && m.hp > 0);
+    for (const other of others) {
+      const cap = other.threatMax ?? 20;
+      other.threat[player.id] = Math.min(cap, (other.threat[player.id] ?? 0) + 5);
+      pushEvent(state, "threat", {
+        target: { type: "player", playerId: player.id },
+        amount: 5,
+      });
+    }
+    if (others.length > 0) {
+      pushLog(state, {
+        kind: "info",
+        text: `${player.name} lands the killing blow on ${state.monster.name} — ${others.length} other ${others.length === 1 ? "monster gains" : "monsters gain"} +5 threat.`,
+      });
+    }
+  }
 
   // Combination — Overgrowth Chain (Bio-Growth + Storm Charge):
   // when the player deals damage holding both element types, heal half the
