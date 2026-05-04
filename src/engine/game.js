@@ -579,10 +579,17 @@ function resolveMonsterTurn(state) {
       amount: 1,
     });
 
-    const damage = Math.max(
+    let damage = Math.max(
       1,
       state.monster.baseAttack + Math.floor(state.roundNumber / 2),
     );
+    // Canonical Enrage: when the monster strikes its fixated target,
+    // damage gets `monster.enrageDamageBonus` extra (default 3). Other
+    // targets are hit at the base damage.
+    const fix = state.monster.fixate;
+    if (fix && fix.roundsRemaining > 0 && fix.playerId === target.id) {
+      damage += state.monster.enrageDamageBonus ?? 3;
+    }
 
     const blockBefore = target.block;
     applyPlayerDamage(state, target, damage);
@@ -871,7 +878,9 @@ function addThreat(state, playerId, amount) {
     reduction += 1;
   }
   const adjusted = Math.max(0, amount - reduction);
-  state.monster.threat[playerId] = Math.min(cap, getThreat(state, playerId) + adjusted);
+  const before = getThreat(state, playerId);
+  const after = Math.min(cap, before + adjusted);
+  state.monster.threat[playerId] = after;
   // Track per-turn threat gain for Storm Charge "Overload" trigger.
   if (player && adjusted > 0) {
     player.threatGainedThisTurn = (player.threatGainedThisTurn ?? 0) + adjusted;
@@ -879,6 +888,39 @@ function addThreat(state, playerId, amount) {
   pushEvent(state, "threat", {
     target: { type: "player", playerId },
     amount: adjusted,
+  });
+  // Canonical Dual Punishment: while a fixate is active on player A, if
+  // player B (B != A) crosses the fixate threshold this gain, fire the
+  // monster's dualPunishment payload. Stacks per player.
+  if (
+    fix
+    && fix.roundsRemaining > 0
+    && fix.playerId !== playerId
+    && before < FIXATE_THREAT_THRESHOLD
+    && after >= FIXATE_THREAT_THRESHOLD
+  ) {
+    triggerDualPunishment(state, playerId);
+  }
+}
+
+function triggerDualPunishment(state, triggerPlayerId) {
+  const monster = state.monster;
+  const target = state.players.find((p) => p.id === triggerPlayerId);
+  if (!target || target.hp <= 0) return;
+  // Default punishment: deal 4 damage to the triggering player. Monsters
+  // can override by setting `monster.dualPunishment = (state, target) => {...}`.
+  if (typeof monster.dualPunishment === "function") {
+    monster.dualPunishment(state, target);
+  } else {
+    applyPlayerDamage(state, target, 4);
+  }
+  pushLog(state, {
+    kind: "info",
+    text: `${monster.name} unleashes Dual Punishment on ${target.name}.`,
+  });
+  pushEvent(state, "criticalLine", {
+    target: { type: "player", playerId: target.id },
+    label: "Dual Punishment",
   });
 }
 
