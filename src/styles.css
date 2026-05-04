@@ -5080,3 +5080,161 @@ body.dragging-card .standoff-champion {
   border-color: rgba(220, 110, 120, 0.6);
   box-shadow: 0 0 0 2px rgba(220, 110, 120, 0.32);
 }
+
+/* Party deck — blessing draft screen + active blessing chip in battle */
+
+.draft-shell .blessing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 28px;
+}
+
+.blessing-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 22px 18px;
+  border-radius: 14px;
+  text-align: left;
+  background: linear-gradient(180deg, rgba(28, 38, 48, 0.92) 0%, rgba(16, 22, 28, 0.96) 100%);
+  border: 1px solid rgba(180, 200, 220, 0.18);
+  color: inherit;
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  font-family: inherit;
+}
+
+.blessing-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(220, 200, 140, 0.42);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(220, 200, 140, 0.18);
+}
+
+.blessing-card.is-selected {
+  border-color: rgba(255, 220, 140, 0.7);
+  box-shadow: 0 0 0 2px rgba(255, 220, 140, 0.4), 0 8px 36px rgba(220, 170, 80, 0.18);
+}
+
+.blessing-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 220, 140, 0.7);
+}
+
+.blessing-name {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  color: #f5e9c8;
+}
+
+.blessing-description {
+  margin: 0;
+  color: #d8e1ea;
+  line-height: 1.45;
+  font-size: 14px;
+}
+
+.blessing-flavor {
+  margin: 0;
+  color: rgba(180, 198, 214, 0.7);
+  font-style: italic;
+  font-size: 12.5px;
+}
+
+.blessing-pick-marker {
+  margin-top: auto;
+  align-self: flex-end;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 220, 140, 0.78);
+  border: 1px solid rgba(255, 220, 140, 0.34);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(50, 38, 16, 0.42);
+}
+
+.blessing-card.is-selected .blessing-pick-marker {
+  background: rgba(255, 220, 140, 0.18);
+  border-color: rgba(255, 220, 140, 0.7);
+  color: #ffe6a4;
+}
+
+.draft-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(180, 200, 220, 0.12);
+}
+
+.ghost-button {
+  background: transparent;
+  border: 1px solid rgba(180, 200, 220, 0.28);
+  color: rgba(220, 232, 240, 0.85);
+  padding: 10px 18px;
+  border-radius: 999px;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+.ghost-button:hover {
+  border-color: rgba(220, 200, 140, 0.5);
+  color: #f5e9c8;
+}
+
+.draft-controls .primary-button[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+}
+
+@media (max-width: 900px) {
+  .draft-shell .blessing-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* In-battle chip showing the active blessing for the fight */
+.active-blessing-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px 8px 12px;
+  margin: 0 0 8px 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(60, 48, 22, 0.55) 0%, rgba(28, 36, 44, 0.6) 100%);
+  border: 1px solid rgba(255, 220, 140, 0.3);
+  font-size: 13px;
+  width: fit-content;
+}
+
+.active-blessing-eyebrow {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 220, 140, 0.7);
+}
+
+.active-blessing-name {
+  color: #f5e9c8;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+
+.active-blessing-description {
+  color: rgba(212, 222, 232, 0.78);
+  font-size: 12.5px;
+}
+
+@media (max-width: 720px) {
+  .active-blessing-chip .active-blessing-description {
+    display: none;
+  }
+}
