@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "aetherfall-static",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/serve-static.mjs"],
+      "port": 4173
+    }
+  ]
+}
