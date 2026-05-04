@@ -37,18 +37,17 @@ export const cardDefinitions = {
     block(9),
     reduceAllyThreat(4),
   ]),
-  "rook.taunting_banner": unique("rook", "Taunting Banner", 1, "Gain 8 threat. Monster is Weakened 2.", [
-    threat(8),
-    weaken(2),
+  "rook.taunting_banner": unique("rook", "Taunting Banner", 1, "Taunt the monster (+5 threat). Gain 3 additional threat.", [
+    taunt(),
+    threat(3),
   ]),
   "rook.fortress_heart": unique("rook", "Fortress Heart", 4, "Both players gain 12 block.", [blockAll(12)]),
   "rook.last_bastion": unique("rook", "Last Bastion", 3, "Heal yourself for 5. Gain 10 block.", [
     healSelf(5),
     block(10),
   ]),
-  "rook.break_the_charge": unique("rook", "Break the Charge", 4, "Deal 12 damage. Monster is Weakened 4.", [
-    damage(12),
-    weaken(4),
+  "rook.break_the_charge": unique("rook", "Break the Charge", 4, "Deal 14 damage.", [
+    damage(14),
   ]),
 
   "lyra.quick_shot": attack("lyra", "Quick Shot", 1, "Deal 4 damage. Draw 1.", [
@@ -57,17 +56,17 @@ export const cardDefinitions = {
   ]),
   "lyra.ember_lance": attack("lyra", "Ember Lance", 2, "Deal 8 spell damage.", [damage(8, "spell")]),
   "lyra.twin_cut": attack("lyra", "Twin Cut", 2, "Deal 4 damage twice.", [damage(4), damage(4)]),
-  "lyra.marked_pierce": attack("lyra", "Marked Pierce", 3, "Deal 9 damage. If Exposed, deal +4.", [
-    { type: "damage", amount: 9, exposedBonus: 4 },
+  "lyra.marked_pierce": attack("lyra", "Marked Pierce", 3, "Deal 11 damage.", [
+    damage(11),
   ]),
 
   "lyra.smoke_step": defend("lyra", "Smoke Step", 1, "Gain 5 block. Reduce your threat by 3.", [
     block(5),
     reduceThreat(3),
   ]),
-  "lyra.mirage_guard": defend("lyra", "Mirage Guard", 2, "Gain 8 block. Monster is Weakened 1.", [
-    block(8),
-    weaken(1),
+  "lyra.mirage_guard": defend("lyra", "Mirage Guard", 2, "Gain 9 block. Draw 1 card.", [
+    block(9),
+    drawSelf(1),
   ]),
   "lyra.silver_feint": defend("lyra", "Silver Feint", 2, "Gain 6 block. Draw 1.", [
     block(6),
@@ -79,8 +78,9 @@ export const cardDefinitions = {
   ]),
 
   "lyra.warm_light": heal("lyra", "Warm Light", 2, "Heal both players for 4.", [healAll(4)]),
-  "lyra.spot_weakness": support("lyra", "Spot Weakness", 1, "Expose the monster. The next hit deals +3.", [
-    expose(3),
+  "lyra.spot_weakness": support("lyra", "Spot Weakness", 1, "Deal 3 spell damage. Draw 1 card.", [
+    damage(3, "spell"),
+    drawSelf(1),
   ]),
 
   "lyra.ember_veil": unique("lyra", "Ember Veil", 2, "Deal 5 spell damage. Reduce your threat by 4.", [
@@ -111,8 +111,9 @@ export const cardDefinitions = {
     damage(7),
     threat(4),
   ]),
-  "virex.opportunist_strike": attack("virex", "Opportunist Strike", 3, "Deal 8 damage. If Exposed, deal +5.", [
-    { type: "damage", amount: 8, exposedBonus: 5 },
+  "virex.opportunist_strike": attack("virex", "Opportunist Strike", 3, "Deal 10 damage. Draw 1 card.", [
+    damage(10),
+    drawSelf(1),
   ]),
   "virex.fleet_broadside": attack("virex", "Fleet Broadside", 4, "Deal 13 damage.", [damage(13)]),
 
@@ -131,17 +132,18 @@ export const cardDefinitions = {
   ]),
 
   "virex.salvage_right": support("virex", "Salvage Right", 1, "Both players draw 1.", [drawAll(1)]),
-  "virex.mark_the_prize": support("virex", "Mark the Prize", 1, "Expose the monster. The next hit deals +4.", [
-    expose(4),
+  "virex.mark_the_prize": support("virex", "Mark the Prize", 1, "Deal 4 damage. Draw 1 card.", [
+    damage(4),
+    drawSelf(1),
   ]),
 
   "virex.fleet_rally": unique("virex", "Fleet Rally", 2, "Draw 2 cards. Both players reduce threat by 2.", [
     drawSelf(2),
     reduceAllThreat(2),
   ]),
-  "virex.scattershot": unique("virex", "Scattershot", 2, "Deal 6 damage. Expose the monster (+3 to next hit).", [
-    damage(6),
-    expose(3),
+  "virex.scattershot": unique("virex", "Scattershot", 2, "Deal 8 damage. Draw 1 card.", [
+    damage(8),
+    drawSelf(1),
   ]),
   "virex.cut_and_run": unique("virex", "Cut and Run", 3, "Deal 9 damage. Reduce your threat by 5.", [
     damage(9),
@@ -153,9 +155,9 @@ export const cardDefinitions = {
 
   // Elyra Rootweaver - Bionic Nature Elves / Builder
   // Living-engineering theme: stacks block, threads heals, weakens with sap, turns wards into payoff.
-  "elyra.sap_pulse": attack("elyra", "Sap Pulse", 1, "Deal 4 damage. Monster is Weakened 1.", [
-    damage(4),
-    weaken(1),
+  "elyra.sap_pulse": attack("elyra", "Sap Pulse", 1, "Deal 5 damage. Gain 2 block.", [
+    damage(5),
+    block(2),
   ]),
   "elyra.bramble_lash": attack("elyra", "Bramble Lash", 2, "Deal 6 damage. Gain 4 block.", [
     damage(6),
@@ -164,16 +166,16 @@ export const cardDefinitions = {
   "elyra.heartwood_strike": attack("elyra", "Heartwood Strike", 3, "Deal damage equal to half your block.", [
     { type: "damageFromBlock", divisor: 2 },
   ]),
-  "elyra.canopy_bind": attack("elyra", "Canopy Bind", 3, "Deal 8 damage. Monster is Weakened 3.", [
-    damage(8),
-    weaken(3),
+  "elyra.canopy_bind": attack("elyra", "Canopy Bind", 3, "Deal 10 damage. Gain 2 block.", [
+    damage(10),
+    block(2),
   ]),
 
   "elyra.heartwood_brace": defend("elyra", "Heartwood Brace", 1, "Gain 8 block.", [block(8)]),
   "elyra.living_ward": defend("elyra", "Living Ward", 2, "Both players gain 5 block.", [blockAll(5)]),
-  "elyra.rootweave": defend("elyra", "Rootweave", 2, "Gain 11 block. Monster is Weakened 1.", [
-    block(11),
-    weaken(1),
+  "elyra.rootweave": defend("elyra", "Rootweave", 2, "Gain 12 block. Heal yourself for 2.", [
+    block(12),
+    healSelf(2),
   ]),
   "elyra.thornwall": defend("elyra", "Thornwall", 3, "Your ally gains 9 block. You gain 5 block.", [
     blockAlly(9),
@@ -189,9 +191,8 @@ export const cardDefinitions = {
     drawAll(1),
     reduceAllThreat(2),
   ]),
-  "elyra.spirit_engine": support("elyra", "Spirit Engine", 2, "Expose the monster (+3 to next hit). Both players draw 1.", [
-    expose(3),
-    drawAll(1),
+  "elyra.spirit_engine": support("elyra", "Spirit Engine", 2, "Both players draw 2 cards.", [
+    drawAll(2),
   ]),
 
   "elyra.golem_summon": unique("elyra", "Golem Summon", 3, "Both players gain 9 block. Heal yourself for 3.", [
@@ -211,41 +212,40 @@ export const cardDefinitions = {
     threat(3),
   ]),
   "gorath.crushgrip": attack("gorath", "Crushgrip", 2, "Deal 9 damage.", [damage(9)]),
-  "gorath.bonebreak_volley": attack("gorath", "Bonebreak Volley", 2, "Deal 5 damage. Expose the monster (+3 to next hit).", [
-    damage(5),
-    expose(3),
+  "gorath.bonebreak_volley": attack("gorath", "Bonebreak Volley", 2, "Deal 7 damage. Gain 2 threat.", [
+    damage(7),
+    threat(2),
   ]),
-  "gorath.tide_lung": attack("gorath", "Tide Lung", 3, "Deal 11 water damage. If Exposed, deal +5.", [
-    { type: "damage", amount: 11, exposedBonus: 5, element: "water" },
+  "gorath.tide_lung": attack("gorath", "Tide Lung", 3, "Deal 13 water damage.", [
+    damage(13, "water"),
   ]),
   "gorath.deep_strike": attack("gorath", "Deep Strike", 3, "Deal 12 damage. Gain 5 threat.", [
     damage(12),
     threat(5),
   ]),
-  "gorath.leviathan_slam": attack("gorath", "Leviathan Slam", 4, "Deal 15 damage. Monster is Weakened 2.", [
-    damage(15),
-    weaken(2),
+  "gorath.leviathan_slam": attack("gorath", "Leviathan Slam", 4, "Deal 16 damage.", [
+    damage(16),
   ]),
 
   "gorath.scaleguard": defend("gorath", "Scaleguard", 1, "Gain 7 block. Gain 3 threat.", [
     block(7),
     threat(3),
   ]),
-  "gorath.brace_for_pressure": defend("gorath", "Brace for Pressure", 2, "Gain 10 block. Monster is Weakened 1.", [
-    block(10),
-    weaken(1),
+  "gorath.brace_for_pressure": defend("gorath", "Brace for Pressure", 2, "Gain 11 block. Gain 1 threat.", [
+    block(11),
+    threat(1),
   ]),
 
   "gorath.blood_meal": heal("gorath", "Blood Meal", 2, "Heal yourself for 8.", [healSelf(8)]),
 
-  "gorath.abyssal_roar": support("gorath", "Abyssal Roar", 1, "Gain 6 threat. Monster is Weakened 2.", [
-    threat(6),
-    weaken(2),
+  "gorath.abyssal_roar": support("gorath", "Abyssal Roar", 1, "Taunt the monster (+5 threat). Gain 1 additional threat.", [
+    taunt(),
+    threat(1),
   ]),
 
-  "gorath.pressurize": unique("gorath", "Pressurize", 2, "Gain 7 block. Expose the monster (+4 to next hit).", [
-    block(7),
-    expose(4),
+  "gorath.pressurize": unique("gorath", "Pressurize", 2, "Gain 9 block. Deal 3 damage.", [
+    block(9),
+    damage(3),
   ]),
   "gorath.frenzy_charge": unique("gorath", "Frenzy Charge", 2, "Deal 8 damage. Draw 1.", [
     damage(8),
@@ -255,9 +255,8 @@ export const cardDefinitions = {
     damage(10),
     threat(6),
   ]),
-  "gorath.crush_depth": unique("gorath", "Crush Depth", 4, "Deal 14 water damage. Monster is Weakened 3.", [
-    damage(14, "water"),
-    weaken(3),
+  "gorath.crush_depth": unique("gorath", "Crush Depth", 4, "Deal 16 water damage.", [
+    damage(16, "water"),
   ]),
   "gorath.deepbreaker_finish": unique("gorath", "Deepbreaker Finish", 5, "Deal 17 damage. If monster has 30 or less HP, deal +10.", [
     { type: "executeDamage", amount: 17, threshold: 30, bonus: 10 },
@@ -456,10 +455,6 @@ function reduceAllThreat(amount) {
   return { type: "reduceThreat", amount, target: "all" };
 }
 
-function weaken(amount) {
-  return { type: "weaken", amount };
-}
-
-function expose(amount) {
-  return { type: "expose", amount };
+function taunt() {
+  return { type: "taunt" };
 }

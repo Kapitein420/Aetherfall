@@ -49,10 +49,7 @@ export const monsterRegistry = {
       defense: 0,
       actionsPerTurn: 1,
       elementResistances: {},
-      statuses: {
-        exposed: 0,
-        weakened: 0,
-      },
+      statuses: {},
       phases: [
         { id: "p1", hpThresholdPct: 1.0, onEnter: null },
       ],
@@ -87,10 +84,7 @@ export const monsterRegistry = {
           water: 1.25,
           toxic: 0.75,
         },
-        statuses: {
-          exposed: 0,
-          weakened: 0,
-        },
+        statuses: {},
         // Phase machine: foundation for the boss patterns. Crossing the
         // threshold (descending HP) fires the onEnter hook once.
         phases: [
@@ -149,15 +143,12 @@ export const monsterRegistry = {
           overclock: 1.25,
           biohack: 0.85,
         },
-        statuses: {
-          exposed: 0,
-          weakened: 0,
-        },
-        // Surveillance is the entry phase — its periodic tracking lives
-        // in the engine's startNextRound (see applyWardenSurveillance),
-        // so no onEnter hook is needed. Override Protocol swaps threat
-        // and installs a per-turn dampening pass. Judgement Mode locks
-        // fixate at a lower threshold and gains a second action per turn.
+        statuses: {},
+        // Surveillance is now a passive opening phase — the per-round
+        // tracking effect was the only mechanic and was retired with the
+        // orphan-status cleanup. Override Protocol swaps threat and
+        // installs a per-turn dampening pass. Judgement Mode locks fixate
+        // at a lower threshold and gains a second action per turn.
         phases: [
           { id: "surveillance", hpThresholdPct: 1.0, onEnter: null },
           {
@@ -190,19 +181,18 @@ export const monsterRegistry = {
 
 // Hook registry for phase-enter side-effects. Hooks get the live state and
 // can mutate the monster directly. Keep them small and additive.
+//
+// NOTE: `phaseEnrage` (was `enrage`) bumps base attack on phase entry. The
+// canonical Enrage rule (extra damage on the fixate target only) is a
+// different mechanic and lands with Step 7. The rename avoids name collision.
 export const phaseHooks = {
-  // Foundation example hooks (kept here so future bosses can reuse).
-  exposeAll: (state) => {
-    state.monster.statuses.exposed = (state.monster.statuses.exposed ?? 0) + 4;
-  },
-  enrage: (state) => {
+  phaseEnrage: (state) => {
     state.monster.baseAttack += 3;
   },
 
   // Ironjaw Bruiser: bumps defense permanently while in this phase.
   ironjawCrushingBulwark: (state) => {
     state.monster.defense = Math.max(state.monster.defense ?? 0, 7);
-    state.monster.statuses.exposed = 0;
   },
   // Ironjaw Bruiser: monster gains a second action per turn.
   ironjawPackConvergence: (state) => {
