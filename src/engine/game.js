@@ -340,7 +340,7 @@ function resolveAction(state, player, action) {
       target.hp = Math.min(target.maxHp, target.hp + action.amount);
       const healed = target.hp - before;
       if (healed > 0) {
-        addThreat(state, player.id, Math.ceil(healed / 2));
+        addThreat(state, player.id, Math.floor(healed / 2));
         pushEvent(state, "heal", {
           target: { type: "player", playerId: target.id },
           amount: healed,
