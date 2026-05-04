@@ -39,6 +39,10 @@ let lastSeenEventId = 0;
 let activeEffects = [];
 let effectInstanceId = 1;
 let dragInited = false;
+// Local UI: which player's hand is focused. null = show everyone. Click a
+// hand label to focus that player; click again to clear. Per-client only —
+// not part of game state, so multiplayer peers each pick their own focus.
+let focusedPlayerId = null;
 
 installMultiplayerHooks({
   runAction: (action) => {
@@ -145,6 +149,19 @@ function handleAction(element) {
     message = "Plan together. Drag a card onto a target, or click to queue. Then resolve the round.";
     render();
     notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
+    return;
+  }
+
+  if (action === "focus-player-hand") {
+    const id = element.dataset.playerId;
+    focusedPlayerId = focusedPlayerId === id ? null : id;
+    render();
+    return;
+  }
+
+  if (action === "clear-hand-focus") {
+    focusedPlayerId = null;
+    render();
     return;
   }
 
@@ -547,16 +564,19 @@ function renderGame() {
           <span>Drop here for an untargeted play</span>
         </div>
 
-        <div class="standoff-hand-shelf players-${gameState.players.length}">
+        <div class="standoff-hand-shelf players-${gameState.players.length} ${focusedPlayerId ? "has-focus" : ""}">
+          ${focusedPlayerId ? `<button type="button" class="hand-focus-clear" data-action="clear-hand-focus" title="Show all hands">All hands</button>` : ""}
           ${gameState.players
             .map((player, index) => {
               const side = championSideForIndex(index, gameState.players.length);
+              const isFocused = focusedPlayerId === player.id;
+              const isCollapsed = focusedPlayerId && !isFocused;
               return `
-                <div class="standoff-hand-cluster ${side}">
-                  <div class="standoff-hand-label">
+                <div class="standoff-hand-cluster ${side} ${isFocused ? "is-focused" : ""} ${isCollapsed ? "is-collapsed" : ""}">
+                  <button type="button" class="standoff-hand-label" data-action="focus-player-hand" data-player-id="${player.id}" title="${isFocused ? "Click to show all hands" : `Focus ${escapeHtml(player.name)}'s hand`}">
                     <strong>${escapeHtml(player.name)}</strong>
                     <span>Energy ${getRemainingEnergy(player)}/${player.energy}</span>
-                  </div>
+                  </button>
                   <div class="standoff-hand coop-hand-arc" data-player-hand="${player.id}">
                     ${player.hand.length === 0
                       ? `<div class="empty-hand">No cards in hand.</div>`
