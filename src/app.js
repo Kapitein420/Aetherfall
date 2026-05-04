@@ -3,6 +3,7 @@ import { getCardDefinition } from "./content/cards.js";
 import { getChampionVisual, getEffectVisual, getMonsterVisual } from "./content/game-assets.js";
 import { listMonsters, DEFAULT_MONSTER_ID } from "./content/monsters.js";
 import { randomBlessingDraft, getBlessingById } from "./content/blessings.js";
+import { getElementIcon } from "./content/element-icons.js";
 import { getEffectDuration, getEffectName, shouldShowEffectAmount } from "./effects/effect-library.js";
 import {
   createCoopBattle,
@@ -759,7 +760,9 @@ function renderMonsterResistances(monster) {
       const display = multiplier > 1
         ? `+${Math.round((multiplier - 1) * 100)}%`
         : `−${Math.round((1 - multiplier) * 100)}%`;
-      return `<span class="resist-chip resist-${sign} element-${escapeHtml(element)}" title="${escapeHtml(element)} ${sign}">
+      const icon = getElementIcon(element);
+      return `<span class="resist-chip resist-${sign} elem-${escapeHtml(element)}" title="${escapeHtml(element)} ${sign}">
+        ${icon ? `<span class="resist-chip-icon" aria-hidden="true">${icon}</span>` : ""}
         <strong>${escapeHtml(element)}</strong>
         <em>${display}</em>
       </span>`;
@@ -1004,8 +1007,13 @@ function renderCardFace(card) {
   // The .card-art slot fills the second grid row of .hand-card. The faction
   // backdrop comes from .hand-card.class-* (set on the parent button); the
   // .card-art element layers a role-themed emblem on top of that backdrop.
+  const element = getCardElement(card);
+  const elementBadge = element
+    ? `<span class="card-element elem-${escapeHtml(element)}" title="${escapeHtml(element)} element" aria-hidden="true">${getElementIcon(element)}</span>`
+    : "";
   return `
     <span class="card-cost">${card.cost}</span>
+    ${elementBadge}
     <span class="card-name">${escapeHtml(card.name)}</span>
     <span class="card-art role-${card.role}" aria-hidden="true">
       <span class="card-art-glyph"></span>
@@ -1013,6 +1021,21 @@ function renderCardFace(card) {
     <span class="card-role">${formatRole(card.role)}</span>
     <span class="card-text">${escapeHtml(card.text)}</span>
   `;
+}
+
+// Card data stores the element on individual actions (e.g. `damage(11, "water")`).
+// This helper picks the first action with an element so the card frame can
+// flag its primary element. Returns null if the card has no elemental tag.
+function getCardElement(card) {
+  if (card?.element) {
+    return card.element;
+  }
+  for (const action of card?.actions ?? []) {
+    if (action?.element) {
+      return action.element;
+    }
+  }
+  return null;
 }
 
 function formatRole(role) {
