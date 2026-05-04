@@ -362,6 +362,11 @@ function resolveAction(state, player, action) {
     return;
   }
 
+  if (action.type === "taunt") {
+    addThreat(state, player.id, 5);
+    return;
+  }
+
   if (action.type === "reduceThreat") {
     for (const target of getPlayerTargets(state, player, action.target)) {
       reduceThreat(state, target.id, action.amount);
@@ -646,7 +651,14 @@ function startNextRound(state) {
     player.block = 0;
     player.energyMax = Math.min(energyCap, player.energyMax + 1);
     player.energy = player.energyMax;
-    decayThreat(state, player.id, threatDecay);
+    // Canonical rule: fixated players do not lose threat during end-of-round
+    // decay. Their threat only drops via the post-fixate halve in decayFixate.
+    const fix = state.monster.fixate;
+    const isFixated =
+      fix && fix.roundsRemaining > 0 && fix.playerId === player.id;
+    if (!isFixated) {
+      decayThreat(state, player.id, threatDecay);
+    }
     player.discard.push(...player.hand);
     player.hand = [];
     drawCards(state, player, DRAW_PER_ROUND);
@@ -835,10 +847,19 @@ function addThreat(state, playerId, amount) {
   if (amount > 0 && getPlayerStatus(state, playerId, "tracked") > 0) {
     bonus = 2;
   }
-  state.monster.threat[playerId] = Math.min(cap, getThreat(state, playerId) + amount + bonus);
+  // Canonical rule: while a monster is fixated on someone else, every other
+  // player's positive threat gain is reduced by 1 (floor 0). The fixated
+  // player themselves is unaffected.
+  let reduction = 0;
+  const fix = state.monster.fixate;
+  if (amount > 0 && fix && fix.roundsRemaining > 0 && fix.playerId !== playerId) {
+    reduction = 1;
+  }
+  const adjusted = Math.max(0, amount + bonus - reduction);
+  state.monster.threat[playerId] = Math.min(cap, getThreat(state, playerId) + adjusted);
   pushEvent(state, "threat", {
     target: { type: "player", playerId },
-    amount: amount + bonus,
+    amount: adjusted,
   });
 }
 
