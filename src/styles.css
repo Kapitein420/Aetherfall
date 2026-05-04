@@ -2396,11 +2396,18 @@ body[data-game-view="active"] {
 
 .standoff-table {
   display: grid;
-  grid-template-rows: auto auto 130px auto 1fr;
-  gap: 10px;
-  height: calc(100dvh - 16px);
-  max-height: calc(100dvh - 16px);
+  grid-template-rows: auto auto 110px auto 1fr clamp(220px, 26vh, 280px);
+  gap: 8px;
+  height: calc(100dvh - 12px);
+  max-height: calc(100dvh - 12px);
   overflow: hidden;
+}
+
+.standoff-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
 }
 
 .standoff-table .table-topbar {
@@ -3001,12 +3008,12 @@ body[data-game-view="active"] {
 .standoff-stage {
   position: relative;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto auto;
+  grid-template-rows: minmax(0, 1fr) auto auto;
   gap: 8px;
   min-height: 0;
   border: 1px solid rgba(246, 240, 223, 0.16);
   border-radius: 12px;
-  padding: 14px 14px 8px;
+  padding: 12px 12px 8px;
   overflow: hidden;
   background:
     radial-gradient(ellipse at 50% 110%, rgba(11, 14, 13, 0.7) 0 35%, transparent 70%),
@@ -3101,7 +3108,7 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   position: relative;
   display: grid;
   place-items: center;
-  width: clamp(220px, 28vh, 360px);
+  width: clamp(180px, 22vh, 280px);
   aspect-ratio: 1 / 1;
   filter: drop-shadow(0 30px 26px rgba(0, 0, 0, 0.52));
   pointer-events: none;
@@ -3757,13 +3764,14 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   z-index: 4;
   display: grid;
   place-items: center;
-  min-height: 56px;
-  margin-top: 4px;
+  min-height: 30px;
+  height: 30px;
+  margin-top: 0;
   border: 2px dashed rgba(246, 240, 223, 0.16);
-  border-radius: 14px;
+  border-radius: 10px;
   background: rgba(0, 0, 0, 0.18);
   color: #aeb7ad;
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -3845,12 +3853,12 @@ body.dragging-card .standoff-play-zone {
 .standoff-hand .hand-card {
   --card-rotation: 0deg;
   --card-lift: 0px;
-  flex: 0 0 clamp(108px, 11vw, 138px);
-  width: clamp(108px, 11vw, 138px);
-  margin-left: -18px;
+  flex: 0 0 clamp(124px, 9vw, 156px);
+  width: clamp(124px, 9vw, 156px);
+  margin-left: -16px;
   transform: translateY(var(--card-lift)) rotate(var(--card-rotation));
   transform-origin: 50% 110%;
-  min-height: clamp(150px, 19vh, 200px);
+  min-height: clamp(178px, 22vh, 220px);
 }
 
 .standoff-hand .hand-card:first-child {
