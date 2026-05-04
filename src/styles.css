@@ -2759,6 +2759,22 @@ body[data-game-view="active"] {
   outline-offset: 2px;
 }
 
+/* Force dark dropdown options on Windows/Chrome — without this, the OS
+ * renders option text in default (cream) color on a default (white)
+ * background, which is unreadable. */
+select option,
+.setup-panel-v2 select option,
+.setup-panel select option {
+  background-color: #1c1f1d;
+  color: #f6f0df;
+}
+
+select option:checked,
+.setup-panel-v2 select option:checked {
+  background-color: #2a3531;
+  color: #f5d083;
+}
+
 .rules-strip-setup {
   margin-top: 4px;
   padding: 12px 16px;
