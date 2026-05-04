@@ -5567,3 +5567,39 @@ body.dragging-card .standoff-champion {
   transform: translateX(0);
   pointer-events: auto;
 }
+
+/* Multiplayer panel — hover-reveal when idle. Active sessions
+   (hosting / joining / connected / error) keep the full panel
+   visible because the user needs to see live status. */
+.mp-panel.mp-state-idle .mp-row,
+.mp-panel.mp-state-idle .mp-hint,
+.mp-panel.mp-state-idle .mp-error {
+  display: none;
+}
+
+.mp-panel.mp-state-idle:hover .mp-row,
+.mp-panel.mp-state-idle:focus-within .mp-row {
+  display: flex;
+}
+
+.mp-panel.mp-state-idle:hover .mp-hint,
+.mp-panel.mp-state-idle:focus-within .mp-hint {
+  display: block;
+}
+
+.mp-panel.mp-state-idle:hover .mp-error,
+.mp-panel.mp-state-idle:focus-within .mp-error {
+  display: block;
+}
+
+/* Log corner — collapse to the latest entry by default, expand
+   on hover to show the full 12-entry list. */
+.log-corner-list {
+  max-height: 60px;
+  transition: max-height 220ms ease;
+}
+
+.log-corner:hover .log-corner-list,
+.log-corner:focus-within .log-corner-list {
+  max-height: calc(50vh - 48px);
+}
