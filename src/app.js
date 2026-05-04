@@ -397,7 +397,9 @@ function renderGame() {
         <div class="standoff-queue-strip" data-queue-strip>
           ${renderQueueStrip()}
         </div>
+      </div>
 
+      <div class="standoff-bottom">
         <div class="standoff-play-zone" data-target-zone="play-zone">
           <span>Drop here for an untargeted play</span>
         </div>
