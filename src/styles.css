@@ -6175,3 +6175,64 @@ body.dragging-card .standoff-champion {
 .standoff-hand-shelf.has-focus {
   position: relative;
 }
+
+/* ===== Compact hand sizing so player baseplates stay visible at 100% zoom ===== */
+
+.standoff-table.compact-ui .standoff-hand .hand-card {
+  flex: 0 0 124px;
+  width: 124px;
+  min-height: 168px;
+  grid-template-rows: 24px 56px 18px 1fr auto;
+  padding: 8px;
+  border-radius: 7px;
+  margin-left: -8px;
+}
+
+.standoff-table.compact-ui .standoff-hand .hand-card:first-child {
+  margin-left: 0;
+}
+
+.standoff-table.compact-ui .standoff-hand {
+  min-height: 178px;
+  padding: 6px 12px 2px;
+}
+
+.standoff-table.compact-ui .standoff-hand-shelf {
+  gap: 8px;
+}
+
+.standoff-table.compact-ui .standoff-bottom {
+  flex: 0 0 auto;
+  max-height: 230px;
+}
+
+.standoff-table.compact-ui .standoff-play-zone {
+  min-height: 28px;
+  padding: 2px 12px;
+  font-size: 11px;
+}
+
+/* ===== Hand peek-and-lift: rest position low, hover/focus lifts ===== */
+
+.standoff-table.compact-ui .standoff-hand-cluster {
+  transform: translateY(70px);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.standoff-table.compact-ui .standoff-hand-cluster:hover,
+.standoff-table.compact-ui .standoff-hand-cluster:focus-within,
+.standoff-table.compact-ui .standoff-hand-cluster.is-focused {
+  transform: translateY(0);
+  z-index: 4;
+}
+
+/* While one cluster is focused, other clusters stay tucked. */
+.standoff-table.compact-ui .standoff-hand-shelf.has-focus .standoff-hand-cluster.is-collapsed {
+  transform: translateY(70px);
+}
+
+/* The standoff-bottom keeps a bit of headroom so hover-lift actually
+   reveals card tops above the action bar at 100% zoom. */
+.standoff-table.compact-ui .standoff-bottom {
+  padding-bottom: 8px;
+}
