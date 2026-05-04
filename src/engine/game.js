@@ -1,10 +1,17 @@
 import { classDefinitions } from "../content/classes.js";
 import { DECK_SIZE, getCardDefinition, starterDecks } from "../content/cards.js";
+import {
+  DEFAULT_MONSTER_ID,
+  createMonsterById,
+  phaseHooks,
+} from "../content/monsters.js";
 
 export const DRAW_PER_ROUND = 5;
 export const STARTING_ENERGY = 3;
 export const MAX_ENERGY = 10;
 export const THREAT_DECAY = 3;
+export const FIXATE_THREAT_THRESHOLD = 15;
+export const FIXATE_DURATION = 2;
 
 export function createCoopBattle(config = {}) {
   const playerConfigs =
@@ -15,12 +22,16 @@ export function createCoopBattle(config = {}) {
     ];
 
   const players = playerConfigs.map((playerConfig, index) => createPlayer(playerConfig, index + 1));
+  const monsterId = config.monsterId ?? DEFAULT_MONSTER_ID;
+  const playerIds = players.map((p) => p.id);
+  const monster = createMonsterById(monsterId, players.length, playerIds);
+
   const state = {
     mode: "coop-boss",
     phase: "planning",
     roundNumber: 1,
     players,
-    monster: createMonster(),
+    monster,
     winner: null,
     log: [],
     events: [],
@@ -34,7 +45,7 @@ export function createCoopBattle(config = {}) {
   pushLog(state, {
     kind: "round-start",
     round: 1,
-    text: "Round 1 begins. Plan your opening moves together.",
+    text: `Round 1 begins. ${monster.name} steps into the arena. Plan your opening moves together.`,
   });
   return state;
 }
@@ -232,24 +243,11 @@ function createPlayer(playerConfig, index) {
     hand: [],
     discard: [],
     planned: [],
-  };
-}
-
-function createMonster() {
-  return {
-    id: "monster",
-    name: "The Hollow Titan",
-    maxHp: 120,
-    hp: 120,
-    baseAttack: 9,
-    threat: {
-      "player-1": 0,
-      "player-2": 0,
-    },
-    statuses: {
-      exposed: 0,
-      weakened: 0,
-    },
+    // Generic status counter bag. Engine decays anything declared in
+    // `statusDecay` at end of round. Cards/monsters can write arbitrary
+    // keys (marked, frenzy, ...). See addPlayerStatus / getPlayerStatus.
+    statuses: {},
+    statusDecay: {},
   };
 }
 
@@ -263,18 +261,23 @@ function resolveAction(state, player, action) {
   if (action.type === "damage") {
     const exposed = consumeExposedBonus(state);
     const amount = action.amount + exposed + (exposed > 0 ? action.exposedBonus ?? 0 : 0);
-    dealMonsterDamage(state, player, amount);
+    dealMonsterDamage(state, player, amount, action.element);
     return;
   }
 
   if (action.type === "damageFromBlock") {
-    dealMonsterDamage(state, player, Math.floor(player.block / action.divisor));
+    dealMonsterDamage(
+      state,
+      player,
+      Math.floor(player.block / action.divisor),
+      action.element,
+    );
     return;
   }
 
   if (action.type === "executeDamage") {
     const amount = state.monster.hp <= action.threshold ? action.amount + action.bonus : action.amount;
-    dealMonsterDamage(state, player, amount);
+    dealMonsterDamage(state, player, amount, action.element);
     return;
   }
 
@@ -344,46 +347,151 @@ function resolveAction(state, player, action) {
   }
 }
 
-function dealMonsterDamage(state, player, amount) {
-  const damageAmount = Math.max(0, amount);
-  state.monster.hp = Math.max(0, state.monster.hp - damageAmount);
-  addThreat(state, player.id, damageAmount);
+function dealMonsterDamage(state, player, amount, element) {
+  const rawDamage = Math.max(0, amount);
+  if (rawDamage === 0) {
+    return;
+  }
+  const el = element ?? "physical";
+  const multiplier = getElementMultiplier(state.monster, el);
+  const defense = state.monster.defense ?? 0;
+  // Element first, then defense subtraction. Floor at 0.
+  const afterElement = Math.ceil(rawDamage * multiplier);
+  const finalDamage = Math.max(0, afterElement - defense);
+
+  state.monster.hp = Math.max(0, state.monster.hp - finalDamage);
+  // Threat tracks the actual damage applied (post-mitigation) so
+  // defense doesn't accidentally mute fixate / target priority.
+  addThreat(state, player.id, finalDamage);
   pushEvent(state, "physicalHit", {
     target: { type: "monster" },
-    amount: damageAmount,
+    amount: finalDamage,
+    label: el === "physical" ? undefined : capitalize(el),
   });
+
+  // Phase machine: descending HP triggers thresholds.
+  checkPhaseTransition(state);
 }
 
-function resolveMonsterTurn(state) {
-  const target = chooseMonsterTarget(state);
-  if (!target) {
+function getElementMultiplier(monster, element) {
+  if (!element || element === "physical" || element === "spell") {
+    // Default neutral. Resistances may still target these explicitly.
+    const tagged = monster.elementResistances?.[element];
+    return typeof tagged === "number" ? tagged : 1;
+  }
+  const value = monster.elementResistances?.[element];
+  return typeof value === "number" ? value : 1;
+}
+
+function capitalize(value) {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function checkPhaseTransition(state) {
+  const monster = state.monster;
+  if (!Array.isArray(monster.phases) || monster.phases.length === 0) {
     return;
   }
 
-  const reduction = state.monster.statuses.weakened;
-  const damage = Math.max(1, state.monster.baseAttack + Math.floor(state.roundNumber / 2) - reduction);
-  state.monster.statuses.weakened = 0;
+  const hpFrac = monster.maxHp > 0 ? monster.hp / monster.maxHp : 0;
+  // Phases are sorted by descending hpThresholdPct; we walk forward until
+  // the monster's HP fraction drops at or below the next threshold.
+  let nextIndex = monster.activePhaseIndex ?? 0;
+  while (
+    nextIndex + 1 < monster.phases.length &&
+    hpFrac <= monster.phases[nextIndex + 1].hpThresholdPct
+  ) {
+    nextIndex += 1;
+    const phase = monster.phases[nextIndex];
+    monster.activePhaseIndex = nextIndex;
 
-  const blockBefore = target.block;
-  applyPlayerDamage(state, target, damage);
-  const blocked = Math.min(blockBefore, damage);
-  const through = damage - blocked;
-  pushLog(state, {
-    kind: "monster-attack",
-    target: target.name,
-    targetClassId: target.classId,
-    damage,
-    blocked,
-    through,
-    text: through > 0
-      ? `${state.monster.name} strikes ${target.name} for ${damage} (${blocked > 0 ? `${blocked} blocked, ` : ""}${through} through)`
-      : `${state.monster.name} strikes ${target.name} — ${damage} fully blocked`,
-  });
-  pushEvent(state, "spellHit", {
-    target: { type: "player", playerId: target.id },
-    amount: damage,
-    label: "Monster",
-  });
+    pushEvent(state, "phase-enter", {
+      target: { type: "monster" },
+      label: phase.id,
+    });
+    const description = describePhase(monster, phase);
+    pushLog(state, {
+      kind: "phase-enter",
+      phaseId: phase.id,
+      text: description,
+    });
+
+    if (phase.onEnter) {
+      const hook = phaseHooks[phase.onEnter];
+      if (typeof hook === "function") {
+        hook(state);
+      }
+    }
+
+    if (monster.hp <= 0) {
+      break;
+    }
+  }
+}
+
+function describePhase(monster, phase) {
+  // Lightweight flavor for the log. Bosses can override by registering
+  // their own phase descriptions, but for v1 we stitch a simple line.
+  const pct = Math.round((phase.hpThresholdPct ?? 0) * 100);
+  if (phase.id === "crushing-bulwark") {
+    return `${monster.name} hunkers down — Crushing Bulwark active (defense rises). [${pct}% HP]`;
+  }
+  if (phase.id === "pack-convergence") {
+    return `${monster.name} calls the pack — Pack Convergence: extra strike per turn. [${pct}% HP]`;
+  }
+  if (phase.id === "p1") {
+    return `${monster.name} engages.`;
+  }
+  return `${monster.name} enters phase ${phase.id} (${pct}% HP).`;
+}
+
+function resolveMonsterTurn(state) {
+  const actions = Math.max(1, state.monster.actionsPerTurn ?? 1);
+  // Weakened reduction applies to the first hit only (consumes once).
+  let weakenConsumed = false;
+
+  for (let actionIndex = 0; actionIndex < actions; actionIndex += 1) {
+    if (state.players.every((player) => player.hp <= 0)) {
+      return;
+    }
+
+    const target = chooseMonsterTarget(state);
+    if (!target) {
+      return;
+    }
+
+    const reduction = weakenConsumed ? 0 : (state.monster.statuses.weakened ?? 0);
+    if (!weakenConsumed) {
+      state.monster.statuses.weakened = 0;
+      weakenConsumed = true;
+    }
+    const damage = Math.max(
+      1,
+      state.monster.baseAttack + Math.floor(state.roundNumber / 2) - reduction,
+    );
+
+    const blockBefore = target.block;
+    applyPlayerDamage(state, target, damage);
+    const blocked = Math.min(blockBefore, damage);
+    const through = damage - blocked;
+    pushLog(state, {
+      kind: "monster-attack",
+      target: target.name,
+      targetClassId: target.classId,
+      damage,
+      blocked,
+      through,
+      text: through > 0
+        ? `${state.monster.name} strikes ${target.name} for ${damage} (${blocked > 0 ? `${blocked} blocked, ` : ""}${through} through)`
+        : `${state.monster.name} strikes ${target.name} — ${damage} fully blocked`,
+    });
+    pushEvent(state, "spellHit", {
+      target: { type: "player", playerId: target.id },
+      amount: damage,
+      label: "Monster",
+    });
+  }
 }
 
 function chooseMonsterTarget(state) {
@@ -392,6 +500,19 @@ function chooseMonsterTarget(state) {
     return null;
   }
 
+  // Fixate-aware target selector. Locks onto the marked player while
+  // their `marked` counter is > 0, regardless of threat tiebreak.
+  if (state.monster.targetSelector === "fixate") {
+    const fixated = selectTargetWithFixate(state, livingPlayers);
+    if (fixated) {
+      return fixated;
+    }
+  }
+
+  return defaultTargetSelector(state, livingPlayers);
+}
+
+function defaultTargetSelector(state, livingPlayers) {
   return [...livingPlayers].sort((a, b) => {
     const threatDiff = getThreat(state, b.id) - getThreat(state, a.id);
     if (threatDiff !== 0) {
@@ -399,6 +520,48 @@ function chooseMonsterTarget(state) {
     }
     return a.hp - b.hp;
   })[0];
+}
+
+function selectTargetWithFixate(state, livingPlayers) {
+  const monster = state.monster;
+  // If currently fixated, keep targeting that player while marked > 0
+  // and they're alive.
+  const current = monster.fixate;
+  if (current && current.roundsRemaining > 0) {
+    const target = livingPlayers.find((p) => p.id === current.playerId);
+    if (target) {
+      return target;
+    }
+    monster.fixate = null;
+  }
+
+  // Otherwise, check if any living player has crossed the fixate threshold
+  // and lock onto the highest-threat one.
+  const candidates = livingPlayers
+    .filter((p) => getThreat(state, p.id) >= FIXATE_THREAT_THRESHOLD)
+    .sort((a, b) => getThreat(state, b.id) - getThreat(state, a.id));
+
+  if (candidates.length === 0) {
+    return defaultTargetSelector(state, livingPlayers);
+  }
+
+  const lock = candidates[0];
+  monster.fixate = {
+    playerId: lock.id,
+    roundsRemaining: FIXATE_DURATION,
+  };
+  addPlayerStatus(state, lock.id, "marked", FIXATE_DURATION);
+  pushLog(state, {
+    kind: "fixate",
+    playerId: lock.id,
+    text: `${monster.name} fixates on ${lock.name} — marked for ${FIXATE_DURATION} rounds.`,
+  });
+  pushEvent(state, "criticalLine", {
+    target: { type: "player", playerId: lock.id },
+    label: "Marked",
+    amount: FIXATE_DURATION,
+  });
+  return lock;
 }
 
 function applyPlayerDamage(state, player, amount) {
@@ -425,6 +588,11 @@ function startNextRound(state) {
     drawCards(state, player, DRAW_PER_ROUND);
   }
 
+  // Decay generic player status counters (marked, frenzy, ...)
+  decayPlayerStatuses(state);
+  // Decay monster fixate timer; on expiry, halve target's threat once.
+  decayFixate(state);
+
   state.roundNumber += 1;
   const energyMax = state.players[0]?.energyMax ?? STARTING_ENERGY;
   const threatSummary = state.players
@@ -435,6 +603,83 @@ function startNextRound(state) {
     round: state.roundNumber,
     text: `Round ${state.roundNumber} · Energy ${energyMax}/${MAX_ENERGY} · Threat: ${threatSummary}`,
   });
+}
+
+// Player status helpers. The `statuses` bag holds arbitrary numeric counters
+// (marked, frenzy, ...). `statusDecay` declares how each counter decays per
+// round end; default is 1 if a key is added without explicit decay.
+export function addPlayerStatus(state, playerId, key, amount = 1, options = {}) {
+  const player = getPlayer(state, playerId);
+  if (!player.statuses) {
+    player.statuses = {};
+  }
+  if (!player.statusDecay) {
+    player.statusDecay = {};
+  }
+  if (options.mode === "set") {
+    player.statuses[key] = amount;
+  } else if (options.mode === "max") {
+    player.statuses[key] = Math.max(player.statuses[key] ?? 0, amount);
+  } else {
+    player.statuses[key] = (player.statuses[key] ?? 0) + amount;
+  }
+  if (options.decay !== undefined) {
+    player.statusDecay[key] = options.decay;
+  } else if (player.statusDecay[key] === undefined) {
+    // Default: tick down by 1 per round end.
+    player.statusDecay[key] = 1;
+  }
+  return player.statuses[key];
+}
+
+export function getPlayerStatus(state, playerId, key) {
+  const player = getPlayer(state, playerId);
+  return player.statuses?.[key] ?? 0;
+}
+
+export function decayPlayerStatuses(state) {
+  for (const player of state.players) {
+    if (!player.statuses) {
+      continue;
+    }
+    const decay = player.statusDecay ?? {};
+    for (const key of Object.keys(player.statuses)) {
+      const amount = decay[key];
+      if (typeof amount !== "number" || amount <= 0) {
+        continue;
+      }
+      const next = (player.statuses[key] ?? 0) - amount;
+      if (next <= 0) {
+        delete player.statuses[key];
+      } else {
+        player.statuses[key] = next;
+      }
+    }
+  }
+}
+
+function decayFixate(state) {
+  const monster = state.monster;
+  const fixate = monster.fixate;
+  if (!fixate) {
+    return;
+  }
+  fixate.roundsRemaining -= 1;
+  if (fixate.roundsRemaining <= 0) {
+    // Halve the formerly-marked player's threat (rounded down).
+    const target = state.players.find((p) => p.id === fixate.playerId);
+    if (target) {
+      const before = getThreat(state, target.id);
+      const after = Math.floor(before / 2);
+      monster.threat[target.id] = after;
+      pushLog(state, {
+        kind: "fixate-end",
+        playerId: target.id,
+        text: `${monster.name}'s fixation on ${target.name} fades. Threat ${before} → ${after}.`,
+      });
+    }
+    monster.fixate = null;
+  }
 }
 
 function drawCards(state, player, count) {
@@ -478,7 +723,8 @@ function getPlayerTargets(state, player, targetType) {
 }
 
 function addThreat(state, playerId, amount) {
-  state.monster.threat[playerId] = Math.min(20, getThreat(state, playerId) + amount);
+  const cap = state.monster.threatMax ?? 20;
+  state.monster.threat[playerId] = Math.min(cap, getThreat(state, playerId) + amount);
   pushEvent(state, "threat", {
     target: { type: "player", playerId },
     amount,

@@ -4941,3 +4941,142 @@ body.dragging-card .standoff-champion {
 .hand-card .card-cost {
   z-index: 3;
 }
+
+/* ---- Engine foundation: monster registry / element / phase UI ---- */
+
+.setup-encounter-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(220px, 1fr);
+  gap: 18px;
+  align-items: end;
+  padding: 14px 18px;
+  border: 1px solid rgba(246, 240, 223, 0.12);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(20, 26, 23, 0.86), rgba(14, 18, 17, 0.86)),
+    radial-gradient(circle at 20% 0%, rgba(245, 208, 131, 0.18), transparent 60%);
+  margin-bottom: 18px;
+}
+.setup-encounter-info {
+  display: grid;
+  gap: 4px;
+}
+.setup-encounter-info h2 {
+  margin: 0;
+  font-size: 1.45rem;
+  letter-spacing: 0.02em;
+}
+.setup-encounter-role {
+  margin: 0;
+  color: #c5b896;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.setup-encounter-selector {
+  display: grid;
+  gap: 6px;
+}
+.setup-encounter-selector select {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid rgba(246, 240, 223, 0.18);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(32, 39, 36, 0.94), rgba(20, 24, 22, 0.94)),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%23f5d083' stroke-width='2' fill='none'/></svg>");
+  background-repeat: no-repeat;
+  background-position: 0 0, calc(100% - 14px) center;
+  background-size: 100% 100%, 12px 8px;
+  color: #f6f0df;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  appearance: none;
+}
+.setup-encounter-selector select:focus {
+  outline: 2px solid #f5d083;
+  outline-offset: 2px;
+}
+
+/* Defense / actions / phase chips on the monster baseplate. */
+.monster-stat-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.monster-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 1px solid rgba(246, 240, 223, 0.14);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.36);
+  color: #d6cfb6;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.monster-stat-chip.stat-defense {
+  color: #d8e4d4;
+  border-color: rgba(120, 180, 140, 0.42);
+  background: rgba(40, 60, 48, 0.5);
+}
+.monster-stat-chip.stat-actions {
+  color: #ffd29a;
+  border-color: rgba(225, 156, 72, 0.5);
+  background: rgba(70, 40, 22, 0.5);
+}
+.monster-stat-chip.stat-phase {
+  color: #f4d6c8;
+  border-color: rgba(200, 100, 100, 0.45);
+  background: rgba(70, 30, 30, 0.5);
+}
+
+.monster-resists {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 4px;
+}
+.resist-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(246, 240, 223, 0.16);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.resist-chip strong {
+  color: #f6f0df;
+}
+.resist-chip em {
+  font-style: normal;
+}
+.resist-chip.resist-vuln {
+  background: rgba(110, 50, 60, 0.46);
+  border-color: rgba(220, 110, 120, 0.5);
+}
+.resist-chip.resist-vuln em {
+  color: #ffaeb6;
+}
+.resist-chip.resist-resist {
+  background: rgba(40, 64, 80, 0.46);
+  border-color: rgba(120, 180, 220, 0.4);
+}
+.resist-chip.resist-resist em {
+  color: #a4d2ee;
+}
+
+.threat-pip.is-fixated {
+  border-color: rgba(220, 110, 120, 0.6);
+  box-shadow: 0 0 0 2px rgba(220, 110, 120, 0.32);
+}
