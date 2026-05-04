@@ -501,21 +501,23 @@ function renderPartyZone(state) {
       `;
     })
     .join("");
-  const aurasMarkup = auras.length
-    ? `<div class="party-auras">
-        <span class="party-auras-label">Auras:</span>
-        ${auras.map((a) => `<span class="party-aura-chip" title="${escapeHtml(a.description)}">${escapeHtml(a.name)}</span>`).join("")}
-      </div>`
+  const auraChips = auras.length
+    ? auras.map((a) => `<span class="party-aura-chip" title="${escapeHtml(a.description)}">${escapeHtml(a.name)}</span>`).join("")
     : "";
+  // Compact pill at top-center; hover/focus expands to show the full cards.
   return `
-    <section class="party-zone" aria-label="Party Deck">
-      <header class="party-zone-head">
-        <span class="party-zone-eyebrow">Party Deck</span>
-        <span class="party-zone-hint">${hand.length} card${hand.length === 1 ? "" : "s"} · anyone can play</span>
-      </header>
-      ${aurasMarkup}
-      <div class="party-card-row">${cards}</div>
-    </section>
+    <aside class="party-zone" aria-label="Party Deck">
+      <button type="button" class="party-zone-pill" tabindex="0">
+        <span class="party-zone-eyebrow">Party</span>
+        <span class="party-zone-count">${hand.length}</span>
+        ${auras.length ? `<span class="party-zone-aura-mark" title="${auras.length} aura${auras.length === 1 ? "" : "s"} active">◎ ${auras.length}</span>` : ""}
+        <span class="party-zone-chevron" aria-hidden="true">▾</span>
+      </button>
+      <div class="party-zone-detail">
+        ${auraChips ? `<div class="party-auras"><span class="party-auras-label">Auras:</span>${auraChips}</div>` : ""}
+        <div class="party-card-row">${cards}</div>
+      </div>
+    </aside>
   `;
 }
 
@@ -532,6 +534,7 @@ function renderGame() {
   return `
     <section class="game-table standoff-table compact-ui">
       ${renderLogCorner(gameState)}
+      ${renderPartyZone(gameState)}
 
       ${message ? `<div class="message-bar">${escapeHtml(message)}</div>` : ""}
 
@@ -556,8 +559,6 @@ function renderGame() {
           ${renderQueueStrip()}
         </div>
       </div>
-
-      ${renderPartyZone(gameState)}
 
       <div class="standoff-bottom">
         <div class="standoff-play-zone" data-target-zone="play-zone">

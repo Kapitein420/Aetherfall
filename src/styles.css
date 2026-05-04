@@ -5877,39 +5877,110 @@ body.dragging-card .standoff-champion {
 
 /* ===== Canonical Party Deck zone (per-turn shared cards) ===== */
 
+/* Party Deck floats top-center as a small pill; hover/focus expands. */
 .party-zone {
-  margin: 12px 0 0;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(28, 36, 48, 0.7) 0%, rgba(14, 18, 26, 0.7) 100%);
-  border: 1px solid rgba(180, 200, 220, 0.18);
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 55;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  pointer-events: auto;
 }
 
-.party-zone-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+.party-zone-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(28, 36, 48, 0.92) 0%, rgba(14, 18, 26, 0.92) 100%);
+  border: 1px solid rgba(255, 220, 140, 0.32);
+  color: #f5e9c8;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.party-zone-pill:hover,
+.party-zone:hover .party-zone-pill,
+.party-zone:focus-within .party-zone-pill {
+  border-color: rgba(255, 220, 140, 0.7);
 }
 
 .party-zone-eyebrow {
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(255, 220, 140, 0.78);
+  color: rgba(255, 220, 140, 0.85);
   font-weight: 700;
 }
 
-.party-zone-hint {
-  font-size: 11px;
+.party-zone-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 220, 140, 0.2);
+  color: #f5e9c8;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.party-zone-aura-mark {
+  font-size: 10.5px;
+  color: rgba(220, 170, 80, 0.85);
+  letter-spacing: 0.08em;
+}
+
+.party-zone-chevron {
+  font-size: 10px;
   color: rgba(180, 200, 220, 0.6);
+  transition: transform 160ms ease;
+}
+
+.party-zone:hover .party-zone-chevron,
+.party-zone:focus-within .party-zone-chevron {
+  transform: rotate(180deg);
+}
+
+.party-zone-detail {
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(20, 26, 32, 0.94) 0%, rgba(12, 16, 20, 0.94) 100%);
+  border: 1px solid rgba(180, 200, 220, 0.18);
+  backdrop-filter: blur(8px);
+  width: clamp(420px, 60vw, 820px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  opacity: 0;
+  pointer-events: none;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 180ms ease, max-height 220ms ease;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.45);
+}
+
+.party-zone:hover .party-zone-detail,
+.party-zone:focus-within .party-zone-detail {
+  opacity: 1;
+  pointer-events: auto;
+  max-height: min(70vh, 600px);
+  overflow-y: auto;
 }
 
 .party-card-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 10px;
 }
 
