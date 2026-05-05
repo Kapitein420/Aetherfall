@@ -2,12 +2,15 @@ import { classDefinitions, selectableClasses } from "./content/classes.js";
 import { getCardDefinition } from "./content/cards.js";
 import { getChampionVisual, getEffectVisual, getMonsterVisual } from "./content/game-assets.js";
 import { listMonsters, DEFAULT_MONSTER_ID } from "./content/monsters.js";
-import { getPartyDeckCard } from "./content/party-deck.js";
+import { getPartyDeckCard, PARTY_DECK_INTERACTIONS } from "./content/party-deck.js";
 import { getElementIcon } from "./content/element-icons.js";
 import { getEffectDuration, getEffectName, shouldShowEffectAmount } from "./effects/effect-library.js";
 import {
   createCoopBattle,
+  discardPartyCard,
+  duplicatePartyCard,
   getRemainingEnergy,
+  peekNextPartyCard,
   playPartyCard,
   queueCard,
   resolveRound,
@@ -189,6 +192,57 @@ function handleAction(element) {
     message = "";
     render();
     notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
+    return;
+  }
+
+  if (action === "peek-party-deck") {
+    gameState = peekNextPartyCard(gameState, {
+      playerId: element.dataset.playerId,
+    });
+    enqueueEffectsFromState(gameState);
+    message = "";
+    render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
+    return;
+  }
+
+  if (action === "dismiss-party-peek") {
+    if (gameState) {
+      gameState = { ...gameState, partyPeek: null };
+      render();
+      notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
+    }
+    return;
+  }
+
+  if (action === "discard-party-card") {
+    gameState = discardPartyCard(gameState, {
+      playerId: element.dataset.playerId,
+      partyInstanceId: element.dataset.partyInstanceId,
+    });
+    enqueueEffectsFromState(gameState);
+    message = "";
+    render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
+    return;
+  }
+
+  if (action === "duplicate-party-card") {
+    gameState = duplicatePartyCard(gameState, {
+      playerId: element.dataset.playerId,
+      partyInstanceId: element.dataset.partyInstanceId,
+    });
+    enqueueEffectsFromState(gameState);
+    message = "";
+    render();
+    notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
+    return;
+  }
+
+  if (action === "infuse-party-card") {
+    // Infusion mechanic isn't built yet — surface a friendly hint and exit.
+    message = "Infusion is coming soon.";
+    render();
     return;
   }
 
@@ -481,6 +535,14 @@ function renderPartyZone(state) {
   const auras = state.activeAuras ?? [];
   if (hand.length === 0 && auras.length === 0) return "";
   const players = state.players ?? [];
+  // Default actor for interactions: the living player with the most
+  // remaining energy. Players can still tap a different player's "play"
+  // button; the global interactions strip just picks a sensible payer
+  // automatically. Falls back to the first living player if none can afford.
+  const actorForInteractions = pickInteractionActor(state);
+  const canAffordInteraction =
+    !!actorForInteractions && getRemainingEnergy(actorForInteractions) >= 1;
+
   const cards = hand
     .map((entry) => {
       const card = getPartyDeckCard(entry.cardId);
@@ -512,6 +574,7 @@ function renderPartyZone(state) {
           <footer class="party-card-actions">
             ${playerOptions || "<span class=\"party-card-noplay\">No one can afford</span>"}
           </footer>
+          ${renderPartyCardInteractions(entry, card, actorForInteractions, canAffordInteraction)}
         </article>
       `;
     })
@@ -522,6 +585,8 @@ function renderPartyZone(state) {
         ${auras.map((a) => `<span class="party-aura-chip" title="${escapeHtml(a.description)}">${escapeHtml(a.name)}</span>`).join("")}
       </div>`
     : "";
+  const peekMarkup = renderPartyPeekChip(state.partyPeek);
+  const interactionStrip = renderGlobalInteractionStrip(actorForInteractions, canAffordInteraction);
   // Compact pill at the very top, hover/focus expands the detail panel.
   return `
     <aside class="party-zone" aria-label="Party Deck">
@@ -532,10 +597,123 @@ function renderPartyZone(state) {
         <span class="party-zone-chevron" aria-hidden="true">▾</span>
       </button>
       <div class="party-zone-detail">
+        ${peekMarkup}
+        ${interactionStrip}
         ${aurasMarkup}
         <div class="party-card-row">${cards}</div>
       </div>
     </aside>
+  `;
+}
+
+// Pick the player who should pay for a Party Deck interaction by default.
+// Strategy: the living player with the most remaining energy (≥1). Returns
+// null if no one is alive or no one can afford it (the strip will render
+// disabled in that case).
+function pickInteractionActor(state) {
+  const living = (state.players ?? []).filter((p) => p.hp > 0);
+  if (!living.length) return null;
+  const sorted = [...living].sort(
+    (a, b) => getRemainingEnergy(b) - getRemainingEnergy(a),
+  );
+  return sorted[0] ?? null;
+}
+
+function renderPartyPeekChip(peek) {
+  if (!peek) return "";
+  const card = getPartyDeckCard(peek.cardId);
+  if (!card) return "";
+  return `
+    <div class="party-peek-chip" role="status" aria-live="polite">
+      <span class="party-peek-eyebrow">Next</span>
+      <strong class="party-peek-name">${escapeHtml(card.name)}</strong>
+      <span class="party-peek-cat">${escapeHtml(card.category)}</span>
+      <button
+        type="button"
+        class="party-peek-dismiss"
+        data-action="dismiss-party-peek"
+        title="Dismiss"
+        aria-label="Dismiss peek"
+      >×</button>
+    </div>
+  `;
+}
+
+function renderGlobalInteractionStrip(actor, canAfford) {
+  // The Peek/Infuse pair sits above the card row. Discard/Duplicate are
+  // rendered per-card below. Driven by PARTY_DECK_INTERACTIONS so future
+  // additions (Burn, Reshuffle, …) only need a content change + handler.
+  const peek = PARTY_DECK_INTERACTIONS.find((i) => i.id === "peek-ahead");
+  const infuse = PARTY_DECK_INTERACTIONS.find((i) => i.id === "infuse");
+  const peekDisabled = !actor || !canAfford;
+  const peekTitle = peekDisabled
+    ? "Need 1 energy to peek"
+    : `${actor.name} pays 1 energy to peek the next Party Card`;
+  return `
+    <div class="party-interactions" role="group" aria-label="Party Deck interactions">
+      <button
+        type="button"
+        class="party-interaction party-interaction-peek"
+        data-action="peek-party-deck"
+        ${actor ? `data-player-id="${actor.id}"` : ""}
+        ${peekDisabled ? "disabled" : ""}
+        title="${escapeHtml(peekTitle)}"
+      >
+        <span class="party-interaction-name">${escapeHtml(peek?.name ?? "Peek Ahead")}</span>
+        <span class="party-interaction-cost">1⚡</span>
+      </button>
+      <button
+        type="button"
+        class="party-interaction party-interaction-infuse"
+        data-action="infuse-party-card"
+        disabled
+        title="Infusion coming soon"
+      >
+        <span class="party-interaction-name">${escapeHtml(infuse?.name ?? "Infuse")}</span>
+        <span class="party-interaction-cost">soon</span>
+      </button>
+    </div>
+  `;
+}
+
+function renderPartyCardInteractions(entry, card, actor, canAfford) {
+  // Per-card Discard / Duplicate buttons. Tucked under the play row so the
+  // primary "play" affordance stays the loudest. Both are gated on the
+  // actor having ≥1 energy spare; without an actor the strip just renders
+  // disabled.
+  const disabled = !actor || !canAfford;
+  const title = disabled
+    ? "Need 1 energy"
+    : `${actor.name} pays 1 energy`;
+  return `
+    <div class="party-card-interactions" role="group" aria-label="Card interactions">
+      <button
+        type="button"
+        class="party-card-interaction interaction-discard"
+        data-action="discard-party-card"
+        ${actor ? `data-player-id="${actor.id}"` : ""}
+        data-party-instance-id="${entry.partyInstanceId}"
+        ${disabled ? "disabled" : ""}
+        title="${escapeHtml(`${title} — discard "${card.name}" and draw a new card`)}"
+      >Discard</button>
+      <button
+        type="button"
+        class="party-card-interaction interaction-duplicate"
+        data-action="duplicate-party-card"
+        ${actor ? `data-player-id="${actor.id}"` : ""}
+        data-party-instance-id="${entry.partyInstanceId}"
+        ${disabled ? "disabled" : ""}
+        title="${escapeHtml(`${title} — duplicate "${card.name}" effect (card stays in deck)`)}"
+      >Duplicate</button>
+      <button
+        type="button"
+        class="party-card-interaction interaction-infuse"
+        data-action="infuse-party-card"
+        data-party-instance-id="${entry.partyInstanceId}"
+        disabled
+        title="Infusion coming soon"
+      >Infuse</button>
+    </div>
   `;
 }
 

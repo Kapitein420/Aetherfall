@@ -1289,6 +1289,113 @@ export function playPartyCard(currentState, command) {
   return state;
 }
 
+// ===== Party Deck Interactions =====
+//
+// Per `docs/canonical-rules.md` §6, the Party Deck supports four player
+// interactions: Peek Ahead, Discard, Duplicate, Infuse. Each costs 1 energy
+// (paid by the acting player) and is independent of playing the card itself.
+// `Infuse` is intentionally not exported yet — the canonical Infusion
+// mechanic isn't built — so the UI surfaces it as a disabled affordance.
+const PARTY_INTERACTION_COST = 1;
+
+function spendInteractionEnergy(player, label) {
+  if (getRemainingEnergy(player) < PARTY_INTERACTION_COST) {
+    throw new Error(
+      `${player.name} cannot afford to ${label} (need ${PARTY_INTERACTION_COST} energy).`,
+    );
+  }
+  player.energy -= PARTY_INTERACTION_COST;
+}
+
+export function peekNextPartyCard(currentState, command) {
+  const state = cloneState(currentState);
+  ensurePlanning(state);
+  const player = getPlayer(state, command.playerId);
+  if (player.hp <= 0) {
+    throw new Error(`${player.name} cannot peek while defeated.`);
+  }
+  spendInteractionEnergy(player, "peek the Party Deck");
+  // Pick a random eligible card from the playable pool — represents a
+  // glimpse of what the deck might draw next. Deterministic given the same
+  // RNG seed; production runs use Math.random.
+  const pool = partyDeckCards.filter(partyCardIsPlayableNow);
+  if (pool.length === 0) {
+    state.partyPeek = null;
+    pushLog(state, {
+      kind: "info",
+      text: `${player.name} peeks — the deck is empty.`,
+    });
+    return state;
+  }
+  const next = pool[Math.floor(Math.random() * pool.length)];
+  state.partyPeek = { cardId: next.id };
+  pushLog(state, {
+    kind: "info",
+    text: `${player.name} peeks: ${next.name}.`,
+  });
+  return state;
+}
+
+export function discardPartyCard(currentState, command) {
+  const state = cloneState(currentState);
+  ensurePlanning(state);
+  const player = getPlayer(state, command.playerId);
+  if (player.hp <= 0) {
+    throw new Error(`${player.name} cannot discard while defeated.`);
+  }
+  const handIndex = (state.partyHand ?? []).findIndex(
+    (entry) => entry.partyInstanceId === command.partyInstanceId,
+  );
+  if (handIndex < 0) {
+    throw new Error("That Party Card is no longer in the deck.");
+  }
+  const entry = state.partyHand[handIndex];
+  const card = getPartyDeckCard(entry.cardId);
+  spendInteractionEnergy(player, "discard a Party Card");
+  state.partyHand.splice(handIndex, 1);
+  // Reuse the engine's drawPartyCards so future scaling/balance logic is
+  // shared with regular round draws.
+  drawPartyCards(state, 1);
+  pushLog(state, {
+    kind: "info",
+    text: `${player.name} discards Party Card "${card?.name ?? entry.cardId}" and draws a fresh one.`,
+  });
+  return state;
+}
+
+export function duplicatePartyCard(currentState, command) {
+  const state = cloneState(currentState);
+  ensurePlanning(state);
+  const player = getPlayer(state, command.playerId);
+  if (player.hp <= 0) {
+    throw new Error(`${player.name} cannot duplicate while defeated.`);
+  }
+  const entry = (state.partyHand ?? []).find(
+    (e) => e.partyInstanceId === command.partyInstanceId,
+  );
+  if (!entry) {
+    throw new Error("That Party Card is no longer in the deck.");
+  }
+  const card = getPartyDeckCard(entry.cardId);
+  if (!card) {
+    throw new Error(`Unknown Party Card: ${entry.cardId}`);
+  }
+  spendInteractionEnergy(player, `duplicate ${card.name}`);
+  // Run effects through the same dispatcher used by playPartyCard so any
+  // future card type is automatically supported. The card stays in the
+  // shared hand for someone to actually play on its own.
+  applyPartyCardEffects(state, player, card);
+  pushLog(state, {
+    kind: "info",
+    text: `${player.name} duplicates the effect of "${card.name}".`,
+  });
+  pushEvent(state, "plan", {
+    target: { type: "player", playerId: player.id },
+    label: `Duplicate: ${card.name}`,
+  });
+  return state;
+}
+
 function applyPartyCardEffects(state, player, card) {
   for (const effect of card.effects ?? []) {
     applyPartyEffect(state, player, effect, card);
