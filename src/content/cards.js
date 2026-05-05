@@ -261,6 +261,174 @@ export const cardDefinitions = {
   "gorath.deepbreaker_finish": unique("gorath", "Deepbreaker Finish", 5, "Deal 17 damage. If monster has 30 or less HP, deal +10.", [
     { type: "executeDamage", amount: 17, threshold: 30, bonus: 10 },
   ]),
+
+  // Storm Forge Vanguard — Storm Charge themed.
+  // "Aggression fuels power." Damage actions are tagged element="overclock"
+  // so Storm Charge passive (+1 to damage when any storm-charge held) and
+  // future Static Field bonuses route through them. tokenSpend payloads on
+  // the legacy 4 cards stay inert until Infusion lands.
+  "storm-forge.basic_attack": attack("storm-forge", "Basic Attack", 1, "Deal 1 damage. Storm passive: +1 damage with any held Storm Charge.", [
+    damage(1, "overclock"),
+  ]),
+  "storm-forge.basic_defend": defend("storm-forge", "Basic Defend", 1, "Gain 2 block.", [
+    block(2),
+  ]),
+  "storm-forge.power_strike": attack("storm-forge", "Power Strike", 2, "Deal 3 damage. Enhanced by Storm passive.", [
+    damage(3, "overclock"),
+  ]),
+  "storm-forge.surge_channel": attack("storm-forge", "Surge Channel", 2, "Deal 1 damage. Gain 1 Storm Charge token.", [
+    damage(1, "overclock"),
+    gainToken("storm-charge", 1),
+  ]),
+  "storm-forge.thunderclap": attack("storm-forge", "Thunderclap", 1, "Deal 3 damage. Draw 1 card.", [
+    damage(3, "overclock"),
+    drawSelf(1),
+  ]),
+  "storm-forge.arc_volley": attack("storm-forge", "Arc Volley", 2, "Deal 4 damage twice. Gain 2 threat.", [
+    damage(4, "overclock"),
+    damage(4, "overclock"),
+    threat(2),
+  ]),
+  "storm-forge.static_field": defend("storm-forge", "Static Field", 2, "Gain 6 block. Gain 1 Storm Charge token.", [
+    block(6),
+    gainToken("storm-charge", 1),
+  ]),
+  "storm-forge.charged_lance": unique("storm-forge", "Charged Lance", 2, "Deal 8 damage. Gain 1 Storm Charge token.", [
+    damage(8, "overclock"),
+    gainToken("storm-charge", 1),
+  ]),
+  "storm-forge.overload_burst": unique("storm-forge", "Overload Burst", 3, "Deal 12 damage. Gain 3 threat.", [
+    damage(12, "overclock"),
+    threat(3),
+  ]),
+  "storm-forge.thunderhead_finish": unique("storm-forge", "Thunderhead Finish", 4, "Deal 14 damage. If monster has 25 or less HP, deal +8.", [
+    { type: "executeDamage", amount: 14, threshold: 25, bonus: 8, element: "overclock" },
+  ]),
+
+  // Verdant Reach — Bio-Growth themed.
+  // Heavy heal/threat-sink kit. The Bio-Growth passive (+1 healing) is
+  // applied automatically by the engine when any token is held, so card
+  // amounts here are the BASE values — don't pre-bake the bonus.
+  "verdant-reach.thorn_lash": attack("verdant-reach", "Thorn Lash", 1, "Deal 4 damage. Gain 2 threat.", [
+    damage(4),
+    threat(2),
+  ]),
+  "verdant-reach.bramble_strike": attack("verdant-reach", "Bramble Strike", 2, "Deal 6 damage. Gain 3 threat.", [
+    damage(6),
+    threat(3),
+  ]),
+  "verdant-reach.heartwood_smash": attack("verdant-reach", "Heartwood Smash", 3, "Deal damage equal to your block.", [
+    { type: "damageFromBlock", divisor: 1 },
+  ]),
+
+  "verdant-reach.bark_brace": defend("verdant-reach", "Bark Brace", 1, "Gain 8 block.", [
+    block(8),
+  ]),
+  "verdant-reach.living_thicket": defend("verdant-reach", "Living Thicket", 2, "Both players gain 6 block.", [
+    blockAll(6),
+  ]),
+  "verdant-reach.taproot_stance": defend("verdant-reach", "Taproot Stance", 2, "Gain 10 block. Gain 4 threat.", [
+    block(10),
+    threat(4),
+  ]),
+
+  "verdant-reach.greenheart_pulse": heal("verdant-reach", "Greenheart Pulse", 1, "Heal the lowest-health player for 5.", [
+    healLowest(5),
+  ]),
+  "verdant-reach.canopy_bloom": heal("verdant-reach", "Canopy Bloom", 2, "Heal both players for 5.", [
+    healAll(5),
+  ]),
+  "verdant-reach.sap_renewal": heal("verdant-reach", "Sap Renewal", 2, "Heal yourself for 9.", [
+    healSelf(9),
+  ]),
+  "verdant-reach.world_root_mend": heal("verdant-reach", "World-Root Mend", 3, "Heal the lowest-health player for 11.", [
+    healLowest(11),
+  ]),
+
+  "verdant-reach.guardian_call": support("verdant-reach", "Guardian Call", 1, "Taunt the monster (+5 threat). Both players draw 1.", [
+    taunt(),
+    drawAll(1),
+  ]),
+  "verdant-reach.thornward": unique("verdant-reach", "Thornward", 2, "Gain 7 block. Heal yourself for 4.", [
+    block(7),
+    healSelf(4),
+  ]),
+  "verdant-reach.standing_stone": unique("verdant-reach", "Standing Stone", 3, "Both players gain 8 block. Heal both players for 3.", [
+    blockAll(8),
+    healAll(3),
+  ]),
+  "verdant-reach.bloomtide": unique("verdant-reach", "Bloomtide", 3, "Heal both players for 6. Reduce ally threat by 4.", [
+    healAll(6),
+    reduceAllyThreat(4),
+  ]),
+  "verdant-reach.ancient_oath": unique("verdant-reach", "Ancient Oath", 4, "Heal both players for 8. You gain 6 threat.", [
+    healAll(8),
+    threat(6),
+  ]),
+
+  // Tideflow Engineer — Hydroflow themed.
+  // Threat-redirect, soft control, support. moveThreat is the signature
+  // verb. Hydroflow passive (held → reduce threat ≥2 by 1) means most
+  // tokens will route through addThreat naturally.
+  "tideflow-engineer.current_jab": attack("tideflow-engineer", "Current Jab", 1, "Deal 4 damage. Draw 1 card.", [
+    damage(4),
+    drawSelf(1),
+  ]),
+  "tideflow-engineer.spiral_torrent": attack("tideflow-engineer", "Spiral Torrent", 2, "Deal 7 water damage.", [
+    damage(7, "water"),
+  ]),
+  "tideflow-engineer.tidal_lance": attack("tideflow-engineer", "Tidal Lance", 3, "Deal 10 water damage. Draw 1.", [
+    damage(10, "water"),
+    drawSelf(1),
+  ]),
+
+  "tideflow-engineer.dampen_shield": defend("tideflow-engineer", "Dampen Shield", 1, "Gain 6 block. Reduce your threat by 2.", [
+    block(6),
+    reduceThreat(2),
+  ]),
+  "tideflow-engineer.flow_state": defend("tideflow-engineer", "Flow State", 2, "Gain 8 block. Draw 1 card.", [
+    block(8),
+    drawSelf(1),
+  ]),
+  "tideflow-engineer.runoff_ward": defend("tideflow-engineer", "Runoff Ward", 2, "Both players gain 5 block. Reduce your threat by 2.", [
+    blockAll(5),
+    reduceThreat(2),
+  ]),
+
+  "tideflow-engineer.reroute": support("tideflow-engineer", "Reroute", 1, "Move 3 threat from your ally to you.", [
+    moveThreat("ally", "self", 3),
+  ]),
+  "tideflow-engineer.crosscurrent": support("tideflow-engineer", "Crosscurrent", 2, "Move 5 threat from the highest-threat player to the lowest. Draw 1.", [
+    moveThreat("highest", "lowest", 5),
+    drawSelf(1),
+  ]),
+  "tideflow-engineer.pressure_valve": support("tideflow-engineer", "Pressure Valve", 1, "Both players reduce threat by 3.", [
+    reduceAllThreat(3),
+  ]),
+  "tideflow-engineer.confluence": support("tideflow-engineer", "Confluence", 2, "Both players draw 1. Reduce ally threat by 3.", [
+    drawAll(1),
+    reduceAllyThreat(3),
+  ]),
+
+  "tideflow-engineer.tide_mend": heal("tideflow-engineer", "Tide Mend", 2, "Heal the lowest-health player for 6.", [
+    healLowest(6),
+  ]),
+
+  "tideflow-engineer.undertow": unique("tideflow-engineer", "Undertow", 2, "Move 4 threat from your ally to you. Gain 6 block.", [
+    moveThreat("ally", "self", 4),
+    block(6),
+  ]),
+  "tideflow-engineer.riptide_pull": unique("tideflow-engineer", "Riptide Pull", 3, "Move 6 threat from the highest-threat player to you.", [
+    moveThreat("highest", "self", 6),
+  ]),
+  "tideflow-engineer.deluge": unique("tideflow-engineer", "Deluge", 3, "Deal 9 water damage. Both players reduce threat by 2.", [
+    damage(9, "water"),
+    reduceAllThreat(2),
+  ]),
+  "tideflow-engineer.spillway_finish": unique("tideflow-engineer", "Spillway Finish", 4, "Deal 13 water damage. Move 4 threat from yourself to your ally.", [
+    damage(13, "water"),
+    moveThreat("self", "ally", 4),
+  ]),
 };
 
 export const starterDecks = {
@@ -349,7 +517,77 @@ export const starterDecks = {
     "gorath.crush_depth",
     "gorath.deepbreaker_finish",
   ],
+  // Storm Forge — preserves the canonical 10-card "Aggression fuels power"
+  // shape (4×Basic Attack, 4×Basic Defend, 1×Power Strike, 1×Surge Channel)
+  // and grows to 15 with 5 new singles for late-fight teeth.
+  // Keyed by classDef.id (kebab-case) so createPlayer's `starterDecks[classDef.id]`
+  // lookup resolves directly. camelCase aliases re-exported below.
+  "storm-forge": [
+    "storm-forge.basic_attack",
+    "storm-forge.basic_attack",
+    "storm-forge.basic_attack",
+    "storm-forge.basic_attack",
+    "storm-forge.basic_defend",
+    "storm-forge.basic_defend",
+    "storm-forge.basic_defend",
+    "storm-forge.basic_defend",
+    "storm-forge.power_strike",
+    "storm-forge.surge_channel",
+    "storm-forge.thunderclap",
+    "storm-forge.arc_volley",
+    "storm-forge.static_field",
+    "storm-forge.charged_lance",
+    "storm-forge.overload_burst",
+  ],
+  // Verdant Reach — heal-heavy threat sink. 3 attacks / 3 defends / 4 heals
+  // / 1 support / 4 unique. The Bio-Growth passive is engine-applied so
+  // amounts here are intentionally modest.
+  "verdant-reach": [
+    "verdant-reach.thorn_lash",
+    "verdant-reach.bramble_strike",
+    "verdant-reach.heartwood_smash",
+    "verdant-reach.bark_brace",
+    "verdant-reach.living_thicket",
+    "verdant-reach.taproot_stance",
+    "verdant-reach.greenheart_pulse",
+    "verdant-reach.canopy_bloom",
+    "verdant-reach.sap_renewal",
+    "verdant-reach.world_root_mend",
+    "verdant-reach.guardian_call",
+    "verdant-reach.thornward",
+    "verdant-reach.standing_stone",
+    "verdant-reach.bloomtide",
+    "verdant-reach.ancient_oath",
+  ],
+  // Tideflow Engineer — threat redirect / soft control. Attacks lean on
+  // water element so they don't double-tax on physical defense, and the
+  // moveThreat suite gives the team a way to balance fixate pressure.
+  "tideflow-engineer": [
+    "tideflow-engineer.current_jab",
+    "tideflow-engineer.spiral_torrent",
+    "tideflow-engineer.tidal_lance",
+    "tideflow-engineer.dampen_shield",
+    "tideflow-engineer.flow_state",
+    "tideflow-engineer.runoff_ward",
+    "tideflow-engineer.reroute",
+    "tideflow-engineer.crosscurrent",
+    "tideflow-engineer.pressure_valve",
+    "tideflow-engineer.confluence",
+    "tideflow-engineer.tide_mend",
+    "tideflow-engineer.undertow",
+    "tideflow-engineer.riptide_pull",
+    "tideflow-engineer.deluge",
+    "tideflow-engineer.spillway_finish",
+  ],
 };
+
+// camelCase aliases for the new token-themed decks. The engine looks up by
+// `classDef.id` (kebab-case) but spec / tests / external callers may prefer
+// camelCase property access — these reference the same array, so any future
+// edits propagate.
+starterDecks.stormForge = starterDecks["storm-forge"];
+starterDecks.verdantReach = starterDecks["verdant-reach"];
+starterDecks.tideflowEngineer = starterDecks["tideflow-engineer"];
 
 export function getCardDefinition(cardId) {
   const card = cardDefinitions[cardId];
@@ -457,4 +695,12 @@ function reduceAllThreat(amount) {
 
 function taunt() {
   return { type: "taunt" };
+}
+
+function gainToken(token, amount = 1) {
+  return { type: "gainToken", token, amount };
+}
+
+function moveThreat(from, to, amount) {
+  return { type: "moveThreat", from, to, amount };
 }

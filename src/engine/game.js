@@ -429,6 +429,24 @@ function resolveAction(state, player, action) {
     return;
   }
 
+  if (action.type === "gainToken") {
+    if (!player.tokens) player.tokens = { bioGrowth: 0, hydroflow: 0, stormCharge: 0 };
+    const key = action.token === "bio-growth" ? "bioGrowth"
+             : action.token === "hydroflow" ? "hydroflow"
+             : action.token === "storm-charge" ? "stormCharge"
+             : null;
+    if (key) {
+      const amount = action.amount ?? 1;
+      player.tokens[key] = (player.tokens[key] ?? 0) + amount;
+      pushEvent(state, "criticalLine", {
+        target: { type: "player", playerId: player.id },
+        label: `${key === "bioGrowth" ? "Bio-Growth" : key === "hydroflow" ? "Hydroflow" : "Storm Charge"} +${amount}`,
+        amount,
+      });
+    }
+    return;
+  }
+
   if (action.type === "moveThreat") {
     // Move threat from one player to another. The "moving" player is the
     // card's owner; `from` and `to` are resolved via getPlayerTargets, but
