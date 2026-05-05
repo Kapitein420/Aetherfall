@@ -3836,6 +3836,88 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   box-shadow: 0 0 0 1px rgba(192, 132, 255, 0.65), 0 4px 10px rgba(0, 0, 0, 0.45);
 }
 
+/* ---- Buff / debuff chips on the baseplate ---- */
+/* Surfaced from player.statuses (damageBoostThisTurn, firstCardDiscount,
+   nextCardCostExtra, nextTurnEnergyDelta, strength). One chip per active
+   stack; hidden when 0. Mirrors the .token-chip layout so the baseplate
+   stays visually consistent. */
+
+.player-buffs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.buff-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.36);
+  border: 1px solid rgba(246, 240, 223, 0.16);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #d6cfb6;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.buff-chip strong {
+  font-weight: 800;
+  font-style: normal;
+  color: #f6f0df;
+}
+
+.buff-chip em {
+  font-style: normal;
+  font-weight: 900;
+  font-size: 0.82rem;
+}
+
+.buff-chip.buff-strength {
+  background: rgba(255, 90, 90, 0.16);
+  border-color: rgba(255, 90, 90, 0.55);
+}
+.buff-chip.buff-strength em {
+  color: #ff8b8b;
+}
+
+.buff-chip.buff-discount {
+  background: rgba(255, 200, 80, 0.16);
+  border-color: rgba(255, 200, 80, 0.55);
+}
+.buff-chip.buff-discount em {
+  color: #ffd070;
+}
+
+.buff-chip.buff-lag {
+  background: rgba(192, 132, 255, 0.16);
+  border-color: rgba(192, 132, 255, 0.55);
+}
+.buff-chip.buff-lag em {
+  color: var(--element-overclock);
+}
+
+.buff-chip.buff-energy {
+  background: rgba(255, 165, 80, 0.16);
+  border-color: rgba(255, 165, 80, 0.55);
+}
+.buff-chip.buff-energy em {
+  color: #ffb066;
+}
+
+.buff-chip:hover {
+  transform: translateY(-1px);
+  background: rgba(0, 0, 0, 0.46);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+}
+
 /* ---- Status pips on silhouettes ---- */
 
 .status-pip {
