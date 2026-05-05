@@ -873,6 +873,7 @@ function renderChampion(player, side, intent) {
           </span>
         </div>
         ${renderPlayerTokens(player)}
+        ${renderPlayerBuffs(player)}
       </div>
     </div>
   `;
@@ -927,6 +928,67 @@ function renderPlayerTokens(player) {
       `;
     });
   return `<div class="player-tokens" role="group" aria-label="Element tokens">${chips.join("")}</div>`;
+}
+
+// Buff/debuff chip cluster on the player baseplate. Mirrors the layout of
+// renderPlayerTokens but reads from `player.statuses` (the buff stack bag).
+// One chip per active buff/debuff key — hidden when its stack is 0.
+const BUFF_CHIP_DEFS = [
+  {
+    key: "damageBoostThisTurn",
+    cls: "buff-strength",
+    label: "Strength",
+    title: "Damage boost this turn (Overclock Sync)",
+    sign: "+",
+  },
+  {
+    key: "strength",
+    cls: "buff-strength",
+    label: "Strength",
+    title: "Strength stacks — +1 damage each, consumed per hit (Bio Surge)",
+    sign: "+",
+  },
+  {
+    key: "firstCardDiscount",
+    cls: "buff-discount",
+    label: "Discount",
+    title: "First card next turn costs −1 (Network Efficiency)",
+    sign: "−",
+  },
+  {
+    key: "nextCardCostExtra",
+    cls: "buff-lag",
+    label: "Lag",
+    title: "Next card costs +1 energy (System Lag)",
+    sign: "+",
+  },
+  {
+    key: "nextTurnEnergyDelta",
+    cls: "buff-energy",
+    label: "Energy",
+    title: "Pending energy delta applied next turn",
+    sign: "auto",
+  },
+];
+
+function renderPlayerBuffs(player) {
+  const statuses = player?.statuses ?? {};
+  const chips = [];
+  for (const def of BUFF_CHIP_DEFS) {
+    const raw = statuses[def.key] ?? 0;
+    if (raw === 0) continue;
+    const display = def.sign === "auto"
+      ? (raw > 0 ? `+${raw}` : `${raw}`)
+      : `${def.sign}${Math.abs(raw)}`;
+    chips.push(`
+      <span class="buff-chip ${def.cls}" title="${escapeHtml(def.title)}" aria-label="${escapeHtml(def.label)}: ${display}">
+        <strong>${def.label}</strong>
+        <em>${display}</em>
+      </span>
+    `);
+  }
+  if (chips.length === 0) return "";
+  return `<div class="player-buffs" role="group" aria-label="Active buffs and debuffs">${chips.join("")}</div>`;
 }
 
 function renderChampionStatusPips(player) {

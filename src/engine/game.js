@@ -64,6 +64,12 @@ export function createCoopBattle(config = {}) {
     partyHand: [],
     activeAuras: [],
     partyPlayedThisTurn: 0,
+    // Arena-wide flag bag for one-shot or persistent global effects that
+    // don't fit on a single player. Examples: { mutationZone: { per: 5,
+    // bonus: 1 } } applies +bonus damage per `per` total threat to every
+    // damage hit. Cleared/decayed by the cards that set them or at round
+    // end via decay rules where appropriate.
+    flags: {},
   };
 
   for (const player of state.players) {
@@ -110,11 +116,41 @@ export function queueCard(currentState, command) {
 
   const cardInstance = player.hand[handIndex];
   const card = getCardDefinition(cardInstance.cardId);
-  if (getRemainingEnergy(player) < card.cost) {
+  // Cost modifiers applied at queue time:
+  //   firstCardDiscount — first queued card this round costs −N (Network
+  //                       Efficiency). Cleared after the discount applies
+  //                       so only the literal first card benefits.
+  //   nextCardCostExtra — next queued card costs +N (System Lag). Cleared
+  //                       after queueing.
+  let effectiveCost = card.cost;
+  let consumeDiscount = false;
+  let consumeExtra = false;
+  if (player.planned.length === 0) {
+    const discount = player.statuses?.firstCardDiscount ?? 0;
+    if (discount > 0) {
+      effectiveCost = Math.max(0, effectiveCost - discount);
+      consumeDiscount = true;
+    }
+  }
+  const extra = player.statuses?.nextCardCostExtra ?? 0;
+  if (extra > 0) {
+    effectiveCost += extra;
+    consumeExtra = true;
+  }
+  if (getRemainingEnergy(player) < effectiveCost) {
     throw new Error(`${player.name} does not have enough energy for ${card.name}.`);
   }
   player.hand.splice(handIndex, 1);
+  // Stash the negotiated cost on the card instance so resolveRound spends
+  // the modified amount. Default `cost` on the definition is read-only.
+  cardInstance.discountedCost = effectiveCost;
   player.planned.push(cardInstance);
+  if (consumeDiscount) {
+    clearBuff(state, player.id, "firstCardDiscount");
+  }
+  if (consumeExtra) {
+    clearBuff(state, player.id, "nextCardCostExtra");
+  }
   pushEvent(state, "plan", {
     target: { type: "player", playerId: player.id },
     label: card.name,
@@ -155,7 +191,12 @@ export function resolveRound(currentState) {
   for (const player of state.players) {
     for (const cardInstance of player.planned) {
       const card = getCardDefinition(cardInstance.cardId);
-      const cost = card.cost;
+      // Honor a per-instance discountedCost (set by queueCard when buffs
+      // like firstCardDiscount or System Lag adjust the cost). Falls back
+      // to the definition cost for cards queued before buffs existed.
+      const cost = typeof cardInstance.discountedCost === "number"
+        ? cardInstance.discountedCost
+        : card.cost;
       player.energy -= cost;
       const monsterHpBefore = state.monster.hp;
       resolveCard(state, player, card);
@@ -187,10 +228,14 @@ export function resolveRound(currentState) {
   for (const player of state.players) {
     if (player.hp <= 0) continue;
     const unused = Math.max(0, player.energy);
-    // Stable per-turn flag for Auras (Growth Protocol etc.) that need to
-    // know "did this player end with unused energy?" The flag survives the
-    // surge-decay that runs at the top of the next round.
+    // Per-player flags read by Auras (Growth Protocol) and buffs (Overclock
+    // Sync, Bio Surge) the next round. Survive the surge-decay that runs
+    // at the top of the next round.
+    //   hadUnusedEnergy — boolean: did this player end with unused energy?
+    //   unusedEnergyLastTurn — exact amount, summed across players for
+    //                          Bio Surge's strength-stack count.
     player.hadUnusedEnergy = unused > 0;
+    player.unusedEnergyLastTurn = unused;
     if (unused > 0) {
       const gained = Math.min(unused, SURGE_CAP);
       addPlayerStatus(state, player.id, "surge", gained, { mode: "max", decay: SURGE_CAP });
@@ -255,6 +300,11 @@ function buildCardUseText(player, card, damageDealt) {
 
 export function getRemainingEnergy(player) {
   const plannedCost = player.planned.reduce((total, cardInstance) => {
+    // Use the negotiated cost if queueCard applied a buff/debuff to this
+    // card instance; otherwise fall back to the card definition's cost.
+    if (typeof cardInstance.discountedCost === "number") {
+      return total + cardInstance.discountedCost;
+    }
     const card = getCardDefinition(cardInstance.cardId);
     return total + card.cost;
   }, 0);
@@ -332,6 +382,11 @@ function createPlayer(playerConfig, index) {
     // Per-turn threat tally for the Storm Charge "Overload" trigger. Reset
     // at end of player phase so the threshold is per-turn, not cumulative.
     threatGainedThisTurn: 0,
+    // Set by resolveRound at end of player phase. Read next round by buffs
+    // that care whether players spent all their energy (Overclock Sync) or
+    // need a per-player unused tally (Bio Surge).
+    hadUnusedEnergy: false,
+    unusedEnergyLastTurn: 0,
   };
 }
 
@@ -566,6 +621,16 @@ function dealMonsterDamage(state, player, amount, element) {
     return;
   }
   const el = element ?? "physical";
+  // Static Field aura: when a player's damage hits with the overclock
+  // element (⚡), they gain +1 threat. Reads `state.activeAuras` for the
+  // installed aura entry. Fires once per damage action regardless of
+  // amount so chained overclock attacks each cost a tick of threat.
+  if (el === "overclock" && Array.isArray(state.activeAuras)) {
+    const hasStaticField = state.activeAuras.some((a) => a.id === "static-field");
+    if (hasStaticField) {
+      addThreat(state, player.id, 1);
+    }
+  }
   const multiplier = getElementMultiplier(state.monster, el);
   const defense = state.monster.defense ?? 0;
   // Element first, then defense subtraction. Floor at 0.
@@ -590,6 +655,42 @@ function dealMonsterDamage(state, player, amount, element) {
       player.statuses.surge = stacks - 1;
       if (player.statuses.surge <= 0) delete player.statuses.surge;
       finalDamage += 1;
+    }
+  }
+  // Per-player damage buff: damageBoostThisTurn adds +N to every damage
+  // action while the buff is up. Doesn't consume — decays at round end.
+  // Source: Overclock Sync (Party Deck buff).
+  if (finalDamage > 0) {
+    const boost = player.statuses?.damageBoostThisTurn ?? 0;
+    if (boost > 0) {
+      finalDamage += boost;
+    }
+  }
+  // Strength stacks: consume 1 stack to add +1 damage to this hit. Same
+  // shape as surge but separate counter so Bio-Surge windfalls don't
+  // collide with the SURGE_CAP. Source: Bio Surge.
+  if (finalDamage > 0) {
+    const strength = player.statuses?.strength ?? 0;
+    if (strength > 0) {
+      player.statuses.strength = strength - 1;
+      if (player.statuses.strength <= 0) delete player.statuses.strength;
+      finalDamage += 1;
+    }
+  }
+  // Global Mutation Zone: +1 damage per `per` total threat across all
+  // players. Reads `state.flags.mutationZone = { per, bonus }`. The bonus
+  // applies to every damage hit while the flag is set (decays at round end).
+  if (finalDamage > 0 && state.flags?.mutationZone) {
+    const cfg = state.flags.mutationZone;
+    const per = Math.max(1, cfg.per ?? 5);
+    const bonus = cfg.bonus ?? 1;
+    let totalThreat = 0;
+    for (const p of state.players) {
+      totalThreat += getThreat(state, p.id);
+    }
+    const buckets = Math.floor(totalThreat / per);
+    if (buckets > 0) {
+      finalDamage += buckets * bonus;
     }
   }
 
@@ -909,6 +1010,19 @@ function startNextRound(state) {
     player.block = 0;
     player.energy = STARTING_ENERGY;
     player.energyMax = STARTING_ENERGY;
+    // Pending energy delta from last round's buffs/debuffs (Overload
+    // Protocol's −2, Corrupt Signal's −1). Applied AFTER the energy reset
+    // and BEFORE decay, so the delta lands on this turn and not the next.
+    if (player.hp > 0) {
+      const delta = player.statuses?.nextTurnEnergyDelta ?? 0;
+      if (delta !== 0) {
+        player.energy = Math.max(0, player.energy + delta);
+        // Clear immediately — startNextRound runs before decayPlayerStatuses
+        // and we don't want the delta to linger another round.
+        if (player.statuses) delete player.statuses.nextTurnEnergyDelta;
+        if (player.statusDecay) delete player.statusDecay.nextTurnEnergyDelta;
+      }
+    }
     // Reset per-turn threat tally so Storm Charge Overload checks fresh
     // each round.
     player.threatGainedThisTurn = 0;
@@ -929,6 +1043,12 @@ function startNextRound(state) {
   decayPlayerStatuses(state);
   // Decay monster fixate timer; on expiry, halve target's threat once.
   decayFixate(state);
+  // One-shot global flags that scope to "this turn" expire at round end.
+  // Mutation Zone is the only such flag today; future per-round arena
+  // effects can join it here.
+  if (state.flags?.mutationZone) {
+    delete state.flags.mutationZone;
+  }
 
   state.roundNumber += 1;
 
@@ -1002,6 +1122,55 @@ export function addPlayerStatus(state, playerId, key, amount = 1, options = {}) 
 export function getPlayerStatus(state, playerId, key) {
   const player = getPlayer(state, playerId);
   return player.statuses?.[key] ?? 0;
+}
+
+// ===== Buff / debuff helpers =====
+//
+// Buff stacks live on `player.statuses` (the same bag used for marked,
+// surge, frenzy, ...). `addBuff` and `clearBuff` are thin aliases over
+// addPlayerStatus that read more clearly at the call site. Global, arena-
+// wide flags live on `state.flags` and use `globalBuff` / `clearGlobalBuff`.
+//
+// Canonical buff status keys (decay 1 per round end unless noted):
+//   damageBoostThisTurn — +1 damage on every damage action this turn
+//                          (Overclock Sync). Decay 1.
+//   firstCardDiscount    — first queued card next turn costs −1 energy
+//                          (Network Efficiency). Decay 1, cleared on use.
+//   nextCardCostExtra    — next queued card costs +N energy
+//                          (System Lag). Decay 1, cleared on use.
+//   nextTurnEnergyDelta  — energy delta applied at start of next round
+//                          (Overload Protocol, Corrupt Signal). Decay 1
+//                          but applied first at startNextRound.
+//   strength             — +1 damage per stack on the next damage action
+//                          (Bio Surge). Consumes one stack per damage
+//                          action (mirrors surge). Decay 1.
+//
+// Note: `surge` is the Step-2 unused-energy buff and stays separate
+// (capped at SURGE_CAP = 3). `strength` is the Bio-Surge stack and has
+// no cap so multi-player unused-energy windfalls aren't squashed.
+export function addBuff(state, playerId, key, amount = 1, options = {}) {
+  return addPlayerStatus(state, playerId, key, amount, options);
+}
+
+export function clearBuff(state, playerId, key) {
+  const player = getPlayer(state, playerId);
+  if (player.statuses && key in player.statuses) {
+    delete player.statuses[key];
+  }
+  if (player.statusDecay && key in player.statusDecay) {
+    delete player.statusDecay[key];
+  }
+}
+
+export function globalBuff(state, key, value = true) {
+  if (!state.flags) state.flags = {};
+  state.flags[key] = value;
+}
+
+export function clearGlobalBuff(state, key) {
+  if (state.flags && key in state.flags) {
+    delete state.flags[key];
+  }
 }
 
 export function decayPlayerStatuses(state) {
@@ -1243,6 +1412,13 @@ const PARTY_CARDS_DRAWABLE_REQUIRES_OK = new Set([
   // anything outside this set are filtered from draws so the Party Deck
   // never offers a card whose effect can't fire.
   "aura-system",
+  // Buff/debuff stack engine (this PR):
+  "buff-stack",
+  "next-card-flag",
+  "next-turn-flag",
+  "per-turn-energy-tracking",
+  "unused-energy-tracking",
+  "strength-stack",
 ]);
 
 function partyCardIsPlayableNow(card) {
@@ -1386,6 +1562,161 @@ function applyPartyEffect(state, player, effect, card) {
     case "damageMonster": {
       // Single-monster shortcut for Party damage cards (until multi-monster lands).
       dealMonsterDamage(state, player, effect.amount, effect.element);
+      return;
+    }
+    case "buffAllDamageThisTurn": {
+      // Overclock Sync: +N damage to every player's damage actions this
+      // turn. If everyone spent all their energy last turn (no unused
+      // energy on any living player), grant the bonus too.
+      const living = state.players.filter((p) => p.hp > 0);
+      let amount = effect.amount ?? 1;
+      if (
+        typeof effect.bonusIfAllSpentAllEnergy === "number"
+        && living.length > 0
+        && living.every((p) => p.hadUnusedEnergy === false)
+      ) {
+        amount += effect.bonusIfAllSpentAllEnergy;
+      }
+      for (const target of living) {
+        addBuff(state, target.id, "damageBoostThisTurn", amount, { decay: 1 });
+      }
+      pushLog(state, {
+        kind: "info",
+        text: `${card.name} — all players gain +${amount} damage this turn.`,
+      });
+      return;
+    }
+    case "discountFirstCardNextTurn": {
+      // Network Efficiency: each player's first queued card next turn
+      // costs −N. Clears on use (queueCard consumes when first planned
+      // card resolves through the discount). Decay 1 so it expires if
+      // unused.
+      const targets = getPlayerTargets(state, player, effect.target ?? "all");
+      for (const target of targets) {
+        addBuff(state, target.id, "firstCardDiscount", effect.amount ?? 1, {
+          mode: "set",
+          decay: 1,
+        });
+      }
+      return;
+    }
+    case "buffStrengthFromUnusedEnergy": {
+      // Bio Surge: stacks of strength scale with total unused energy
+      // among all living players (sum of `unusedEnergyLastTurn`). Capped
+      // at 6 so a 4-player full-skip doesn't trivialize a fight.
+      const living = state.players.filter((p) => p.hp > 0);
+      const totalUnused = living.reduce(
+        (sum, p) => sum + Math.max(0, p.unusedEnergyLastTurn ?? 0),
+        0,
+      );
+      const stacks = Math.min(6, totalUnused * (effect.amount ?? 1));
+      if (stacks > 0) {
+        addBuff(state, player.id, "strength", stacks, { decay: 1 });
+        pushLog(state, {
+          kind: "info",
+          text: `${player.name} channels Bio Surge — +${stacks} strength.`,
+        });
+      }
+      return;
+    }
+    case "debuffNextCardCost": {
+      // System Lag: each player's next queued card costs +N energy.
+      // Cleared on first queue (queueCard handles consumption).
+      const targets = getPlayerTargets(state, player, effect.target ?? "all");
+      for (const target of targets) {
+        addBuff(state, target.id, "nextCardCostExtra", effect.amount ?? 1, {
+          mode: "set",
+          decay: 1,
+        });
+      }
+      return;
+    }
+    case "debuffRandomPlayerEnergy": {
+      // Corrupt Signal: a random living player has their next-turn energy
+      // reduced by N. Encoded as a negative `nextTurnEnergyDelta`, applied
+      // and cleared at startNextRound.
+      const living = state.players.filter((p) => p.hp > 0);
+      if (living.length === 0) return;
+      const idx = Math.floor(Math.random() * living.length);
+      const victim = living[idx];
+      addBuff(state, victim.id, "nextTurnEnergyDelta", -(effect.amount ?? 1), {
+        decay: 1,
+      });
+      pushLog(state, {
+        kind: "info",
+        text: `${card.name} — ${victim.name} loses ${effect.amount ?? 1} energy next turn.`,
+      });
+      return;
+    }
+    case "buffAllDamagePerThreatBucket": {
+      // Mutation Zone: +bonus damage per `per` total threat across all
+      // players. Set as a state-level flag — read by dealMonsterDamage on
+      // every damage hit. Cleared at end of round in startNextRound.
+      globalBuff(state, "mutationZone", {
+        per: effect.per ?? 5,
+        bonus: effect.bonus ?? 1,
+      });
+      pushLog(state, {
+        kind: "info",
+        text: `${card.name} — Mutation Zone is active (+${effect.bonus ?? 1} damage per ${effect.per ?? 5} total threat).`,
+      });
+      return;
+    }
+    case "debuffNextTurnEnergy": {
+      // Overload Protocol payload: queue a per-player energy delta that
+      // applies at startNextRound. `effect.amount` is signed (negative
+      // for the canonical "lose 2 energy" case).
+      const targets = getPlayerTargets(state, player, effect.target ?? "all");
+      for (const target of targets) {
+        addBuff(state, target.id, "nextTurnEnergyDelta", effect.amount ?? 0, {
+          decay: 1,
+        });
+      }
+      return;
+    }
+    case "randomBuffOrDebuff": {
+      // Jackpot Cache: 50/50 a powerful buff or a massive debuff.
+      // Buff pool:
+      //   - +5 block to all living players
+      //   - +2 strength to the player who played the card
+      //   - +1 damageBoostThisTurn to all living players
+      // Debuff pool:
+      //   - +3 threat to all living players
+      //   - random living player loses 2 energy next turn
+      //   - all players' next card costs +1 energy
+      const living = state.players.filter((p) => p.hp > 0);
+      if (living.length === 0) return;
+      const isBuff = Math.random() < 0.5;
+      if (isBuff) {
+        const roll = Math.floor(Math.random() * 3);
+        if (roll === 0) {
+          for (const p of living) p.block += 5;
+          pushLog(state, { kind: "info", text: `${card.name} — Jackpot! All players gain 5 block.` });
+        } else if (roll === 1) {
+          addBuff(state, player.id, "strength", 2, { decay: 1 });
+          pushLog(state, { kind: "info", text: `${card.name} — Jackpot! ${player.name} gains +2 strength.` });
+        } else {
+          for (const p of living) {
+            addBuff(state, p.id, "damageBoostThisTurn", 1, { decay: 1 });
+          }
+          pushLog(state, { kind: "info", text: `${card.name} — Jackpot! All players gain +1 damage this turn.` });
+        }
+      } else {
+        const roll = Math.floor(Math.random() * 3);
+        if (roll === 0) {
+          for (const p of living) addThreat(state, p.id, 3);
+          pushLog(state, { kind: "info", text: `${card.name} — Bust! All players gain 3 threat.` });
+        } else if (roll === 1) {
+          const victim = living[Math.floor(Math.random() * living.length)];
+          addBuff(state, victim.id, "nextTurnEnergyDelta", -2, { decay: 1 });
+          pushLog(state, { kind: "info", text: `${card.name} — Bust! ${victim.name} loses 2 energy next turn.` });
+        } else {
+          for (const p of living) {
+            addBuff(state, p.id, "nextCardCostExtra", 1, { mode: "set", decay: 1 });
+          }
+          pushLog(state, { kind: "info", text: `${card.name} — Bust! All players' next card costs +1.` });
+        }
+      }
       return;
     }
     default: {
