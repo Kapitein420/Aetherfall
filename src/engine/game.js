@@ -17,7 +17,7 @@ export const DRAW_PER_ROUND = 5;
 export const STARTING_ENERGY = 4;
 export const MAX_ENERGY = 4;
 export const SURGE_CAP = 3;
-export const THREAT_DECAY = 3;
+export const THREAT_DECAY = 2;
 export const FIXATE_THREAT_THRESHOLD = 15;
 export const FIXATE_DURATION = 2;
 // Canonical Party Deck: each round draws 1-2 random Party Cards. Anyone
