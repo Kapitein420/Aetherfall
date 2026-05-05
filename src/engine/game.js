@@ -382,6 +382,10 @@ function createPlayer(playerConfig, index) {
     // Per-turn threat tally for the Storm Charge "Overload" trigger. Reset
     // at end of player phase so the threshold is per-turn, not cumulative.
     threatGainedThisTurn: 0,
+    // Canonical Storm Charge passive: bonus +1 damage on the FIRST damage
+    // action per turn only. Set by dealMonsterDamage on first hit, reset
+    // at the top of each round in startNextRound.
+    stormChargeUsedThisTurn: false,
     // Set by resolveRound at end of player phase. Read next round by buffs
     // that care whether players spent all their energy (Overclock Sync) or
     // need a per-player unused tally (Bio Surge).
@@ -638,10 +642,16 @@ function dealMonsterDamage(state, player, amount, element) {
   let finalDamage = Math.max(0, afterElement - defense);
   // Glass Cannon blessing: +1 to any non-zero damage hit, applied after
   // mitigation so the bonus survives even high-defense monsters.
-  // Storm Charge passive: holding any storm-charge tokens adds +1 to each
-  // damage action that lands.
-  if (finalDamage > 0 && (player.tokens?.stormCharge ?? 0) > 0) {
+  // Storm Charge passive (canonical): holding any storm-charge tokens adds
+  // +1 to the FIRST damage action that lands per turn (not every action).
+  // The flag resets at the top of each round in startNextRound.
+  if (
+    finalDamage > 0
+    && (player.tokens?.stormCharge ?? 0) > 0
+    && !player.stormChargeUsedThisTurn
+  ) {
     finalDamage += 1;
+    player.stormChargeUsedThisTurn = true;
   }
   // Aura — Static Field: all Overclock-element damage gets +2.
   if (finalDamage > 0 && el === "overclock" && auraActive(state, "static-field")) {
@@ -1026,6 +1036,9 @@ function startNextRound(state) {
     // Reset per-turn threat tally so Storm Charge Overload checks fresh
     // each round.
     player.threatGainedThisTurn = 0;
+    // Reset Storm Charge passive flag so first attack of new round gets
+    // the +1 damage bonus.
+    player.stormChargeUsedThisTurn = false;
     // Canonical rule: fixated players do not lose threat during end-of-round
     // decay. Their threat only drops via the post-fixate halve in decayFixate.
     const fix = state.monster.fixate;
