@@ -17,7 +17,7 @@ export const DRAW_PER_ROUND = 5;
 export const STARTING_ENERGY = 4;
 export const MAX_ENERGY = 4;
 export const SURGE_CAP = 3;
-export const THREAT_DECAY = 3;
+export const THREAT_DECAY = 2;
 export const FIXATE_THREAT_THRESHOLD = 15;
 export const FIXATE_DURATION = 2;
 // Canonical Party Deck: each round draws 1-2 random Party Cards. Anyone
@@ -228,6 +228,7 @@ export function resolveRound(currentState) {
   for (const player of state.players) {
     if (player.hp <= 0) continue;
     const unused = Math.max(0, player.energy);
+<<<<<<< HEAD
     // Track per-player flags read by buffs the next round:
     //   hadUnusedEnergy — Overclock Sync needs to know if everyone spent
     //                     all energy last turn (false = clean spend).
@@ -235,6 +236,12 @@ export function resolveRound(currentState) {
     //                          compute strength stacks at play time.
     player.hadUnusedEnergy = unused > 0;
     player.unusedEnergyLastTurn = unused;
+=======
+    // Stable per-turn flag for Auras (Growth Protocol etc.) that need to
+    // know "did this player end with unused energy?" The flag survives the
+    // surge-decay that runs at the top of the next round.
+    player.hadUnusedEnergy = unused > 0;
+>>>>>>> fb0bdc2f50cf2f1e4b420c3eb4219beb21348bfd
     if (unused > 0) {
       const gained = Math.min(unused, SURGE_CAP);
       addPlayerStatus(state, player.id, "surge", gained, { mode: "max", decay: SURGE_CAP });
@@ -244,17 +251,11 @@ export function resolveRound(currentState) {
       });
     }
     player.energy = 0;
-    // Storm Charge "Overload": gain 1 Storm Charge token if this player
-    // gained 5+ threat during their turn. Fires per turn, not per round —
-    // the counter resets at the top of the next round in startNextRound.
-    if ((player.threatGainedThisTurn ?? 0) >= 5) {
-      if (!player.tokens) player.tokens = { bioGrowth: 0, hydroflow: 0, stormCharge: 0 };
-      player.tokens.stormCharge = (player.tokens.stormCharge ?? 0) + 1;
-      pushLog(state, {
-        kind: "info",
-        text: `${player.name} overloads — gains 1 Storm Charge token.`,
-      });
-    }
+    // Storm Charge "Overload" generation is intentionally disabled per
+    // Noah's call — gaining 5+ threat in a turn no longer auto-grants a
+    // Storm Charge token. The `threatGainedThisTurn` counter still ticks
+    // (kept for compatibility with element combinations / future rules)
+    // but the auto-grant block is removed.
   }
 
   if (state.monster.hp <= 0) {
@@ -399,6 +400,17 @@ function resolveCard(state, player, card) {
   for (const action of card.actions) {
     resolveAction(state, player, action);
   }
+  // Aura — Data Stream: the first card each player plays per round draws
+  // 1 extra card on resolve. Flag is set in applyAuraRoundTicks at round
+  // start and cleared here.
+  if (player.dataStreamPending) {
+    player.dataStreamPending = false;
+    drawCards(state, player, 1);
+    pushLog(state, {
+      kind: "info",
+      text: `${player.name} taps Data Stream — draws 1 extra card.`,
+    });
+  }
 }
 
 function resolveAction(state, player, action) {
@@ -474,6 +486,24 @@ function resolveAction(state, player, action) {
   if (action.type === "reduceThreat") {
     for (const target of getPlayerTargets(state, player, action.target)) {
       reduceThreat(state, target.id, action.amount);
+    }
+    return;
+  }
+
+  if (action.type === "gainToken") {
+    if (!player.tokens) player.tokens = { bioGrowth: 0, hydroflow: 0, stormCharge: 0 };
+    const key = action.token === "bio-growth" ? "bioGrowth"
+             : action.token === "hydroflow" ? "hydroflow"
+             : action.token === "storm-charge" ? "stormCharge"
+             : null;
+    if (key) {
+      const amount = action.amount ?? 1;
+      player.tokens[key] = (player.tokens[key] ?? 0) + amount;
+      pushEvent(state, "criticalLine", {
+        target: { type: "player", playerId: player.id },
+        label: `${key === "bioGrowth" ? "Bio-Growth" : key === "hydroflow" ? "Hydroflow" : "Storm Charge"} +${amount}`,
+        amount,
+      });
     }
     return;
   }
@@ -618,6 +648,10 @@ function dealMonsterDamage(state, player, amount, element) {
   // damage action that lands.
   if (finalDamage > 0 && (player.tokens?.stormCharge ?? 0) > 0) {
     finalDamage += 1;
+  }
+  // Aura — Static Field: all Overclock-element damage gets +2.
+  if (finalDamage > 0 && el === "overclock" && auraActive(state, "static-field")) {
+    finalDamage += 2;
   }
   // Canonical surge: consume 1 stack to add +1 damage to this hit.
   // Each damage action consumes at most one stack.
@@ -1029,10 +1063,28 @@ function startNextRound(state) {
   // Reaction.
   state.partyPlayedThisTurn = 0;
   drawPartyCards(state, PARTY_CARDS_PER_ROUND);
-  // Run end-of-round Aura hooks (e.g. Growth Protocol's regen tick).
-  for (const aura of state.activeAuras ?? []) {
-    if (typeof aura.onEndOfRound === "function") {
-      try { aura.onEndOfRound(state); } catch (_) { /* never crash on aura */ }
+
+  // Aura tick. Function references don't survive structuredClone, so each
+  // aura's per-round behavior is dispatched by id rather than stored on
+  // the aura object itself.
+  applyAuraRoundTicks(state);
+
+  // Apply per-player Regen at the top of the round. Regen is applied AFTER
+  // the aura tick so Auras like Growth Protocol (which add regen at end of
+  // round) take effect on the very next round.
+  for (const player of state.players) {
+    if (player.hp <= 0) continue;
+    const regen = player.statuses?.regen ?? 0;
+    if (regen > 0) {
+      const before = player.hp;
+      player.hp = Math.min(player.maxHp, player.hp + regen);
+      const healed = player.hp - before;
+      if (healed > 0) {
+        pushLog(state, {
+          kind: "info",
+          text: `${player.name} regenerates ${healed} HP.`,
+        });
+      }
     }
   }
 
@@ -1680,6 +1732,50 @@ function applyPartyEffect(state, player, effect, card) {
         kind: "info",
         text: `[${card.name}] effect "${effect.type}" not yet wired (deferred).`,
       });
+    }
+  }
+}
+
+// ===== Aura helpers + per-round dispatcher =====
+//
+// Function references can't be stored on `state.activeAuras` because
+// structuredClone strips them. Instead, the engine keeps each aura's
+// per-round behavior here and dispatches by id at the top of every round.
+
+function auraActive(state, auraId) {
+  return Array.isArray(state.activeAuras)
+    && state.activeAuras.some((a) => a.id === auraId);
+}
+
+function applyAuraRoundTicks(state) {
+  if (!Array.isArray(state.activeAuras) || state.activeAuras.length === 0) return;
+  for (const aura of state.activeAuras) {
+    switch (aura.id) {
+      case "growth-protocol": {
+        // Players who had unused energy last turn gain 2 Regen at the top
+        // of the new round. Reads the stable `hadUnusedEnergy` flag set in
+        // resolveRound (surge stacks would have already decayed by now).
+        for (const player of state.players) {
+          if (player.hp <= 0) continue;
+          if (player.hadUnusedEnergy) {
+            addPlayerStatus(state, player.id, "regen", 2, { mode: "max", decay: 1 });
+          }
+        }
+        break;
+      }
+      case "data-stream": {
+        // Set a flag on each living player; the first card they queue this
+        // round draws +1 card on resolve. Cleared in resolveCard.
+        for (const player of state.players) {
+          if (player.hp <= 0) continue;
+          player.dataStreamPending = true;
+        }
+        break;
+      }
+      // static-field is checked inline in dealMonsterDamage (Overclock+2).
+      // chaos-field is gated on Infusion which is not yet implemented.
+      default:
+        break;
     }
   }
 }

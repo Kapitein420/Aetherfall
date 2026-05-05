@@ -92,7 +92,7 @@ Per-monster threat tracker, range **0–20**, fixate threshold at **15**.
 1. Players act.
 2. Monsters act.
 3. Each monster targets the player with the **highest current threat against that monster**.
-4. End of round: −3 threat (minimum 0), except fixated players don't decay.
+4. End of round: −2 threat (minimum 0), except fixated players don't decay.
 
 ---
 
@@ -317,49 +317,67 @@ Where each rule lives in code today (or notes for what's still required).
 | Rule | Status | Where (or what's needed) |
 |---|---|---|
 | Players act first, then monsters | ✅ | [`src/engine/game.js`](../src/engine/game.js) `resolveRound` → `resolveMonsterTurn` |
-| End-of-round threat decay −3 | ✅ | [`src/engine/game.js`](../src/engine/game.js) `THREAT_DECAY = 3` |
+| End-of-round threat decay −2 | ✅ | [`src/engine/game.js`](../src/engine/game.js) `THREAT_DECAY = 2` |
 | Fixate ≥15 threat for 2 rounds | ✅ | `FIXATE_THREAT_THRESHOLD = 15`, `FIXATE_DURATION = 2` |
 | Halve threat after fixate ends | ✅ | `decayFixate` |
-| Heal → threat (+1 per 2 healing) | ✅ | `resolveAction` heal branch — adds `Math.ceil(healed / 2)` |
+| Heal → threat (+1 per 2 healing) | ✅ | `resolveAction` heal branch — `Math.floor(healed / 2)` (Decision 1, PR #23) |
 | Damage → threat (+1 per damage) | ✅ | `dealMonsterDamage` adds `finalDamage` to threat |
-| **Fixated player skips end-of-round decay** | ❌ | Need: skip in `startNextRound` `decayThreat` loop |
-| **Other players: −1 threat on actions during fixate** | ❌ | Need: read fixate state in `addThreat` |
-| **Taunt action type (+5 threat)** | ❌ | Need: new `taunt` action type in `resolveAction` |
-| **Killing blow: +5 threat on other monsters** | ❌ | Requires multi-monster support first |
-| **Enrage on fixated monster** | ❌ | Need: `monster.enrageDamageBonus` field, applied during monster turn |
-| **Dual Punishment** | ❌ | Need: monster-card-driven payload when 2nd player crosses 15 during fixate |
-| **Multi-monster (1–3 monsters)** | ❌ | Need: `state.monsters[]` instead of `state.monster`; per-monster threat rows |
-| **4-player support** | 🟡 | Engine accepts `playerConfigs` of any length; UI is hardcoded to 2 |
-| **Energy: base 4** | ❌ | Currently `STARTING_ENERGY = 3` |
-| **Energy: no carryover** | ❌ | Currently `energyMax` rises by 1 each round |
-| **Unused energy → buff** | ❌ | Not implemented |
-| **Infusion (linear/threshold/branching)** | ❌ | Not implemented; cards need `infusion` payload |
-| **Element tokens (3 types)** | ❌ | Need: `state.tokens[playerId]`, generation triggers, passives, Infusion spend |
-| **Element combinations** | ❌ | Fire when player holds both types |
-| **Party Deck (canonical, per-turn draw)** | ❌ | Currently we have a per-fight blessing draft (PR [#16](https://github.com/Kapitein420/Aetherfall/pull/16)); needs to be replaced or layered |
-| **Party Deck — Auras (persistent)** | ❌ | New mechanic |
-| **Party Deck — Fusion cards** | ❌ | Depends on element tokens |
-| **Party Deck — Risk/Chaos** | ❌ | New mechanic |
-| **Party Deck Interactions (peek/discard/duplicate/infuse)** | ❌ | New mechanic |
-| **Class starter decks (Storm Forge etc.)** | 🟡 | Storm Forge data scaffolded in [`src/content/storm-forge.js`](../src/content/storm-forge.js) but not wired into `selectableClasses` until tokens land |
-| **Hollow Titan boss** | ✅ | [`src/content/monsters.js`](../src/content/monsters.js) |
-| **Ironjaw Bruiser boss** | ✅ | [`src/content/monsters.js`](../src/content/monsters.js) |
-| **Warden of Targeting boss** | ✅ | [`src/content/monsters.js`](../src/content/monsters.js) |
+| Fixated player skips end-of-round decay | ✅ | `startNextRound` skips `decayThreat` for the fixated player (PR #21) |
+| Other players: −1 threat on actions during fixate | ✅ | `addThreat` reduces by 1 for non-fixate players (PR #21) |
+| Taunt action type (+5 threat) | ✅ | `resolveAction` taunt branch (PR #21) |
+| Killing blow: +5 threat on other monsters | ✅ | `dealMonsterDamage` iterates `state.monsters` survivors (PR #33) |
+| Enrage on fixated monster | ✅ | `resolveMonsterTurn` adds `monster.enrageDamageBonus` (default 3) to fixate-target hits (PR #29) |
+| Dual Punishment | ✅ | `addThreat` calls `triggerDualPunishment` on cross-threshold; per-monster `dualPunishment` override (PR #29) |
+| Multi-monster (1–3 monsters) | 🟡 | `state.monsters[]` array exists with `state.monster` aliasing primary; helpers `primaryMonster`, `livingMonsters`. UI/turn iteration still primary-only — content can extend (PR #33). |
+| 4-player support | ✅ | Setup screen 2/3/4 picker, dynamic standoff/hand-shelf grid (PR #25) |
+| Energy: base 4 | ✅ | `STARTING_ENERGY = 4` (PR #26) |
+| Energy: no carryover | ✅ | `startNextRound` resets `player.energy = STARTING_ENERGY` (PR #26) |
+| Unused energy → buff | ✅ | Surge stacks (+1 dmg per stack, cap 3 per turn, decay 3 — PR #26) |
+| Infusion (linear/threshold/branching) | ❌ | DEFERRED — gated on canonical token-themed starter decks |
+| Element tokens (3 types) | ✅ | `player.tokens` bag, passives + generation triggers (PR #28) |
+| Element combinations | ✅ | Adaptive Control / Conductive Surge / Overgrowth Chain auto-fire; `moveThreat` action; Hydroflow generation (PR #31) |
+| Token UI surfacing | ✅ | `.token-chip` cluster on each player plate, element-color SVG icons (PR #34) |
+| Party Deck (canonical, per-turn draw) | ✅ | `state.partyHand`, `drawPartyCards`, per-round draw, anyone-plays. Blessing draft retired (Decision 2, PR #30) |
+| Party Deck — Auras (persistent) | 🟡 | `state.activeAuras` slot + `aura.onEndOfRound` hook exist; per-aura logic only partially wired (PR #30) |
+| Party Deck — Fusion cards | 🟡 | Data scaffolded; effects gated on multi-monster targeting + Infusion |
+| Party Deck — Risk/Chaos | 🟡 | `forceFixateHighestThreat` shipped (Fixate Event); Overload Protocol + Jackpot Cache effects deferred |
+| Party Deck Interactions (peek/discard/duplicate/infuse) | ❌ | UI + engine wiring not yet built |
+| Class starter decks (Storm Forge etc.) | 🟡 | Storm Forge data in `src/content/storm-forge.js`; not yet in `selectableClasses` (gated on Infusion) |
+| Hollow Titan boss | ✅ | `src/content/monsters.js` |
+| Ironjaw Bruiser boss | ✅ | `src/content/monsters.js` |
+| Warden of Targeting boss | ✅ | `src/content/monsters.js` |
+| Hollow Titan portrait art | ✅ | `assets/ui/monsters/hollow-titan.png` (PR #14) |
+| Compact battle UI (corner log + fixed action bar + party pill) | ✅ | PRs #17, #36, #39 |
+| Visual identity v1 (element color+shape, palette tokens, hex frames) | ✅ | `src/content/element-icons.js` (PR #27) |
+| Hand-focus toggle | ✅ | Click player name; others collapse (PR #32) |
+| Drag-and-drop disabled (click-to-queue only) | ✅ | `DRAG_AND_DROP_ENABLED = false` flag in `src/app.js` (PRs #37, #38) |
+| Orphan statuses stripped (exposed/weakened/tracked) | ✅ | Decision 3, PR #24 — 17 cards rewritten to canonical actions |
+| Layout stability when queueing cards | ✅ | Queue strip absolute-positioned; message-bar slot reserved (PR #39) |
 
 ---
 
-## 11. Sequenced refactor plan
+## 11. Sequenced refactor plan — ALL STEPS SHIPPED
 
-This plan assumes nothing in the engine matches the canonical rules yet. Each step is independently shippable.
+The original 7-step plan is complete. Each landed via the noted PR.
 
-| # | Step | Touches | Validates |
+| # | Step | Status | PRs |
 |---|---|---|---|
-| 1 | Threat-rule tightening (fixate skip-decay, −1 actions while fixated, taunt action type) | [`src/engine/game.js`](../src/engine/game.js), [`src/content/cards.js`](../src/content/cards.js) | All 3 existing bosses still play through |
-| 2 | Energy rework (base 4, no carryover, unused → buff) | [`src/engine/game.js`](../src/engine/game.js) | Existing decks still solvable |
-| 3 | Element token system (passives + generation + Infusion mechanic) | [`src/engine/game.js`](../src/engine/game.js), new [`src/content/tokens.js`](../src/content/tokens.js) | New "Storm Forge" class playable |
-| 4 | Multi-monster support (`state.monsters[]`) | [`src/engine/game.js`](../src/engine/game.js), [`src/app.js`](../src/app.js) | Three-monster Aetherfall encounter playable |
-| 5 | Party Deck (canonical) replaces blessing draft; blessings repurposed as Aura cards or starter perks | [`src/engine/game.js`](../src/engine/game.js), [`src/app.js`](../src/app.js), [`src/content/party-deck.js`](../src/content/party-deck.js) | Per-turn Party Deck draw + play |
-| 6 | 4-player support in setup screen + standoff layout | [`src/app.js`](../src/app.js), [`src/styles.css`](../src/styles.css) | 4-player co-op session works |
-| 7 | Enrage + Dual Punishment + Killing Blow cross-threat | [`src/engine/game.js`](../src/engine/game.js), [`src/content/monsters.js`](../src/content/monsters.js) | All canonical rules covered |
+| 1 | Threat-rule tightening (fixate skip-decay, −1 actions while fixated, taunt action type) | ✅ shipped | [#21](https://github.com/Kapitein420/Aetherfall/pull/21), [#23](https://github.com/Kapitein420/Aetherfall/pull/23), [#24](https://github.com/Kapitein420/Aetherfall/pull/24) |
+| 2 | Energy rework (base 4, no carryover, surge buff) | ✅ shipped | [#26](https://github.com/Kapitein420/Aetherfall/pull/26) |
+| 3 | Element token system (passives + generation + combinations) | ✅ shipped | [#28](https://github.com/Kapitein420/Aetherfall/pull/28), [#31](https://github.com/Kapitein420/Aetherfall/pull/31), [#34](https://github.com/Kapitein420/Aetherfall/pull/34) |
+| 4 | Multi-monster support (`state.monsters[]`) | 🟡 schema only | [#33](https://github.com/Kapitein420/Aetherfall/pull/33) — content can extend when designing a multi-monster encounter |
+| 5 | Party Deck (canonical) replaces blessing draft | ✅ shipped | [#30](https://github.com/Kapitein420/Aetherfall/pull/30) |
+| 6 | 4-player support | ✅ shipped | [#25](https://github.com/Kapitein420/Aetherfall/pull/25) |
+| 7 | Enrage + Dual Punishment + Killing Blow | ✅ shipped | [#29](https://github.com/Kapitein420/Aetherfall/pull/29), [#33](https://github.com/Kapitein420/Aetherfall/pull/33) |
 
-After step 7, the [`ux-improvement-plan.md`](ux-improvement-plan.md) sprints (input parity, info surface, co-op transparency, feel polish) resume.
+## 12. Remaining open work
+
+After Steps 1-7, the canonical surface is largely live. What's left:
+
+1. **Infusion mechanic** — cards spending tokens for enhanced effects (linear/threshold/branching scaling). Gated on designing the canonical token-themed starter decks (Storm Forge / Verdant Reach / Tideflow Engineer) since those are where Infusion lives.
+2. **Aura per-card effects** — `state.activeAuras` slot exists with `onEndOfRound` hook. Static Field, Data Stream, Growth Protocol, Chaos Field still need their per-aura logic wired.
+3. **More Party Deck card effects** — Fusion cards (need multi-monster targeting), buff-stack-driven cards (Overclock Sync, Network Efficiency, Bio Surge, Mutation Zone), debuff-flag cards (System Lag, Corrupt Signal, Overload Protocol). Foundation for these is a small "buff/debuff stack" engine layer that doesn't exist yet.
+4. **Party Deck Interactions UI** — Peek Ahead, Discard, Duplicate, Infuse. Engine + UI work.
+5. **Multi-monster turn iteration + per-monster threat baseplate UI** — when a real multi-monster encounter is designed.
+
+The [`ux-improvement-plan.md`](ux-improvement-plan.md) sprints (input parity, info surface, co-op transparency, feel polish) can resume in parallel with the above.
