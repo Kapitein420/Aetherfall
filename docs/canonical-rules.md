@@ -92,7 +92,7 @@ Per-monster threat tracker, range **0–20**, fixate threshold at **15**.
 1. Players act.
 2. Monsters act.
 3. Each monster targets the player with the **highest current threat against that monster**.
-4. End of round: −3 threat (minimum 0), except fixated players don't decay.
+4. End of round: −2 threat (minimum 0), except fixated players don't decay.
 
 ---
 
@@ -317,7 +317,7 @@ Where each rule lives in code today (or notes for what's still required).
 | Rule | Status | Where (or what's needed) |
 |---|---|---|
 | Players act first, then monsters | ✅ | [`src/engine/game.js`](../src/engine/game.js) `resolveRound` → `resolveMonsterTurn` |
-| End-of-round threat decay −3 | ✅ | [`src/engine/game.js`](../src/engine/game.js) `THREAT_DECAY = 3` |
+| End-of-round threat decay −2 | ✅ | [`src/engine/game.js`](../src/engine/game.js) `THREAT_DECAY = 2` |
 | Fixate ≥15 threat for 2 rounds | ✅ | `FIXATE_THREAT_THRESHOLD = 15`, `FIXATE_DURATION = 2` |
 | Halve threat after fixate ends | ✅ | `decayFixate` |
 | Heal → threat (+1 per 2 healing) | ✅ | `resolveAction` heal branch — `Math.floor(healed / 2)` (Decision 1, PR #23) |
