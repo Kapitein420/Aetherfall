@@ -3180,6 +3180,51 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
 
 /* ---- Monster ---- */
 
+/* Multi-monster row. A single monster centres itself like before; with 2+
+   monsters the row spreads them evenly. Each monster shrinks proportionally
+   (the figure clamp + a multi-monster size override below) so two side-by-
+   side monsters fit the same stage without overflowing the standoff area.
+   `is-dead` greys out a downed monster so it stays on screen for context
+   but reads as inactive. */
+.standoff-monsters {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+  gap: clamp(12px, 3vw, 32px);
+  flex-wrap: nowrap;
+  width: 100%;
+  z-index: 2;
+}
+
+.standoff-monsters.monsters-2 .monster-figure,
+.standoff-monsters.monsters-3 .monster-figure {
+  /* Scale figures down a little so they don't crowd each other. The clamp
+     handles tiny screens, the override covers comfortable widths. */
+  width: clamp(150px, 18vh, 230px);
+}
+
+.standoff-monsters.monsters-3 .monster-figure {
+  width: clamp(130px, 15vh, 200px);
+}
+
+.standoff-monsters.monsters-2 .monster-baseplate,
+.standoff-monsters.monsters-3 .monster-baseplate {
+  /* Tighter baseplate when two or more monsters share the row. */
+  max-width: 280px;
+}
+
+.standoff-monster.is-dead {
+  filter: grayscale(1);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.standoff-monster.is-dead .monster-aura,
+.standoff-monster.is-dead .monster-glow {
+  display: none;
+}
+
 .standoff-monster {
   position: relative;
   display: grid;

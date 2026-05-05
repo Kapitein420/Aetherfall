@@ -722,7 +722,16 @@ function renderPartyCardInteractions(entry, card, actor, canAfford) {
 function renderGame() {
   const totalQueued = gameState.players.reduce((total, player) => total + player.planned.length, 0);
   const gameOver = gameState.phase === "game-over";
-  const intent = MONSTER_INTENT_ENABLED ? computeMonsterIntent(gameState) : null;
+  // Per-monster intent. Each living monster gets its own intent computed
+  // from its own threat / fixate state. Dead monsters render with no intent.
+  const monsters = gameState.monsters ?? [gameState.monster];
+  // Aggregate intent: which players are targeted by ANY living monster?
+  // The intent-marker dot on a champion glows whenever any monster has them
+  // queued up. This keeps the existing single-monster UX intact while
+  // surfacing multi-monster threat parking.
+  const aggregateIntent = MONSTER_INTENT_ENABLED
+    ? buildAggregateIntent(gameState, monsters)
+    : null;
 
   return `
     <section class="game-table standoff-table compact-ui ${DRAG_AND_DROP_ENABLED ? "" : "drag-disabled"}">
@@ -733,16 +742,32 @@ function renderGame() {
       <div class="standoff-stage" data-stage>
         <svg class="standoff-tethers" data-tethers aria-hidden="true"></svg>
 
-        <div class="standoff-monster" data-target-zone="monster" data-monster-id="${gameState.monster.id}">
-          ${renderMonsterIntent(intent)}
-          ${renderMonsterFigure(gameState.monster)}
-          ${renderMonsterBaseplate(gameState.monster)}
+        <div class="standoff-monsters monsters-${monsters.length}">
+          ${monsters
+            .map((monster) => {
+              const isDead = monster.hp <= 0;
+              const monsterIntent = !isDead && MONSTER_INTENT_ENABLED
+                ? computeMonsterIntent(gameState, monster)
+                : null;
+              return `
+                <div class="standoff-monster ${isDead ? "is-dead" : ""}" data-target-zone="monster" data-monster-id="${escapeHtml(monster.id)}">
+                  ${renderMonsterIntent(monsterIntent)}
+                  ${renderMonsterFigure(monster)}
+                  ${renderMonsterBaseplate(monster)}
+                </div>
+              `;
+            })
+            .join("")}
         </div>
 
         <div class="standoff-flanks players-${gameState.players.length}">
           ${gameState.players
             .map((player, index) =>
-              renderChampion(player, championSideForIndex(index, gameState.players.length), intent),
+              renderChampion(
+                player,
+                championSideForIndex(index, gameState.players.length),
+                aggregateIntent,
+              ),
             )
             .join("")}
         </div>
@@ -794,8 +819,18 @@ function renderGame() {
 }
 
 function renderActionBar(state, totalQueued, gameOver) {
+  // Multi-monster: each player's threat pip sums across every living
+  // monster so the bar shows "total threat on the arena". Single-monster
+  // fights still resolve to monsters[0].threat[p.id] like before.
+  const monsters = state.monsters ?? [state.monster];
   const threatSummary = state.players
-    .map((p) => `<span class="ab-threat-pip class-${p.classId}">${escapeHtml(p.name)} <strong>${state.monster.threat[p.id] ?? 0}</strong></span>`)
+    .map((p) => {
+      const total = monsters.reduce(
+        (sum, m) => sum + (m?.threat?.[p.id] ?? 0),
+        0,
+      );
+      return `<span class="ab-threat-pip class-${p.classId}">${escapeHtml(p.name)} <strong>${total}</strong></span>`;
+    })
     .join("");
   const energyMax = state.players[0]?.energyMax ?? 0;
   const title = gameOver ? renderWinnerTitle() : `Round ${state.roundNumber}`;
@@ -903,10 +938,13 @@ function renderMonsterBaseplate(monster) {
       <div class="threat-pip-row">
         ${gameState.players
           .map((player) => {
-            const threat = gameState.monster.threat[player.id] ?? 0;
-            const cap = gameState.monster.threatMax ?? 20;
+            // Per-monster threat: read from THIS monster's threat table, not
+            // the alias. Each baseplate shows the threat each player carries
+            // on its own monster so multi-monster fights stay legible.
+            const threat = monster.threat?.[player.id] ?? 0;
+            const cap = monster.threatMax ?? 20;
             const percent = Math.min(100, Math.round((threat / cap) * 100));
-            const isFixated = gameState.monster.fixate?.playerId === player.id;
+            const isFixated = monster.fixate?.playerId === player.id;
             return `
               <div class="threat-pip class-${player.classId} ${isFixated ? "is-fixated" : ""}">
                 <span>${escapeHtml(player.name)}${isFixated ? " · Marked" : ""}</span>
@@ -1015,7 +1053,14 @@ function renderChampion(player, side, intent) {
   const championVisual = getChampionVisual(player.classId);
   const hpPercent = Math.max(0, Math.round((player.hp / player.maxHp) * 100));
   const remainingEnergy = getRemainingEnergy(player);
-  const isIntentTarget = intent && intent.targetId === player.id;
+  // Multi-monster intent: `intent.targetIds` is a Set of player ids targeted
+  // by ANY living monster this round. Falls back to the legacy single
+  // `intent.targetId` field when only one monster's intent is in play
+  // (single-monster encounters or upstream callers pass a flat object).
+  const isIntentTarget = !!intent && (
+    (intent.targetIds && intent.targetIds.has(player.id))
+    || intent.targetId === player.id
+  );
   const isDefeated = player.hp <= 0;
 
   return `
@@ -1174,7 +1219,14 @@ function renderChampionStatusPips(player) {
   if (player.block > 0) {
     pips.push(`<span class="status-pip pip-block" title="Block ${player.block}">${player.block}</span>`);
   }
-  const threat = gameState.monster.threat[player.id] ?? 0;
+  // Multi-monster: sum threat across all monsters so a single number tells
+  // the player how much heat they're carrying total. Per-monster threat is
+  // visible on each baseplate's threat-pip-row.
+  const monsters = gameState.monsters ?? [gameState.monster];
+  const threat = monsters.reduce(
+    (sum, m) => sum + (m?.threat?.[player.id] ?? 0),
+    0,
+  );
   if (threat > 0) {
     pips.push(`<span class="status-pip pip-threat" title="Threat ${threat}">T${threat}</span>`);
   }
@@ -1245,20 +1297,47 @@ function inferQueuedTarget(player, card) {
   return { key: targetKey({ type: "player", playerId: player.id }), label: player.name };
 }
 
-function computeMonsterIntent(state) {
+// Aggregate intent across every living monster. Returns a Set of player ids
+// that are about to be hit by at least one monster's next attack so the
+// champion baseplate can flag them. Used by renderChampion to draw the "!"
+// pulse on threatened players. Returns null when no living monsters or
+// no living players exist.
+function buildAggregateIntent(state, monsters) {
+  const targetIds = new Set();
+  for (const monster of monsters) {
+    if (!monster || monster.hp <= 0) continue;
+    const intent = computeMonsterIntent(state, monster);
+    if (intent && intent.targetId) {
+      targetIds.add(intent.targetId);
+    }
+  }
+  if (targetIds.size === 0) return null;
+  // Carry a `targetId` for legacy renderChampion fallbacks (it picks one
+  // of the targeted players, doesn't matter which since we also expose
+  // the full Set).
+  return { targetIds, targetId: targetIds.values().next().value };
+}
+
+function computeMonsterIntent(state, monsterArg) {
   const livingPlayers = state.players.filter((p) => p.hp > 0);
   if (!livingPlayers.length || state.phase === "game-over") {
     return null;
   }
+  // Per-monster intent: each baseplate computes intent from its own
+  // threat table / fixate state. Defaults to primary for legacy callers.
+  const monster = monsterArg ?? state.monster;
+  if (!monster || monster.hp <= 0) {
+    return null;
+  }
   // Mirror the engine target picker. Fixate locks onto the marked player.
   let target = null;
-  const fixate = state.monster.fixate;
+  const fixate = monster.fixate;
   if (fixate && fixate.roundsRemaining > 0) {
     target = livingPlayers.find((p) => p.id === fixate.playerId) ?? null;
   }
   if (!target) {
     target = [...livingPlayers].sort((a, b) => {
-      const threatDiff = (state.monster.threat[b.id] ?? 0) - (state.monster.threat[a.id] ?? 0);
+      const threatDiff = (monster.threat?.[b.id] ?? 0) - (monster.threat?.[a.id] ?? 0);
       if (threatDiff !== 0) {
         return threatDiff;
       }
@@ -1266,12 +1345,12 @@ function computeMonsterIntent(state) {
     })[0];
   }
   // baseAttack scales by floor(roundNumber / 2) per engine.
-  const weakened = state.monster.statuses?.weakened ?? 0;
+  const weakened = monster.statuses?.weakened ?? 0;
   const damage = Math.max(
     1,
-    state.monster.baseAttack + Math.floor(state.roundNumber / 2) - weakened,
+    monster.baseAttack + Math.floor(state.roundNumber / 2) - weakened,
   );
-  const actions = Math.max(1, state.monster.actionsPerTurn ?? 1);
+  const actions = Math.max(1, monster.actionsPerTurn ?? 1);
   return {
     targetId: target.id,
     targetName: target.name,
