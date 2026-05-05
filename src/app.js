@@ -550,7 +550,7 @@ function renderGame() {
     <section class="game-table standoff-table compact-ui ${DRAG_AND_DROP_ENABLED ? "" : "drag-disabled"}">
       ${renderLogCorner(gameState)}
 
-      ${message ? `<div class="message-bar">${escapeHtml(message)}</div>` : ""}
+      <div class="message-bar ${message ? "" : "is-empty"}">${message ? escapeHtml(message) : "&nbsp;"}</div>
 
       <div class="standoff-stage" data-stage>
         <svg class="standoff-tethers" data-tethers aria-hidden="true"></svg>

@@ -3886,22 +3886,25 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
 
 /* ---- Queue strip with target tethers ---- */
 
+/* Queue strip — absolutely positioned over the stage so it never takes
+   grid space. Empty state collapses entirely so queueing doesn't reflow
+   the playfield. Position: top-center, sits clear below the party pill. */
 .standoff-queue-strip {
-  position: relative;
-  z-index: 5;
-  margin-top: 8px;
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  width: max-content;
+  max-width: 90%;
+  margin-top: 0;
 }
 
 .queue-strip-empty {
-  display: grid;
-  place-items: center;
-  min-height: 64px;
-  border: 1px dashed rgba(246, 240, 223, 0.18);
-  border-radius: 12px;
-  background: rgba(8, 10, 9, 0.5);
-  color: #aeb7ad;
-  font-size: 0.86rem;
-  font-weight: 700;
+  display: none; /* hidden when no actions queued — no placeholder shift */
 }
 
 .queue-strip-items {
@@ -3909,6 +3912,13 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(20, 26, 32, 0.92) 0%, rgba(12, 16, 20, 0.92) 100%);
+  border: 1px solid rgba(180, 200, 220, 0.22);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
 }
 
 .queued-mini {
@@ -6313,4 +6323,32 @@ body.dragging-card .standoff-champion {
 .standoff-table.compact-ui.drag-disabled .standoff-bottom {
   max-height: 210px;
   padding-bottom: 4px;
+}
+
+/* ===== Compact-UI grid override =====
+   The legacy `.standoff-table` rule uses `grid-template-rows: auto auto
+   110px auto 1fr clamp(220px, 26vh, 280px)` — 6 explicit tracks for the
+   old topbar+rules+log+actions layout. With those elements removed in
+   the compact UI, the grid still tries to allocate those tracks and
+   reshuffles unpredictably whenever a child's size changes (e.g. when
+   a card moves from hand to queue). Result: the stage box jumps when
+   you click cards.
+   
+   Override: simple two-track grid in compact-ui — stage takes all
+   available space, bottom area is intrinsic. Position-fixed children
+   (log corner, party pill, action bar, queue strip) don't participate. */
+.standoff-table.compact-ui {
+  grid-template-rows: 1fr auto;
+}
+
+/* Reserve the message-bar's vertical slot even when empty so clicking a
+   card (which clears `message`) doesn't reflow the stage height. */
+.standoff-table.compact-ui .message-bar {
+  min-height: 0;
+}
+
+.standoff-table.compact-ui .message-bar.is-empty {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
