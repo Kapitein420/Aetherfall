@@ -6297,3 +6297,20 @@ body.dragging-card .standoff-champion {
 .standoff-table.compact-ui .standoff-bottom {
   padding-bottom: 8px;
 }
+
+/* ===== Drag-and-drop disabled: hide the play-zone "middle layer" ===== */
+/* Activated by `.drag-disabled` on `.game-table`. Reclaims ~32px between
+   the stage and the hand shelf and removes the visible drop affordance.
+   Click-to-queue continues to work via the .hand-card buttons. */
+
+.game-table.drag-disabled .standoff-play-zone,
+.game-table.drag-disabled .standoff-tethers,
+.game-table.drag-disabled .standoff-drag-ghost {
+  display: none !important;
+}
+
+/* Tighten the standoff-bottom now that the play-zone is gone. */
+.standoff-table.compact-ui.drag-disabled .standoff-bottom {
+  max-height: 210px;
+  padding-bottom: 4px;
+}

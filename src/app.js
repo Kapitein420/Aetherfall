@@ -146,7 +146,9 @@ function handleAction(element) {
     });
     lastSeenEventId = getLatestEventId(gameState);
     activeEffects = [];
-    message = "Plan together. Drag a card onto a target, or click to queue. Then resolve the round.";
+    message = DRAG_AND_DROP_ENABLED
+      ? "Plan together. Drag a card onto a target, or click to queue. Then resolve the round."
+      : "Plan together. Click any card to queue it. Then resolve the round.";
     render();
     notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
     return;
@@ -238,7 +240,7 @@ function render() {
   app.innerHTML = html;
   document.body.dataset.gameView = gameState ? "active" : "";
 
-  if (gameState && gameState.phase !== "game-over") {
+  if (DRAG_AND_DROP_ENABLED && gameState && gameState.phase !== "game-over") {
     if (!dragInited) {
       initDragSystem({
         getState: () => gameState,
@@ -528,6 +530,12 @@ function renderPartyZone(state) {
 // intent telegraph and the queued-card tether lines.
 const MONSTER_INTENT_ENABLED = true;
 const QUEUE_TETHERS_ENABLED = true;
+// Drag-and-drop targeting is intentionally disabled for now to keep the
+// playfield uncluttered: hides the play-zone "middle layer" strip + the
+// drag-arrow SVG overlay + the floating drag ghost. Click-to-queue still
+// works for all cards. The drag-system.js code is untouched — flip this
+// flag to true to re-enable everything without further changes.
+const DRAG_AND_DROP_ENABLED = false;
 
 function renderGame() {
   const totalQueued = gameState.players.reduce((total, player) => total + player.planned.length, 0);
@@ -535,7 +543,7 @@ function renderGame() {
   const intent = MONSTER_INTENT_ENABLED ? computeMonsterIntent(gameState) : null;
 
   return `
-    <section class="game-table standoff-table compact-ui">
+    <section class="game-table standoff-table compact-ui ${DRAG_AND_DROP_ENABLED ? "" : "drag-disabled"}">
       ${renderLogCorner(gameState)}
 
       ${message ? `<div class="message-bar">${escapeHtml(message)}</div>` : ""}
