@@ -228,20 +228,14 @@ export function resolveRound(currentState) {
   for (const player of state.players) {
     if (player.hp <= 0) continue;
     const unused = Math.max(0, player.energy);
-<<<<<<< HEAD
-    // Track per-player flags read by buffs the next round:
-    //   hadUnusedEnergy — Overclock Sync needs to know if everyone spent
-    //                     all energy last turn (false = clean spend).
-    //   unusedEnergyLastTurn — Bio Surge sums this across players to
-    //                          compute strength stacks at play time.
+    // Per-player flags read by Auras (Growth Protocol) and buffs (Overclock
+    // Sync, Bio Surge) the next round. Survive the surge-decay that runs
+    // at the top of the next round.
+    //   hadUnusedEnergy — boolean: did this player end with unused energy?
+    //   unusedEnergyLastTurn — exact amount, summed across players for
+    //                          Bio Surge's strength-stack count.
     player.hadUnusedEnergy = unused > 0;
     player.unusedEnergyLastTurn = unused;
-=======
-    // Stable per-turn flag for Auras (Growth Protocol etc.) that need to
-    // know "did this player end with unused energy?" The flag survives the
-    // surge-decay that runs at the top of the next round.
-    player.hadUnusedEnergy = unused > 0;
->>>>>>> fb0bdc2f50cf2f1e4b420c3eb4219beb21348bfd
     if (unused > 0) {
       const gained = Math.min(unused, SURGE_CAP);
       addPlayerStatus(state, player.id, "surge", gained, { mode: "max", decay: SURGE_CAP });
