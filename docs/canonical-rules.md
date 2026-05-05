@@ -120,8 +120,8 @@ Three tokens. Each has an **always-on passive** while held; tokens **stack**; th
 
 | Property | Rule |
 |---|---|
-| Passive | Your attacks deal **+1 damage** |
-| Token Generation ("Overload") | If you gain **5+ threat during your turn**, gain **1** Storm Charge token |
+| Passive | The **first damage action you resolve each turn** deals **+1 damage** |
+| Token Generation ("Overload") | _Disabled per balance call (2026-05-05) — no auto-grant from threat gain._ |
 | Token Use | Used to enhance item and ability cards (Infusion) |
 
 ---
