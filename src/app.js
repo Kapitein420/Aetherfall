@@ -23,6 +23,19 @@ import {
 
 const app = document.querySelector("#app");
 
+// Feature flags must live ABOVE the initial render() call below — they are
+// referenced from inside renderGame() and render(), and a `const` in TDZ
+// would throw a ReferenceError during module load and silently kill all
+// later listeners (including the click handler that drives every action).
+const MONSTER_INTENT_ENABLED = true;
+const QUEUE_TETHERS_ENABLED = true;
+// Drag-and-drop targeting is intentionally disabled for now to keep the
+// playfield uncluttered: hides the play-zone "middle layer" strip + the
+// drag-arrow SVG overlay + the floating drag ghost. Click-to-queue still
+// works for all cards. The drag-system.js code is untouched — flip this
+// flag to true to re-enable everything without further changes.
+const DRAG_AND_DROP_ENABLED = false;
+
 // Up to 4 players. The first `playerCount` slots in `playerClasses` are
 // active; the rest are kept as defaults so the picker can grow without
 // dropping previous selections.
@@ -528,15 +541,6 @@ function renderPartyZone(state) {
 
 // Feature flags for the staged UI overhaul. Phase 3 turns on the monster
 // intent telegraph and the queued-card tether lines.
-const MONSTER_INTENT_ENABLED = true;
-const QUEUE_TETHERS_ENABLED = true;
-// Drag-and-drop targeting is intentionally disabled for now to keep the
-// playfield uncluttered: hides the play-zone "middle layer" strip + the
-// drag-arrow SVG overlay + the floating drag ghost. Click-to-queue still
-// works for all cards. The drag-system.js code is untouched — flip this
-// flag to true to re-enable everything without further changes.
-const DRAG_AND_DROP_ENABLED = false;
-
 function renderGame() {
   const totalQueued = gameState.players.reduce((total, player) => total + player.planned.length, 0);
   const gameOver = gameState.phase === "game-over";
