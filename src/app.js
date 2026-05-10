@@ -818,8 +818,7 @@ function renderGame() {
         <div class="standoff-monster ${(gameState.monsters?.length ?? 1) > 1 ? "multi" : ""} ${armedCard ? "armed" : ""}" data-target-zone="monster" data-monster-id="${gameState.monster.id}">
           ${renderEncounterBanner()}
           ${renderMonsterIntent(intent)}
-          ${renderPrimaryTargetWrapper(gameState.monster, intent)}
-          ${renderSquadmates(gameState)}
+          ${renderMonsterRoster(gameState)}
         </div>
 
         <div class="standoff-flanks players-${gameState.players.length}">
@@ -929,19 +928,25 @@ function renderWinnerTitle() {
   return "The monster wins";
 }
 
-// Render the primary monster figure + baseplate. When the target picker
-// is armed, the figure itself carries the click-target attributes (no
-// wrapping button) so the entire visible figure — including the dashed
-// outline halo — is one big hit area. A wrapping button with display:
-// contents previously left the click area exactly the figure's interior
-// box, which made the picker feel unresponsive at low zoom levels.
-function renderPrimaryTargetWrapper(monster, intent) {
-  const armed = !!armedCard && monster.hp > 0;
-  if (armed) {
-    return renderMonsterFigure(monster, { armedTarget: true })
-      + renderMonsterBaseplate(monster);
-  }
-  return renderMonsterFigure(monster) + renderMonsterBaseplate(monster);
+// Render every monster in the encounter as an equal-sized figure +
+// baseplate, side by side. Single-monster fights still center one
+// figure; multi-monster encounters get a flex row of equal monsters.
+// Each living monster is independently clickable when the target picker
+// is armed.
+function renderMonsterRoster(state) {
+  const monsters = state.monsters ?? [state.monster];
+  const isMulti = monsters.length > 1;
+  const slots = monsters.map((monster) => {
+    const armed = !!armedCard && monster.hp > 0;
+    const dead = monster.hp <= 0 ? "is-dead" : "";
+    return `
+      <div class="monster-slot ${dead}">
+        ${renderMonsterFigure(monster, { armedTarget: armed })}
+        ${renderMonsterBaseplate(monster)}
+      </div>
+    `;
+  }).join("");
+  return `<div class="monster-roster ${isMulti ? "is-multi" : "is-solo"}">${slots}</div>`;
 }
 
 // Decides whether playing a card should arm the target picker. A card
