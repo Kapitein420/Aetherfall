@@ -816,7 +816,6 @@ function renderGame() {
         <svg class="standoff-tethers" data-tethers aria-hidden="true"></svg>
 
         <div class="standoff-monster ${(gameState.monsters?.length ?? 1) > 1 ? "multi" : ""} ${armedCard ? "armed" : ""}" data-target-zone="monster" data-monster-id="${gameState.monster.id}">
-          ${renderEncounterBanner()}
           ${renderMonsterIntent(intent)}
           ${renderMonsterRoster(gameState)}
         </div>

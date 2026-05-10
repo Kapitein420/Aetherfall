@@ -2950,11 +2950,14 @@ select option:checked,
  * ---------------------------------------------------------------------- */
 
 #multiplayer-root {
+  /* Anchored to the bottom-right, sitting just above the fixed action
+   * bar so it reads as part of the footer toolbar rather than competing
+   * with the battle log in the top-right corner. */
   position: fixed;
-  top: 14px;
+  bottom: 70px;
   right: 14px;
   z-index: 90;
-  width: min(320px, 92vw);
+  width: min(280px, 92vw);
   pointer-events: auto;
 }
 
