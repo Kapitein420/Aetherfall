@@ -4316,6 +4316,140 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.55);
 }
 
+/* Boss-clear relic offer inside the reward screen */
+.reward-relic-section {
+  margin-top: 4px;
+  padding: 14px 16px 18px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 208, 131, 0.32);
+  background: linear-gradient(180deg, rgba(48, 36, 22, 0.55), rgba(24, 18, 10, 0.7));
+}
+.reward-relic-title {
+  margin: 0 0 10px;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: #f5d083;
+  text-align: center;
+}
+.reward-relic-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: stretch;
+  justify-content: center;
+}
+.reward-relic-card {
+  position: relative;
+  flex: 1 1 220px;
+  max-width: 320px;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 208, 131, 0.25);
+  background: linear-gradient(180deg, rgba(36, 32, 28, 0.86), rgba(18, 16, 14, 0.94));
+  color: #e3e8e1;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.reward-relic-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(245, 208, 131, 0.7);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.55);
+}
+.reward-relic-card.is-picked {
+  border-color: rgba(245, 208, 131, 0.95);
+  box-shadow:
+    inset 0 0 0 2px rgba(245, 208, 131, 0.45),
+    0 16px 32px rgba(0, 0, 0, 0.6);
+  transform: translateY(-3px);
+}
+.reward-relic-icon {
+  font-size: 1.6rem;
+  color: #f5d083;
+  filter: drop-shadow(0 0 8px rgba(245, 208, 131, 0.45));
+}
+.reward-relic-name {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #f6e8c4;
+}
+.reward-relic-desc {
+  font-size: 0.78rem;
+  line-height: 1.36;
+  color: rgba(232, 220, 196, 0.85);
+}
+.reward-relic-skip {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(232, 220, 196, 0.78);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+.reward-relic-skip:hover { background: rgba(255, 255, 255, 0.1); color: #f6e8c4; }
+.reward-relic-skip.is-active {
+  background: rgba(245, 208, 131, 0.16);
+  color: #f5d083;
+  border-color: rgba(245, 208, 131, 0.5);
+}
+.reward-relic-card.category-stat     { border-left: 3px solid rgba(217, 93, 77, 0.85); }
+.reward-relic-card.category-trigger  { border-left: 3px solid rgba(107, 210, 127, 0.85); }
+.reward-relic-card.category-token    { border-left: 3px solid rgba(192, 132, 255, 0.85); }
+.reward-relic-card.category-damage   { border-left: 3px solid rgba(245, 156, 90, 0.85); }
+.reward-relic-card.category-risk     { border-left: 3px solid rgba(231, 90, 130, 0.85); }
+.reward-relic-card.category-economy  { border-left: 3px solid rgba(245, 208, 131, 0.85); }
+
+/* Action-bar run status — fight number, crystals, relic chips */
+.action-bar .ab-run {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.74rem;
+  color: rgba(232, 220, 196, 0.86);
+}
+.ab-run-fight {
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #f6e8c4;
+  font-variant-numeric: tabular-nums;
+}
+.ab-run-crystals {
+  font-weight: 700;
+  color: #f5d083;
+  font-variant-numeric: tabular-nums;
+}
+.ab-run-relics {
+  display: inline-flex;
+  gap: 4px;
+}
+.ab-relic-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(245, 208, 131, 0.16);
+  border: 1px solid rgba(245, 208, 131, 0.42);
+  color: #f5d083;
+  font-size: 0.86rem;
+  cursor: help;
+}
+
 /* Run complete splash — minimal celebratory panel */
 .run-complete-backdrop {
   position: fixed;
@@ -4326,6 +4460,30 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   background: radial-gradient(ellipse at center, rgba(245, 208, 131, 0.18), rgba(4, 6, 8, 0.94) 65%);
   animation: deck-viewer-backdrop-in 320ms ease;
   padding: 24px;
+}
+.run-complete-backdrop.is-defeat {
+  background: radial-gradient(ellipse at center, rgba(217, 93, 77, 0.22), rgba(4, 6, 8, 0.96) 65%);
+}
+.run-complete-backdrop.is-defeat .run-complete-panel {
+  border-color: rgba(217, 93, 77, 0.55);
+}
+.run-complete-backdrop.is-defeat .run-complete-eyebrow,
+.run-complete-backdrop.is-defeat .run-complete-button {
+  color: #ffb09a;
+}
+.run-complete-backdrop.is-defeat .run-complete-button {
+  border-color: rgba(217, 93, 77, 0.7);
+  background: linear-gradient(180deg, rgba(217, 93, 77, 0.22), rgba(217, 93, 77, 0.08));
+}
+.run-complete-backdrop.is-defeat .run-complete-button:hover {
+  background: linear-gradient(180deg, rgba(217, 93, 77, 0.36), rgba(217, 93, 77, 0.14));
+}
+.run-complete-relics {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: rgba(232, 220, 196, 0.6);
+  font-style: italic;
+  max-width: 480px;
 }
 .run-complete-panel {
   display: grid;

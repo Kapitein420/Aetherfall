@@ -9,6 +9,7 @@ import {
   partyDeckCards,
   getPartyDeckCard,
 } from "../content/party-deck.js";
+import { getRelic } from "../content/relics.js";
 
 export const DRAW_PER_ROUND = 5;
 // Canonical energy: 4 per turn, no raw carryover. Unused energy at the
@@ -101,6 +102,12 @@ export function createCoopBattle(config = {}) {
   // Round 1: draw the opening Party hand.
   drawPartyCards(state, PARTY_CARDS_PER_ROUND);
 
+  // Apply relic onBattleStart hooks. Relics that grant tokens, heal,
+  // tweak max HP, or grant extra-draw fire here — once per encounter
+  // before the round-1 banner. We pass `helpers` so relics can call
+  // `drawCards` without depending on the engine import path.
+  applyRelicHook("onBattleStart", state, { drawCards });
+
   const arenaName = monsters.length === 1 ? monsters[0].name : `${monsters.map((m) => m.name).join(" + ")}`;
   pushLog(state, {
     kind: "round-start",
@@ -108,6 +115,27 @@ export function createCoopBattle(config = {}) {
     text: `Round 1 begins. ${arenaName} step${monsters.length === 1 ? "s" : ""} into the arena. Plan your opening moves together.`,
   });
   return state;
+}
+
+// Walk the run's relic list and invoke the named hook on each.
+// Hooks read directly from state.run.relics (array of relic ids).
+// Helpers is a small bag of engine functions relics can call without
+// re-importing the engine module.
+function applyRelicHook(hookName, state, helpers) {
+  const ids = state.run?.relics ?? [];
+  for (const id of ids) {
+    const relic = getRelic(id);
+    if (!relic || typeof relic[hookName] !== "function") continue;
+    try {
+      relic[hookName](state, helpers ?? {});
+    } catch (err) {
+      // Don't let a buggy relic kill the fight — log and move on.
+      pushLog(state, {
+        kind: "info",
+        text: `Relic '${relic.name}' hook ${hookName} threw: ${err.message}`,
+      });
+    }
+  }
 }
 
 // Build a fresh battle state for the next encounter in a run.
@@ -138,6 +166,12 @@ export function advanceToNextEncounter(currentState, options = {}) {
       adds[playerId] = existing.concat([cardId]);
     }
     run.runDeckAdds = adds;
+  }
+  // Apply relic pick from a boss-clear reward.
+  if (options.relicPick) {
+    const list = (run.relics ?? []).slice();
+    if (!list.includes(options.relicPick)) list.push(options.relicPick);
+    run.relics = list;
   }
   // HP carryover snapshot. We persist this on run.players so create-
   // CoopBattle can reapply it when it builds the next fight.
@@ -503,6 +537,10 @@ function createPlayer(playerConfig, index) {
     name: playerConfig.name ?? classDef.shortName,
     classId: classDef.id,
     role: classDef.role,
+    // Surface the class's elemental id (storm-charge / hydroflow /
+    // bio-growth) so relics like Stormrunner Anchor can grant the
+    // right token without re-importing classDefinitions.
+    element: classDef.element ?? null,
     maxHp: classDef.maxHp,
     hp: classDef.maxHp,
     block: 0,
@@ -912,6 +950,22 @@ function dealMonsterDamage(state, player, amount, element) {
     const buckets = Math.floor(totalThreat / per);
     if (buckets > 0) {
       finalDamage += buckets * bonus;
+    }
+  }
+
+  // Relic onDamageDealt hooks — Fixate Lens, future damage relics.
+  // Each relic returns a (possibly-modified) amount; we chain them.
+  if (finalDamage > 0) {
+    for (const relicId of state.run?.relics ?? []) {
+      const relic = getRelic(relicId);
+      if (relic && typeof relic.onDamageDealt === "function") {
+        try {
+          const next = relic.onDamageDealt(state, player, finalDamage, null);
+          if (typeof next === "number" && next >= 0) finalDamage = next;
+        } catch (err) {
+          // ignore — buggy relic shouldn't tank the fight
+        }
+      }
     }
   }
 
@@ -1414,6 +1468,9 @@ function startNextRound(state) {
       }
     }
   }
+
+  // Run-scoped relic onRoundStart hooks (Networked Inverter etc.).
+  applyRelicHook("onRoundStart", state, { drawCards });
 
   const threatSummary = state.players
     .map((p) => `${p.name} ${getThreat(state, p.id)}`)

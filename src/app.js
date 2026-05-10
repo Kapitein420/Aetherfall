@@ -1,5 +1,6 @@
 import { classDefinitions, selectableClasses } from "./content/classes.js";
 import { getCardDefinition, starterDecks } from "./content/cards.js";
+import { listRelics, getRelic } from "./content/relics.js";
 import { getChampionVisual, getEffectVisual, getMonsterVisual } from "./content/game-assets.js";
 import { listMonsters, listEncounters, getEncounter, DEFAULT_MONSTER_ID } from "./content/monsters.js";
 import { assetUrl } from "./content/asset-paths.js";
@@ -718,12 +719,37 @@ function ensurePendingReward() {
   if (pendingReward && pendingReward.encounterIndex === gameState.run?.currentIndex) {
     return; // already rolled for this fight
   }
+  // Determine if the encounter just cleared was a "boss" — single-
+  // monster encounters in the registry are bosses by nature
+  // (Hollow Titan, Ironjaw Bruiser, Warden of Targeting); multi-
+  // monster encounters are not. Boss clears drop a relic offer.
+  const justClearedId = gameState.run?.encounters[gameState.run.currentIndex];
+  const justClearedEnc = justClearedId ? getEncounter(justClearedId) : null;
+  const isBoss = !!(justClearedEnc && justClearedEnc.monsterIds.length === 1);
+  // Crystal Refractor relic: +5 bonus crystals per clear.
+  const ownedRelics = gameState.run?.relics ?? [];
+  const crystalBonus = ownedRelics.reduce((sum, id) => {
+    const r = getRelic(id);
+    return sum + (r?.bonusCrystalsPerClear ?? 0);
+  }, 0);
   pendingReward = {
     encounterIndex: gameState.run?.currentIndex ?? 0,
-    crystalsEarned: REWARD_CRYSTALS_PER_FIGHT,
+    crystalsEarned: REWARD_CRYSTALS_PER_FIGHT + crystalBonus,
     cardOptionsByPlayer: rollRewardOptions(gameState),
     picksByPlayer: {}, // playerId -> cardId once chosen
+    isBoss,
+    relicOptions: isBoss ? rollRelicOptions(gameState) : [],
+    relicPick: null, // relic id or null (skipped)
   };
+}
+
+// Roll 2 relic options the party doesn't already own. Boss-clear
+// reward (per Phase 4 design: B — boss encounters drop a relic).
+function rollRelicOptions(state) {
+  const owned = new Set(state.run?.relics ?? []);
+  const pool = listRelics().filter((r) => !owned.has(r.id));
+  const shuffled = pool.slice().sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 2).map((r) => r.id);
 }
 
 // Click handler for "claim this reward and advance" / "skip".
@@ -744,6 +770,17 @@ function handleClaimReward(element) {
     render();
     return;
   }
+  // Relic pick (boss clears only) — toggles the relic for the party.
+  if (ds.relicId) {
+    pendingReward.relicPick = pendingReward.relicPick === ds.relicId ? null : ds.relicId;
+    render();
+    return;
+  }
+  if (ds.skipRelic === "true") {
+    pendingReward.relicPick = null;
+    render();
+    return;
+  }
   // Advance: every player has either picked or skipped (null).
   // For simplicity, treat any unset player as a skip on advance.
   const picks = {};
@@ -759,6 +796,7 @@ function handleClaimReward(element) {
   gameState = advanceToNextEncounter(gameState, {
     crystalsEarned: pendingReward.crystalsEarned,
     picks,
+    relicPick: pendingReward.relicPick,
     monsterIds,
   });
   pendingReward = null;
@@ -824,15 +862,51 @@ function renderRewardScreen() {
       </section>
     `;
   }).join("");
+  // Boss-clear bonus: relic offer (2 options + skip)
+  const relicSection = pendingReward.isBoss && pendingReward.relicOptions.length > 0
+    ? `<section class="reward-relic-section">
+         <h3 class="reward-relic-title">Boss reward — claim one relic</h3>
+         <div class="reward-relic-row">
+           ${pendingReward.relicOptions.map((rid) => {
+             const r = getRelic(rid);
+             if (!r) return "";
+             const picked = pendingReward.relicPick === rid;
+             return `
+               <button
+                 type="button"
+                 class="reward-relic-card category-${escapeHtml(r.category)} ${picked ? "is-picked" : ""}"
+                 data-action="claim-reward"
+                 data-relic-id="${escapeHtml(r.id)}"
+                 aria-pressed="${picked ? "true" : "false"}"
+               >
+                 <span class="reward-relic-icon" aria-hidden="true">${escapeHtml(r.icon ?? "✦")}</span>
+                 <span class="reward-relic-name">${escapeHtml(r.name)}</span>
+                 <span class="reward-relic-desc">${escapeHtml(r.description)}</span>
+                 ${picked ? `<span class="reward-card-picked-badge">Picked</span>` : ""}
+               </button>
+             `;
+           }).join("")}
+           <button
+             type="button"
+             class="reward-relic-skip ${pendingReward.relicPick === null ? "is-active" : ""}"
+             data-action="claim-reward"
+             data-skip-relic="true"
+           >Skip relic</button>
+         </div>
+       </section>`
+    : "";
   return `
     <div class="reward-screen-backdrop" role="dialog" aria-modal="true" aria-label="Encounter cleared — choose rewards">
       <div class="reward-screen-panel">
         <header class="reward-screen-head">
-          <p class="reward-screen-eyebrow">Encounter ${cleared} of ${total} cleared</p>
+          <p class="reward-screen-eyebrow">${pendingReward.isBoss ? "Boss" : "Encounter"} ${cleared} of ${total} cleared</p>
           <h2 class="reward-screen-title">Choose your reward</h2>
           <p class="reward-screen-crystals">+${pendingReward.crystalsEarned} crystals · ${(run.crystals ?? 0) + pendingReward.crystalsEarned} total</p>
         </header>
-        <div class="reward-screen-body">${playerRows}</div>
+        <div class="reward-screen-body">
+          ${playerRows}
+          ${relicSection}
+        </div>
         <footer class="reward-screen-foot">
           <button type="button" class="reward-screen-advance" data-action="claim-reward">
             Continue → Encounter ${cleared + 1}
@@ -843,20 +917,42 @@ function renderRewardScreen() {
   `;
 }
 
-// Run-complete splash — shown when advanceToNextEncounter returns a
-// state with phase === "run-complete".
+// Run end splash — handles both the victorious "run-complete" path
+// and the "run-failed" path when the party falls mid-run. Both share
+// the same layout (centered panel + run stats + restart button) but
+// theme + copy differ.
 function renderRunCompleteScreen() {
-  if (!gameState || gameState.phase !== "run-complete") return "";
+  if (!gameState) return "";
+  const isComplete = gameState.phase === "run-complete";
+  const isRunFailure = gameState.phase === "game-over"
+    && gameState.winner === "monster"
+    && gameState.run
+    && Array.isArray(gameState.run.encounters)
+    && gameState.run.encounters.length > 1;
+  if (!isComplete && !isRunFailure) return "";
   const run = gameState.run ?? {};
+  const cleared = isComplete ? run.encounters.length : (run.currentIndex ?? 0);
+  const total = run.encounters?.length ?? 0;
+  const cardsPicked = Object.values(run.runDeckAdds ?? {}).reduce((sum, arr) => sum + arr.length, 0);
+  const relicCount = (run.relics ?? []).length;
+  const relicNames = (run.relics ?? []).map((id) => getRelic(id)?.name).filter(Boolean).join(" · ");
+  const eyebrow = isComplete ? "Run complete" : "Run failed";
+  const title = isComplete ? "Every encounter cleared" : "The party fell";
+  const themeClass = isComplete ? "is-victory" : "is-defeat";
+  const buttonLabel = isComplete ? "Begin a new run" : "Try again";
   return `
-    <div class="run-complete-backdrop" role="dialog" aria-modal="true" aria-label="Run complete">
+    <div class="run-complete-backdrop ${themeClass}" role="dialog" aria-modal="true" aria-label="${eyebrow}">
       <div class="run-complete-panel">
-        <p class="run-complete-eyebrow">Run complete</p>
-        <h2 class="run-complete-title">Every encounter cleared</h2>
+        <p class="run-complete-eyebrow">${escapeHtml(eyebrow)}</p>
+        <h2 class="run-complete-title">${escapeHtml(title)}</h2>
         <p class="run-complete-stats">
-          ${run.encounters?.length ?? 0} encounters · ${run.crystals ?? 0} crystals · ${Object.values(run.runDeckAdds ?? {}).reduce((sum, arr) => sum + arr.length, 0)} cards picked
+          ${cleared} of ${total} encounter${total === 1 ? "" : "s"} cleared
+          · ${run.crystals ?? 0} crystals
+          · ${cardsPicked} card${cardsPicked === 1 ? "" : "s"} picked
+          · ${relicCount} relic${relicCount === 1 ? "" : "s"}
         </p>
-        <button type="button" class="run-complete-button" data-action="new-game">Begin a new run</button>
+        ${relicNames ? `<p class="run-complete-relics">Relics: ${escapeHtml(relicNames)}</p>` : ""}
+        <button type="button" class="run-complete-button" data-action="new-game">${escapeHtml(buttonLabel)}</button>
       </div>
     </div>
   `;
@@ -1465,6 +1561,29 @@ function renderRoundSummary() {
   `;
 }
 
+// Compact run-status section in the action bar — shows fight number,
+// crystal count, and active relics. Only renders during a run.
+function renderRunStatusSection(state) {
+  const run = state.run;
+  if (!run || !Array.isArray(run.encounters) || run.encounters.length <= 1) return "";
+  const fightNum = (run.currentIndex ?? 0) + 1;
+  const totalFights = run.encounters.length;
+  const crystals = run.crystals ?? 0;
+  const relics = run.relics ?? [];
+  const relicChips = relics.map((id) => {
+    const r = getRelic(id);
+    if (!r) return "";
+    return `<span class="ab-relic-chip" title="${escapeHtml(r.name)}: ${escapeHtml(r.description)}">${escapeHtml(r.icon ?? "✦")}</span>`;
+  }).join("");
+  return `
+    <div class="ab-section ab-run" title="Run progress">
+      <span class="ab-run-fight">Fight ${fightNum}/${totalFights}</span>
+      <span class="ab-run-crystals" title="Crystals">◈ ${crystals}</span>
+      ${relicChips ? `<span class="ab-run-relics" title="Relics in play">${relicChips}</span>` : ""}
+    </div>
+  `;
+}
+
 function renderActionBar(state, totalQueued, gameOver) {
   const threatSummary = state.players
     .map((p) => `<span class="ab-threat-pip class-${p.classId}">${escapeHtml(p.name)} <strong>${state.monster.threat[p.id] ?? 0}</strong></span>`)
@@ -1484,6 +1603,7 @@ function renderActionBar(state, totalQueued, gameOver) {
         <span class="ab-blessing-label">Auras</span>
         <strong class="ab-blessing-name">${auraCount}</strong>
       </div>` : ""}
+      ${renderRunStatusSection(state)}
       <div class="ab-section ab-controls">
         <span class="ab-queued">${totalQueued} queued</span>
         <button class="ab-resolve" type="button" data-action="resolve-round" ${gameOver ? "disabled" : ""}>${gameOver ? "Round closed" : "Resolve round"}</button>
