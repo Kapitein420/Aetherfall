@@ -33,6 +33,13 @@ const app = document.querySelector("#app");
 // later listeners (including the click handler that drives every action).
 const MONSTER_INTENT_ENABLED = true;
 const QUEUE_TETHERS_ENABLED = true;
+// Stat-pill icons. Inline SVG so they pick up `currentColor` from the
+// pill's class theme (HP green, Energy gold, Block cyan, Defense slate).
+// Sized at 1em so they scale with surrounding font-size.
+const HP_ICON = '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.5-10.4C1.4 6.6 4.2 3 7.7 3c2 0 3.4 1 4.3 2.4C12.9 4 14.3 3 16.3 3c3.5 0 6.3 3.6 5.2 7.6C19.5 16.4 12 21 12 21z" fill="currentColor"/></svg>';
+const ENERGY_ICON = '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><path d="M13.6 2L4.4 13.4h5.2L8.8 22l10-12.4h-5.4z" fill="currentColor"/></svg>';
+const BLOCK_ICON = '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><path d="M12 2.5l8 3v6.4c0 4.6-3.2 8.7-8 9.6-4.8-.9-8-5-8-9.6V5.5l8-3z" fill="currentColor"/></svg>';
+const DEF_ICON = '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><path d="M12 3l7 2.5v6c0 4-2.8 7.5-7 8.5-4.2-1-7-4.5-7-8.5v-6L12 3z" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
 // Drag-and-drop targeting is intentionally disabled for now to keep the
 // playfield uncluttered: hides the play-zone "middle layer" strip + the
 // drag-arrow SVG overlay + the floating drag ghost. Click-to-queue still
@@ -1079,19 +1086,27 @@ function renderMonsterStatusPips(monster) {
 
 function renderMonsterBaseplate(monster) {
   const hpPercent = Math.max(0, Math.round((monster.hp / monster.maxHp) * 100));
+  const defense = monster.defense ?? 0;
+  const eyebrow = [monster.role, monster.faction].filter(Boolean).join(" · ");
   return `
     <div class="baseplate monster-baseplate">
-      <div class="baseplate-name">
-        <p class="eyebrow">Threat encounter</p>
-        <h2>${escapeHtml(monster.name)}</h2>
-        ${renderMonsterStatLine(monster)}
+      <div class="baseplate-head">
+        <h2 class="baseplate-name">${escapeHtml(monster.name)}</h2>
+        ${eyebrow ? `<span class="baseplate-eyebrow">${escapeHtml(eyebrow)}</span>` : ""}
       </div>
-      <div class="baseplate-meter">
-        <div class="meter-track meter-hp">
-          <em style="width: ${hpPercent}%"></em>
-        </div>
-        <strong>${monster.hp} / ${monster.maxHp} HP</strong>
+      <div class="stat-pill-row">
+        <span class="stat-pill stat-hp" title="Hit points">
+          <span class="stat-icon" aria-hidden="true">${HP_ICON}</span>
+          <span class="stat-bar"><em style="width: ${hpPercent}%"></em></span>
+          <span class="stat-num">${monster.hp}/${monster.maxHp}</span>
+        </span>
+        ${defense > 0 ? `
+          <span class="stat-pill stat-def" title="Defense (flat damage reduction)">
+            <span class="stat-icon" aria-hidden="true">${DEF_ICON}</span>
+            <span class="stat-num">${defense}</span>
+          </span>` : ""}
       </div>
+      ${renderMonsterStatLine(monster)}
       ${renderMonsterResistances(monster)}
       <div class="threat-pip-row">
         ${gameState.players
@@ -1115,10 +1130,10 @@ function renderMonsterBaseplate(monster) {
 }
 
 function renderMonsterStatLine(monster) {
+  // DEF moved into the unified .stat-pill-row in renderMonsterBaseplate
+  // (Phase 1 polish). This function now only surfaces multi-action /
+  // phase context that doesn't fit a one-shot pill.
   const parts = [];
-  if (typeof monster.defense === "number" && monster.defense > 0) {
-    parts.push(`<span class="monster-stat-chip stat-defense" title="Damage reduction (after element multiplier)">DEF ${monster.defense}</span>`);
-  }
   const actions = monster.actionsPerTurn ?? 1;
   if (actions > 1) {
     parts.push(`<span class="monster-stat-chip stat-actions" title="Actions per monster turn">${actions} actions</span>`);
@@ -1225,23 +1240,25 @@ function renderChampion(player, side, intent) {
         </div>
       </div>
       <div class="baseplate champion-baseplate">
-        <div class="baseplate-row">
-          <h3>${escapeHtml(player.name)}</h3>
-          <span>${escapeHtml(classDef.role)}</span>
+        <div class="baseplate-head">
+          <h3 class="baseplate-name">${escapeHtml(player.name)}</h3>
+          <span class="baseplate-eyebrow">${escapeHtml(classDef.role)}</span>
         </div>
-        <div class="baseplate-meter">
-          <div class="meter-track meter-hp">
-            <em style="width: ${hpPercent}%"></em>
-          </div>
-          <strong>${player.hp} / ${player.maxHp}</strong>
-        </div>
-        <div class="baseplate-stats">
-          <span class="stat-chip stat-energy">
-            <em>${remainingEnergy}</em><span>/${player.energy} Energy</span>
+        <div class="stat-pill-row">
+          <span class="stat-pill stat-hp" title="Hit points">
+            <span class="stat-icon" aria-hidden="true">${HP_ICON}</span>
+            <span class="stat-bar"><em style="width: ${hpPercent}%"></em></span>
+            <span class="stat-num">${player.hp}/${player.maxHp}</span>
           </span>
-          <span class="stat-chip stat-block">
-            <em>${player.block}</em><span>Block</span>
+          <span class="stat-pill stat-energy" title="Energy">
+            <span class="stat-icon" aria-hidden="true">${ENERGY_ICON}</span>
+            <span class="stat-num">${remainingEnergy}/${player.energy}</span>
           </span>
+          ${player.block > 0 ? `
+            <span class="stat-pill stat-block" title="Block">
+              <span class="stat-icon" aria-hidden="true">${BLOCK_ICON}</span>
+              <span class="stat-num">${player.block}</span>
+            </span>` : ""}
         </div>
         ${renderPlayerTokens(player)}
         ${renderPlayerBuffs(player)}
@@ -1481,8 +1498,8 @@ function renderHandCard(player, cardInstance, cardIndex, totalCards, side) {
   const fanCount = Math.max(1, totalCards);
   const center = (fanCount - 1) / 2;
   const offset = cardIndex - center;
-  const baseRot = offset * 5; // degrees
-  const baseLift = -Math.abs(offset) * 6;
+  const baseRot = offset * 3; // degrees — was 5°, tightened in Phase 1 polish
+  const baseLift = -Math.abs(offset) * 4;
   const rotation = side === "right" ? -baseRot : baseRot;
   const lift = baseLift;
   const styleVars = `--card-rotation: ${rotation}deg; --card-lift: ${lift}px;`;
