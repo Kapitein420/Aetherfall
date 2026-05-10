@@ -1270,11 +1270,22 @@ body.card-over-play .drop-ring {
 }
 
 .hand-card.playable:hover {
-  z-index: 4;
-  transform: translateY(-24px) rotate(0deg);
+  /* Hover preview: the card lifts AND scales up ~1.4× so the rules
+   * text becomes comfortably readable without clicking. The card
+   * stays in flow but z-index keeps it above neighbors during hover.
+   * transform-origin: bottom anchors the scale so the card grows
+   * upward from the shelf instead of overflowing downward. */
+  z-index: 10;
+  transform: translateY(-12px) rotate(0deg) scale(1.4);
+  transform-origin: bottom center;
+  transition:
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 220ms ease,
+    filter 220ms ease;
   box-shadow:
-    0 0 0 3px var(--class-glow),
-    0 18px 34px rgba(0, 0, 0, 0.4);
+    0 0 0 2px var(--class-glow),
+    0 24px 48px rgba(0, 0, 0, 0.6);
+  filter: saturate(1.05) brightness(1.04);
 }
 
 .hand-card.being-dragged {
@@ -4088,6 +4099,89 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
 }
 
 /* =====================================================================
+ * Round summary toast — fades in for ROUND_SUMMARY_MS (5s) after each
+ * resolveRound. Two compact lists: damage taken (per player, class-
+ * tinted) and damage dealt (per monster, with "slain" flag for kills).
+ * Floats above the action bar, centered horizontally. */
+.round-summary {
+  position: fixed;
+  left: 50%;
+  bottom: 88px;
+  transform: translateX(-50%);
+  z-index: 70;
+  display: flex;
+  gap: 0;
+  flex-direction: column;
+  min-width: 280px;
+  max-width: 540px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 208, 131, 0.18);
+  background: linear-gradient(180deg, rgba(20, 22, 24, 0.94), rgba(10, 12, 14, 0.97));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 38px rgba(0, 0, 0, 0.6);
+  color: #e3e8e1;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  animation: round-summary-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: auto;
+}
+.round-summary-head { text-align: center; margin-bottom: 6px; }
+.round-summary-eyebrow {
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #f5d083;
+  font-weight: 800;
+}
+.round-summary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+}
+.round-summary-list[data-side="monsters"] {
+  margin-top: 6px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  padding-top: 6px;
+}
+.round-summary-section {
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(232, 220, 196, 0.5);
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.round-summary-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.round-summary-line.is-killed {
+  background: rgba(255, 95, 75, 0.14);
+  border: 1px solid rgba(255, 95, 75, 0.35);
+}
+.round-summary-name { font-weight: 700; color: #e3e8e1; font-size: 0.74rem; }
+.round-summary-num { font-weight: 900; font-size: 0.86rem; }
+.round-summary-loss { color: #ff7d6b; }
+.round-summary-deal { color: #f3a85b; }
+.round-summary-line.class-storm-forge .round-summary-name { color: #e9d6ff; }
+.round-summary-line.class-hydroflow   .round-summary-name { color: #d6efff; }
+.round-summary-line.class-rook        .round-summary-name { color: #f6e8c4; }
+.round-summary-line.class-lyra        .round-summary-name { color: #e8f0d8; }
+@keyframes round-summary-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* =====================================================================
  * Monster intent chip v2 — Slay the Spire-style threat preview.
  * Compact horizontal pill above each monster figure showing:
  *   [⚔ damage ×actions]  →  [target dot + name]  [block hint]
@@ -4667,6 +4761,42 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
 .token-chip.token-storm:hover {
   box-shadow: 0 0 0 1px rgba(192, 132, 255, 0.65), 0 4px 10px rgba(0, 0, 0, 0.45);
 }
+
+/* Token spend preview — when an armed card has a spendToken rider,
+ * the matching token chip pulses so the player can see exactly which
+ * of their tokens will be consumed if they confirm the target. */
+.token-chip.is-pending-spend {
+  animation: token-spend-pulse 1.1s ease-in-out infinite;
+  position: relative;
+}
+.token-chip.is-pending-spend::after {
+  content: "−1";
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgba(255, 95, 75, 0.92);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+@keyframes token-spend-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.08); }
+}
+.token-chip.token-bio.is-pending-spend  { box-shadow: 0 0 0 2px rgba(92, 214, 107, 0.55), 0 0 12px rgba(92, 214, 107, 0.35); }
+.token-chip.token-hydro.is-pending-spend { box-shadow: 0 0 0 2px rgba(62, 196, 255, 0.55), 0 0 12px rgba(62, 196, 255, 0.35); }
+.token-chip.token-storm.is-pending-spend { box-shadow: 0 0 0 2px rgba(192, 132, 255, 0.55), 0 0 12px rgba(192, 132, 255, 0.35); }
 
 /* ---- Buff / debuff chips on the baseplate ---- */
 /* Surfaced from player.statuses (damageBoostThisTurn, firstCardDiscount,

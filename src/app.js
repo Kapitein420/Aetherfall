@@ -64,6 +64,12 @@ let lastSeenEventId = 0;
 // entity id so the next render can detect damage / heals and pulse
 // the corresponding stat pill. Cleared on game start / new game.
 const lastHpByEntity = new Map();
+// Round summary toast — populated after each resolveRound with the
+// per-player damage taken and per-monster damage dealt deltas, then
+// auto-cleared after ROUND_SUMMARY_MS.
+let lastSummary = null;
+let lastSummaryDismissTimer = null;
+const ROUND_SUMMARY_MS = 5000;
 let activeEffects = [];
 let effectInstanceId = 1;
 let dragInited = false;
@@ -357,8 +363,18 @@ function handleAction(element) {
 
   if (action === "resolve-round") {
     armedCard = null;
+    // Snapshot HPs before resolution so we can build a round summary
+    // diff (damage taken per player, damage dealt per monster).
+    const preRoundSnapshot = snapshotHpForSummary(gameState);
+    const resolvedRound = gameState.roundNumber;
     gameState = resolveRound(gameState);
     enqueueEffectsFromState(gameState);
+    lastSummary = buildRoundSummary(preRoundSnapshot, gameState, resolvedRound);
+    if (lastSummaryDismissTimer) window.clearTimeout(lastSummaryDismissTimer);
+    lastSummaryDismissTimer = window.setTimeout(() => {
+      lastSummary = null;
+      render();
+    }, ROUND_SUMMARY_MS);
     message =
       gameState.phase === "game-over"
         ? gameState.winner === "players"
@@ -368,6 +384,38 @@ function handleAction(element) {
     render();
     notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
   }
+}
+
+function snapshotHpForSummary(state) {
+  return {
+    players: state.players.map((p) => ({ id: p.id, name: p.name, classId: p.classId, hp: p.hp })),
+    monsters: (state.monsters ?? [state.monster]).map((m) => ({
+      monsterId: m.monsterId ?? m.id,
+      name: m.name,
+      hp: m.hp,
+    })),
+  };
+}
+
+// Build the per-round summary by diffing pre/post HPs. Player damage
+// taken is pre.hp - post.hp; monster damage dealt is the same diff
+// on the monster side. Kills are monsters whose HP fell to 0 this
+// round but were alive before.
+function buildRoundSummary(pre, postState, roundNumber) {
+  const playerLines = pre.players.map((preP) => {
+    const post = postState.players.find((p) => p.id === preP.id);
+    const lost = Math.max(0, preP.hp - (post?.hp ?? 0));
+    return { id: preP.id, name: preP.name, classId: preP.classId, lost };
+  }).filter((line) => line.lost > 0);
+  const monsterLines = pre.monsters.map((preM) => {
+    const post = (postState.monsters ?? [postState.monster]).find(
+      (m) => (m.monsterId ?? m.id) === preM.monsterId,
+    );
+    const dealt = Math.max(0, preM.hp - (post?.hp ?? 0));
+    const killed = preM.hp > 0 && (post?.hp ?? 0) <= 0;
+    return { name: preM.name, dealt, killed };
+  }).filter((line) => line.dealt > 0 || line.killed);
+  return { round: roundNumber, players: playerLines, monsters: monsterLines };
 }
 
 function render() {
@@ -901,10 +949,46 @@ function renderGame() {
         </div>
       </div>
 
+      ${renderRoundSummary()}
       ${renderActionBar(gameState, totalQueued, gameOver)}
 
       <div class="standoff-drag-ghost" data-drag-ghost aria-hidden="true"></div>
     </section>
+  `;
+}
+
+// Round summary toast — auto-shown for ROUND_SUMMARY_MS after each
+// resolveRound. Compact card listing damage taken per player and
+// damage dealt per monster (kills get a flag). Floats above the
+// action bar so it's noticeable but doesn't block the play surface.
+function renderRoundSummary() {
+  if (!lastSummary) return "";
+  const { round, players, monsters } = lastSummary;
+  if (players.length === 0 && monsters.length === 0) return "";
+  const playerLines = players.map((p) =>
+    `<li class="round-summary-line class-${p.classId}">
+       <span class="round-summary-name">${escapeHtml(p.name)}</span>
+       <span class="round-summary-num round-summary-loss">−${p.lost}</span>
+     </li>`).join("");
+  const monsterLines = monsters.map((m) =>
+    `<li class="round-summary-line ${m.killed ? "is-killed" : ""}">
+       <span class="round-summary-name">${escapeHtml(m.name)}${m.killed ? " · slain" : ""}</span>
+       <span class="round-summary-num round-summary-deal">−${m.dealt}</span>
+     </li>`).join("");
+  return `
+    <aside class="round-summary" aria-live="polite">
+      <header class="round-summary-head">
+        <span class="round-summary-eyebrow">Round ${round} resolved</span>
+      </header>
+      ${players.length ? `<ul class="round-summary-list" data-side="players">
+        <li class="round-summary-section">Damage taken</li>
+        ${playerLines}
+      </ul>` : ""}
+      ${monsters.length ? `<ul class="round-summary-list" data-side="monsters">
+        <li class="round-summary-section">Damage dealt</li>
+        ${monsterLines}
+      </ul>` : ""}
+    </aside>
   `;
 }
 
@@ -1378,18 +1462,42 @@ function renderPlayerTokens(player) {
   if (!counts.some(({ count }) => count > 0)) {
     return "";
   }
+  // Spend-preview: when this player has an armed card with a
+  // spendToken rider, the matching token chip pulses so they can see
+  // "this is the token that'll be consumed if I confirm".
+  const armedSpendKey = getArmedSpendTokenKey(player);
   const chips = counts
     .filter(({ count }) => count > 0)
     .map(({ def, count }) => {
       const icon = getElementIcon(def.elementId, { title: def.label });
+      const willSpend = armedSpendKey === def.key && count > 0;
       return `
-        <span class="token-chip ${def.cls}" title="${escapeHtml(def.title)}" aria-label="${escapeHtml(def.label)}: ${count}">
+        <span class="token-chip ${def.cls} ${willSpend ? "is-pending-spend" : ""}" title="${escapeHtml(def.title)}" aria-label="${escapeHtml(def.label)}: ${count}">
           <span class="token-chip-icon" aria-hidden="true">${icon}</span>
           <strong>${count}</strong>
         </span>
       `;
     });
   return `<div class="player-tokens" role="group" aria-label="Element tokens">${chips.join("")}</div>`;
+}
+
+// Returns the TOKEN_CHIP_DEFS.key (e.g. "stormCharge") matching a
+// spendToken rider on the currently armed card if it belongs to this
+// player. Drives the token-chip pulse so the player can see exactly
+// which of their tokens will be consumed if they confirm the target.
+function getArmedSpendTokenKey(player) {
+  if (!armedCard || armedCard.playerId !== player.id) return null;
+  let card;
+  try { card = getCardDefinition(armedCard.cardId); } catch { return null; }
+  for (const action of card.actions ?? []) {
+    if (!action?.spendToken?.token) continue;
+    const tokenName = action.spendToken.token;
+    return tokenName === "bio-growth" ? "bioGrowth"
+      : tokenName === "hydroflow" ? "hydroflow"
+      : tokenName === "storm-charge" ? "stormCharge"
+      : null;
+  }
+  return null;
 }
 
 // Buff/debuff chip cluster on the player baseplate. Mirrors the layout of
