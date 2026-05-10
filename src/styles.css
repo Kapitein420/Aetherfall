@@ -5365,7 +5365,13 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   transform-origin: 36% 22%;
 }
 .standoff-champion.side-right.class-storm-forge .champion-portrait {
-  transform: scaleX(-1) scale(1.6);
+  /* Drop the mirror for banner-art classes — the scaleX(-1) + scale
+   * combo with a single transform-origin shifted the visible window
+   * to the wrong part of the banner (showing the "STARTER DECK" text
+   * side instead of the character). Both sides now use the same
+   * un-mirrored crop; the banner art is abstract enough that
+   * orientation reads fine either way. */
+  transform: scale(1.6);
   transform-origin: 36% 22%;
 }
 .standoff-champion.class-hydroflow .champion-portrait {
@@ -5374,7 +5380,7 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   transform-origin: 24% 18%;
 }
 .standoff-champion.side-right.class-hydroflow .champion-portrait {
-  transform: scaleX(-1) scale(1.6);
+  transform: scale(1.6);
   transform-origin: 24% 18%;
 }
 

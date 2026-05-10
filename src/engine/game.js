@@ -107,6 +107,10 @@ export function createCoopBattle(config = {}) {
   // before the round-1 banner. We pass `helpers` so relics can call
   // `drawCards` without depending on the engine import path.
   applyRelicHook("onBattleStart", state, { drawCards });
+  // Round-1 also needs onRoundStart hooks (Networked Inverter etc.)
+  // since startNextRound doesn't run on the opening round. Without
+  // this, relics gated on onRoundStart would skip the first fight.
+  applyRelicHook("onRoundStart", state, { drawCards });
 
   const arenaName = monsters.length === 1 ? monsters[0].name : `${monsters.map((m) => m.name).join(" + ")}`;
   pushLog(state, {
