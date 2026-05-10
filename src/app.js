@@ -929,24 +929,19 @@ function renderWinnerTitle() {
   return "The monster wins";
 }
 
-// Wrap the primary monster figure + baseplate in a click-target when
-// the picker is armed. The wrapper carries data-action="target-monster"
-// so handleAction routes the click through the queueCard-with-target
-// flow. Non-armed state passes through unchanged so existing layout /
-// styling stays intact.
+// Render the primary monster figure + baseplate. When the target picker
+// is armed, the figure itself carries the click-target attributes (no
+// wrapping button) so the entire visible figure — including the dashed
+// outline halo — is one big hit area. A wrapping button with display:
+// contents previously left the click area exactly the figure's interior
+// box, which made the picker feel unresponsive at low zoom levels.
 function renderPrimaryTargetWrapper(monster, intent) {
   const armed = !!armedCard && monster.hp > 0;
-  const figure = renderMonsterFigure(monster);
-  const baseplate = renderMonsterBaseplate(monster);
-  if (!armed) {
-    return figure + baseplate;
+  if (armed) {
+    return renderMonsterFigure(monster, { armedTarget: true })
+      + renderMonsterBaseplate(monster);
   }
-  return `
-    <button type="button" class="monster-target-button is-armed" data-action="target-monster" data-monster-id-key="${monster.monsterId}" aria-label="Target ${escapeHtml(monster.name)}">
-      ${figure}
-      ${baseplate}
-    </button>
-  `;
+  return renderMonsterFigure(monster) + renderMonsterBaseplate(monster);
 }
 
 // Decides whether playing a card should arm the target picker. A card
@@ -1039,7 +1034,8 @@ function renderSquadmateTile(monster) {
   `;
 }
 
-function renderMonsterFigure(monster) {
+function renderMonsterFigure(monster, options = {}) {
+  const { armedTarget = false } = options;
   const hpFrac = Math.max(0, Math.min(1, monster.hp / monster.maxHp));
   const wounded = hpFrac < 0.5 ? "wounded" : "";
   const critical = hpFrac < 0.25 ? "critical" : "";
@@ -1058,7 +1054,7 @@ function renderMonsterFigure(monster) {
         <div class="monster-eyes"></div>
       </div>`;
   return `
-    <div class="${figureClasses}" data-monster-art data-monster-art-id="${monster.monsterId ?? ""}" aria-hidden="true">
+    <div class="${figureClasses}${armedTarget ? " is-armed-target" : ""}" data-monster-art data-monster-art-id="${monster.monsterId ?? ""}"${armedTarget ? ` data-action="target-monster" data-monster-id-key="${monster.monsterId}" role="button" tabindex="0" aria-label="Target ${escapeHtml(monster.name)}"` : ` aria-hidden="true"`}>
       <div class="monster-aura"></div>
       ${body}
       <div class="monster-glow"></div>
