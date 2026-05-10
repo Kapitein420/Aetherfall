@@ -60,6 +60,10 @@ let setup = {
 let gameState = null;
 let message = "";
 let lastSeenEventId = 0;
+// HP-change flash bookkeeping: snapshot of last-seen HP keyed by
+// entity id so the next render can detect damage / heals and pulse
+// the corresponding stat pill. Cleared on game start / new game.
+const lastHpByEntity = new Map();
 let activeEffects = [];
 let effectInstanceId = 1;
 let dragInited = false;
@@ -397,6 +401,29 @@ function render() {
   if (gameState && QUEUE_TETHERS_ENABLED) {
     // Defer one frame so the new DOM has its layout boxes.
     window.requestAnimationFrame(() => drawQueueTethers());
+  }
+
+  // HP-change flash. Snapshot every stat-hp pill's current HP and
+  // compare to the value we recorded last render — if HP dropped, the
+  // pill flashes red; if it rose, green. Animation lifecycle is pure
+  // CSS once the class is on; we just remove it after the keyframe
+  // duration so subsequent renders can re-trigger.
+  if (gameState) {
+    document.querySelectorAll(".stat-pill.stat-hp[data-hp-entity]").forEach((pill) => {
+      const entity = pill.dataset.hpEntity;
+      const current = Number(pill.dataset.hpCurrent ?? 0);
+      const prev = lastHpByEntity.get(entity);
+      if (prev !== undefined && current !== prev) {
+        const cls = current < prev ? "is-flashing-damage" : "is-flashing-heal";
+        pill.classList.remove("is-flashing-damage", "is-flashing-heal");
+        // Force reflow so the animation restarts on consecutive hits
+        // eslint-disable-next-line no-unused-expressions
+        pill.offsetWidth;
+        pill.classList.add(cls);
+        window.setTimeout(() => pill.classList.remove(cls), 700);
+      }
+      lastHpByEntity.set(entity, current);
+    });
   }
 }
 
@@ -945,14 +972,35 @@ function renderMonsterRoster(state) {
   const slots = monsters.map((monster) => {
     const armed = !!armedCard && monster.hp > 0;
     const dead = monster.hp <= 0 ? "is-dead" : "";
+    const intent = MONSTER_INTENT_ENABLED ? computeMonsterIntentFor(state, monster) : null;
     return `
       <div class="monster-slot ${dead}">
+        ${renderMonsterIntentChip(intent)}
         ${renderMonsterFigure(monster, { armedTarget: armed })}
         ${renderMonsterBaseplate(monster)}
       </div>
     `;
   }).join("");
   return `<div class="monster-roster ${isMulti ? "is-multi" : "is-solo"}">${slots}</div>`;
+}
+
+// Compact intent chip rendered above each monster figure. Shows the
+// damage they're about to deal and who they're aiming at — Slay the
+// Spire's most-loved at-a-glance feature. Single-monster fights still
+// also render the legacy floating intent badge for backward compat.
+function renderMonsterIntentChip(intent) {
+  if (!intent) return "";
+  const total = intent.actions > 1 ? `${intent.damage} × ${intent.actions}` : `${intent.damage}`;
+  const titleLabel = intent.actions > 1
+    ? `Next: ${intent.actions} × ${intent.damage} damage to ${intent.targetName}`
+    : `Next attack: ${intent.damage} damage to ${intent.targetName}`;
+  return `
+    <div class="monster-intent-chip ${intent.isFixated ? "is-fixated" : ""}" title="${escapeHtml(titleLabel)}">
+      <span class="intent-chip-icon" aria-hidden="true">⚔</span>
+      <strong class="intent-chip-damage">${total}</strong>
+      <span class="intent-chip-target">→ ${escapeHtml(intent.targetName)}</span>
+    </div>
+  `;
 }
 
 // Decides whether playing a card should arm the target picker. A card
@@ -1095,7 +1143,7 @@ function renderMonsterBaseplate(monster) {
         ${eyebrow ? `<span class="baseplate-eyebrow">${escapeHtml(eyebrow)}</span>` : ""}
       </div>
       <div class="stat-pill-row">
-        <span class="stat-pill stat-hp" title="Hit points">
+        <span class="stat-pill stat-hp" title="Hit points" data-hp-entity="monster:${escapeHtml(monster.monsterId ?? monster.name)}" data-hp-current="${monster.hp}">
           <span class="stat-icon" aria-hidden="true">${HP_ICON}</span>
           <span class="stat-bar"><em style="width: ${hpPercent}%"></em></span>
           <span class="stat-num">${monster.hp}/${monster.maxHp}</span>
@@ -1245,7 +1293,7 @@ function renderChampion(player, side, intent) {
           <span class="baseplate-eyebrow">${escapeHtml(classDef.role)}</span>
         </div>
         <div class="stat-pill-row">
-          <span class="stat-pill stat-hp" title="Hit points">
+          <span class="stat-pill stat-hp" title="Hit points" data-hp-entity="player:${escapeHtml(player.id)}" data-hp-current="${player.hp}">
             <span class="stat-icon" aria-hidden="true">${HP_ICON}</span>
             <span class="stat-bar"><em style="width: ${hpPercent}%"></em></span>
             <span class="stat-num">${player.hp}/${player.maxHp}</span>
@@ -1456,37 +1504,59 @@ function inferQueuedTarget(player, card) {
 }
 
 function computeMonsterIntent(state) {
+  // Backward-compat wrapper — single intent for the primary monster.
+  return computeMonsterIntentFor(state, state.monster);
+}
+
+// Per-monster intent preview. Each living monster gets its own predicted
+// target + damage so multi-monster encounters can show every threat
+// upfront (Slay the Spire style). Mirrors the engine's target picker
+// and effective-attack calc so what the player sees matches resolution.
+function computeMonsterIntentFor(state, monster) {
+  if (!monster || monster.hp <= 0) return null;
   const livingPlayers = state.players.filter((p) => p.hp > 0);
   if (!livingPlayers.length || state.phase === "game-over") {
     return null;
   }
-  // Mirror the engine target picker. Fixate locks onto the marked player.
   let target = null;
-  const fixate = state.monster.fixate;
+  const fixate = monster.fixate;
   if (fixate && fixate.roundsRemaining > 0) {
     target = livingPlayers.find((p) => p.id === fixate.playerId) ?? null;
   }
   if (!target) {
     target = [...livingPlayers].sort((a, b) => {
-      const threatDiff = (state.monster.threat[b.id] ?? 0) - (state.monster.threat[a.id] ?? 0);
-      if (threatDiff !== 0) {
-        return threatDiff;
-      }
+      const threatDiff = (monster.threat?.[b.id] ?? 0) - (monster.threat?.[a.id] ?? 0);
+      if (threatDiff !== 0) return threatDiff;
       return a.hp - b.hp;
     })[0];
   }
-  // baseAttack scales by floor(roundNumber / 2) per engine.
-  const weakened = state.monster.statuses?.weakened ?? 0;
-  const damage = Math.max(
+  // Mirror engine effectiveMonsterAttack: Pack Hunter / Crossfire +1
+  // when squadmates alive, Target Uplink +1 from a separate uplinker.
+  const others = (state.monsters ?? []).filter((m) => m !== monster && m.hp > 0);
+  const abilities = monster.abilities ?? [];
+  let abilityBonus = 0;
+  if ((abilities.includes("packHunter") || abilities.includes("crossfire")) && others.length > 0) {
+    abilityBonus += 1;
+  }
+  if (others.some((m) => (m.abilities ?? []).includes("targetUplink"))) {
+    abilityBonus += 1;
+  }
+  const weakened = monster.statuses?.weakened ?? 0;
+  let damage = Math.max(
     1,
-    state.monster.baseAttack + Math.floor(state.roundNumber / 2) - weakened,
+    (monster.baseAttack ?? 0) + abilityBonus + Math.floor(state.roundNumber / 2) - weakened,
   );
-  const actions = Math.max(1, state.monster.actionsPerTurn ?? 1);
+  const isFixated = fixate && fixate.roundsRemaining > 0 && fixate.playerId === target.id;
+  if (isFixated && typeof monster.fixateAttack === "number") {
+    damage = monster.fixateAttack;
+  }
+  const actions = Math.max(1, monster.actionsPerTurn ?? 1);
   return {
     targetId: target.id,
     targetName: target.name,
     damage,
     actions,
+    isFixated,
   };
 }
 
