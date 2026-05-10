@@ -144,6 +144,13 @@ export function queueCard(currentState, command) {
   // Stash the negotiated cost on the card instance so resolveRound spends
   // the modified amount. Default `cost` on the definition is read-only.
   cardInstance.discountedCost = effectiveCost;
+  // Multi-monster targeting: if the player picked a specific monster,
+  // store that on the card instance. resolveRound swaps state.monster
+  // to this target while the card resolves. Falls back to primary if
+  // unset or if the named target is dead by resolve time.
+  if (command.targetMonsterId) {
+    cardInstance.targetMonsterId = command.targetMonsterId;
+  }
   player.planned.push(cardInstance);
   if (consumeDiscount) {
     clearBuff(state, player.id, "firstCardDiscount");
@@ -198,10 +205,29 @@ export function resolveRound(currentState) {
         ? cardInstance.discountedCost
         : card.cost;
       player.energy -= cost;
+      // Per-card monster targeting: if the player picked a specific
+      // monster at queue time, swap state.monster to that target while
+      // the card resolves so all damage / threat actions land on it.
+      // Restored after so the alias is back to the primary for any
+      // post-card bookkeeping. Skip the swap if the target is dead — we
+      // fall through to the primary so the action isn't wasted.
+      const previousPrimary = state.monster;
+      const target = cardInstance.targetMonsterId
+        ? (state.monsters ?? []).find((m) => m.monsterId === cardInstance.targetMonsterId && m.hp > 0)
+        : null;
+      if (target) {
+        state.monster = target;
+      }
       const monsterHpBefore = state.monster.hp;
       resolveCard(state, player, card);
       player.discard.push(cardInstance);
       const damageDealt = monsterHpBefore - state.monster.hp;
+      // Restore primary alias. dealMonsterDamage may have advanced it on
+      // a kill; only restore if the original primary is still alive, so
+      // we don't accidentally point back at a dead monster.
+      if (state.monster !== previousPrimary && previousPrimary.hp > 0) {
+        state.monster = previousPrimary;
+      }
       pushLog(state, {
         kind: "card-use",
         actor: player.name,

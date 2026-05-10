@@ -3714,6 +3714,69 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5));
 }
 
+/* Armed-card target picker. When an attack card is "armed" (clicked
+ * once in a multi-monster fight), the card glows and any living
+ * monster turns into a click-target. A second click on a monster
+ * confirms the target and queues the card. */
+.hand-card.is-armed {
+  outline: 3px solid #f6d77a;
+  outline-offset: 4px;
+  filter: brightness(1.18) drop-shadow(0 0 12px rgba(246, 215, 122, 0.7));
+  animation: armed-card-pulse 1.4s ease-in-out infinite;
+  z-index: 6;
+}
+@keyframes armed-card-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(246, 215, 122, 0.6), 0 18px 34px rgba(0, 0, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(246, 215, 122, 0), 0 18px 34px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Monster zone in armed mode — soft tint so the player sees they're in
+ * pick-a-target mode. */
+.standoff-monster.armed .monster-target-button,
+.standoff-monster.armed .squadmate-tile.is-armed {
+  cursor: crosshair;
+}
+
+.monster-target-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: contents;
+  cursor: crosshair;
+}
+
+.standoff-monster.armed .monster-figure {
+  outline: 2px dashed rgba(246, 122, 90, 0.7);
+  outline-offset: 4px;
+  border-radius: 14%;
+  animation: target-pulse 1.4s ease-in-out infinite;
+}
+.standoff-monster.armed .squadmate-tile.is-armed {
+  border-color: rgba(246, 122, 90, 0.85);
+  box-shadow: 0 0 0 2px rgba(246, 122, 90, 0.6), 0 6px 14px rgba(0, 0, 0, 0.6);
+  animation: target-pulse 1.4s ease-in-out infinite;
+  background: linear-gradient(180deg, rgba(40, 18, 14, 0.96), rgba(16, 8, 6, 0.98));
+}
+.standoff-monster.armed .squadmate-tile.is-armed:hover {
+  background: linear-gradient(180deg, rgba(60, 24, 16, 0.98), rgba(24, 10, 6, 1));
+  border-color: rgba(255, 160, 110, 1);
+}
+.standoff-monster.armed .monster-figure:hover,
+.monster-target-button:hover .monster-figure {
+  outline-color: rgba(255, 160, 110, 1);
+  filter: drop-shadow(0 0 18px rgba(255, 160, 110, 0.85));
+}
+
+@keyframes target-pulse {
+  0%, 100% { outline-offset: 4px; }
+  50% { outline-offset: 8px; }
+}
+
 /* Per-monster banner crops. Bruiser Duo and Synthetic Hunter Squad
  * monsters share the encounter banner as a source image; each monster
  * focuses on a different region via object-position + a zoom transform.

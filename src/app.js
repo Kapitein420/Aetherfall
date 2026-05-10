@@ -56,6 +56,12 @@ let lastSeenEventId = 0;
 let activeEffects = [];
 let effectInstanceId = 1;
 let dragInited = false;
+// Two-click target picker for multi-monster encounters: when the player
+// clicks an attack card with multiple living monsters available, we stash
+// the card here and wait for a target click. Cleared when targeting
+// completes, the card is unqueued, or the round resolves. Per-client UI
+// state only — not part of game state.
+let armedCard = null; // { playerId, instanceId, cardId } | null
 // Local UI: which player's hand is focused. null = show everyone. Click a
 // hand label to focus that player; click again to clear. Per-client only —
 // not part of game state, so multiplayer peers each pick their own focus.
@@ -274,14 +280,55 @@ function handleAction(element) {
   }
 
   if (action === "queue-card") {
-    gameState = queueCard(gameState, {
-      playerId: element.dataset.playerId,
-      instanceId: element.dataset.instanceId,
-    });
+    const playerId = element.dataset.playerId;
+    const instanceId = element.dataset.instanceId;
+    const cardId = element.dataset.cardId;
+    // Two-click flow for multi-monster encounters: if the card has any
+    // damage action and there are 2+ living monsters, arm the card on
+    // first click and wait for a monster click to confirm the target.
+    // Single-monster fights and non-attack cards skip the picker.
+    if (cardNeedsTarget(cardId)) {
+      // Toggle off if already armed for this same instance.
+      if (armedCard && armedCard.instanceId === instanceId) {
+        armedCard = null;
+        message = "";
+      } else {
+        armedCard = { playerId, instanceId, cardId };
+        message = "Pick a target monster.";
+      }
+      render();
+      return;
+    }
+    gameState = queueCard(gameState, { playerId, instanceId });
     enqueueEffectsFromState(gameState);
     message = "";
+    armedCard = null;
     render();
     notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
+    return;
+  }
+
+  if (action === "target-monster") {
+    if (!armedCard) return;
+    const targetMonsterId = element.dataset.monsterIdKey;
+    gameState = queueCard(gameState, {
+      playerId: armedCard.playerId,
+      instanceId: armedCard.instanceId,
+      targetMonsterId,
+    });
+    enqueueEffectsFromState(gameState);
+    notifyMultiplayer({
+      type: "queue-card",
+      dataset: {
+        playerId: armedCard.playerId,
+        instanceId: armedCard.instanceId,
+        cardId: armedCard.cardId,
+        targetMonsterId,
+      },
+    });
+    armedCard = null;
+    message = "";
+    render();
     return;
   }
 
@@ -291,12 +338,14 @@ function handleAction(element) {
       instanceId: element.dataset.instanceId,
     });
     message = "";
+    armedCard = null;
     render();
     notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
     return;
   }
 
   if (action === "resolve-round") {
+    armedCard = null;
     gameState = resolveRound(gameState);
     enqueueEffectsFromState(gameState);
     message =
@@ -766,11 +815,10 @@ function renderGame() {
       <div class="standoff-stage" data-stage>
         <svg class="standoff-tethers" data-tethers aria-hidden="true"></svg>
 
-        <div class="standoff-monster ${(gameState.monsters?.length ?? 1) > 1 ? "multi" : ""}" data-target-zone="monster" data-monster-id="${gameState.monster.id}">
+        <div class="standoff-monster ${(gameState.monsters?.length ?? 1) > 1 ? "multi" : ""} ${armedCard ? "armed" : ""}" data-target-zone="monster" data-monster-id="${gameState.monster.id}">
           ${renderEncounterBanner()}
           ${renderMonsterIntent(intent)}
-          ${renderMonsterFigure(gameState.monster)}
-          ${renderMonsterBaseplate(gameState.monster)}
+          ${renderPrimaryTargetWrapper(gameState.monster, intent)}
           ${renderSquadmates(gameState)}
         </div>
 
@@ -881,6 +929,47 @@ function renderWinnerTitle() {
   return "The monster wins";
 }
 
+// Wrap the primary monster figure + baseplate in a click-target when
+// the picker is armed. The wrapper carries data-action="target-monster"
+// so handleAction routes the click through the queueCard-with-target
+// flow. Non-armed state passes through unchanged so existing layout /
+// styling stays intact.
+function renderPrimaryTargetWrapper(monster, intent) {
+  const armed = !!armedCard && monster.hp > 0;
+  const figure = renderMonsterFigure(monster);
+  const baseplate = renderMonsterBaseplate(monster);
+  if (!armed) {
+    return figure + baseplate;
+  }
+  return `
+    <button type="button" class="monster-target-button is-armed" data-action="target-monster" data-monster-id-key="${monster.monsterId}" aria-label="Target ${escapeHtml(monster.name)}">
+      ${figure}
+      ${baseplate}
+    </button>
+  `;
+}
+
+// Decides whether playing a card should arm the target picker. A card
+// "needs a target" when it has at least one damage-type action AND the
+// fight has 2+ living monsters. Single-monster fights and non-damage
+// cards skip the picker (queue immediately on click).
+function cardNeedsTarget(cardId) {
+  if (!cardId) return false;
+  const livingMonsters = (gameState?.monsters ?? []).filter((m) => m.hp > 0);
+  if (livingMonsters.length < 2) return false;
+  let card;
+  try {
+    card = getCardDefinition(cardId);
+  } catch {
+    return false;
+  }
+  return (card.actions ?? []).some((action) =>
+    action?.type === "damage"
+    || action?.type === "damageFromBlock"
+    || action?.type === "executeDamage",
+  );
+}
+
 // Encounter banner above the monster zone. Shows only when the
 // chosen encounter has a banner image and the fight has more than
 // one monster — single-monster boss fights keep the original look.
@@ -921,18 +1010,31 @@ function renderSquadmateTile(monster) {
          <img src="${visual.portrait}" alt="" />
        </div>`
     : "";
+  const inner = `
+    ${portraitMarkup}
+    <div class="squadmate-text">
+      <div class="squadmate-name">${escapeHtml(monster.name)}</div>
+      <div class="squadmate-role">${escapeHtml(monster.role ?? "")}</div>
+      <div class="squadmate-meter">
+        <div class="meter-track meter-hp"><em style="width: ${hpPct}%"></em></div>
+        <strong>${monster.hp} / ${monster.maxHp}</strong>
+      </div>
+      ${traits ? `<div class="squadmate-traits">${escapeHtml(traits)}</div>` : ""}
+    </div>
+  `;
+  // When the target picker is armed and this monster is alive, wrap
+  // the tile in a button so clicking it routes through target-monster.
+  const armed = !!armedCard && monster.hp > 0;
+  if (armed) {
+    return `
+      <button type="button" class="squadmate-tile is-armed" data-action="target-monster" data-monster-id-key="${monster.monsterId}" aria-label="Target ${escapeHtml(monster.name)}">
+        ${inner}
+      </button>
+    `;
+  }
   return `
     <div class="squadmate-tile ${dead}" data-monster-id="${monster.id}-${escapeHtml(monster.name)}">
-      ${portraitMarkup}
-      <div class="squadmate-text">
-        <div class="squadmate-name">${escapeHtml(monster.name)}</div>
-        <div class="squadmate-role">${escapeHtml(monster.role ?? "")}</div>
-        <div class="squadmate-meter">
-          <div class="meter-track meter-hp"><em style="width: ${hpPct}%"></em></div>
-          <strong>${monster.hp} / ${monster.maxHp}</strong>
-        </div>
-        ${traits ? `<div class="squadmate-traits">${escapeHtml(traits)}</div>` : ""}
-      </div>
+      ${inner}
     </div>
   `;
 }
@@ -1384,9 +1486,10 @@ function renderHandCard(player, cardInstance, cardIndex, totalCards, side) {
   const rotation = side === "right" ? -baseRot : baseRot;
   const lift = baseLift;
   const styleVars = `--card-rotation: ${rotation}deg; --card-lift: ${lift}px;`;
+  const isArmed = armedCard && armedCard.instanceId === cardInstance.instanceId;
   return `
     <button
-      class="hand-card class-${player.classId} role-${card.role} ${cannotAfford ? "unplayable" : "playable"}"
+      class="hand-card class-${player.classId} role-${card.role} ${cannotAfford ? "unplayable" : "playable"} ${isArmed ? "is-armed" : ""}"
       type="button"
       data-action="queue-card"
       data-player-id="${player.id}"
