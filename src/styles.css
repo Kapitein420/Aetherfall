@@ -4502,7 +4502,9 @@ body.dragging-card .standoff-play-zone {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  padding: 8px 4px 4px;
+  /* Bottom padding clears the fixed .action-bar (≈58px tall) so the
+   * card text isn't tucked behind it. Top padding stays small. */
+  padding: 8px 4px 76px;
   margin-top: 4px;
 }
 
@@ -6310,7 +6312,11 @@ body.dragging-card .standoff-champion {
 /* ===== Compact UI: corner log + fixed bottom action bar ===== */
 
 .standoff-table.compact-ui {
-  padding-bottom: 80px;
+  /* Reserve enough vertical room for the fixed .action-bar (≈58px tall)
+   * plus headroom so the bottom of the card hand isn't tucked behind it.
+   * The shelf rotates side cards outward so the lowest visible pixels
+   * sit ~70-80px below the row's baseline — 140 covers both. */
+  padding-bottom: 140px;
 }
 
 /* Hide legacy chrome when compact-ui is active */
