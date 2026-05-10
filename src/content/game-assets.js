@@ -50,6 +50,19 @@ export const championVisuals = {
     portrait: uiAsset("portraits/noah.png"),
     cardBack: uiAsset("card-backs/noah.png"),
   },
+  // Storm Forge — uses the wide starter-deck banner for both setup-screen
+  // hero and in-game portrait. The portrait slot crops to the head/chest
+  // via CSS object-position (see styles.css :: .class-storm-forge portraits).
+  "storm-forge": {
+    portrait: uiAsset("banners/storm-forge.png"),
+    banner: uiAsset("banners/storm-forge.png"),
+    cardBack: uiAsset("card-backs/arian.png"),
+  },
+  hydroflow: {
+    portrait: uiAsset("banners/hydroflow.png"),
+    banner: uiAsset("banners/hydroflow.png"),
+    cardBack: uiAsset("card-backs/wouter.png"),
+  },
 };
 
 export const effectVisuals = {

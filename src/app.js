@@ -45,7 +45,7 @@ const DRAG_AND_DROP_ENABLED = false;
 const MAX_PLAYERS = 4;
 let setup = {
   playerCount: 2,
-  playerClasses: ["rook", "lyra", "rook", "lyra"],
+  playerClasses: ["storm-forge", "hydroflow", "storm-forge", "hydroflow"],
   monsterId: DEFAULT_MONSTER_ID,
 };
 
