@@ -460,6 +460,47 @@ export const cardDefinitions = {
     block(2),
     reduceThreatHighest(2),
   ]),
+
+  // Bloomcaller — canonical Bio-Growth starter (third token archetype).
+  // Pairs Hydroflow Adept's minimalist design with healing-focused
+  // payoff. The engine's Bio-Growth passive (+1 to each healing while
+  // held) means Mend / Greenbloom heal +1 once any token is in play.
+  "bloomcaller.basic_attack": attack("bloomcaller", "Basic Attack", 1, "Deal 1 damage. Spend 1 Bio-Growth token to gain +1 damage.", [
+    damageWithSpend(1, "biohack", "bio-growth", 1),
+  ]),
+  "bloomcaller.basic_defend": defend("bloomcaller", "Basic Defend", 1, "Block 2 damage. Spend 1 Bio-Growth token to gain +1 block.", [
+    blockWithSpend(2, "bio-growth", 1),
+  ]),
+  "bloomcaller.mend": heal("bloomcaller", "Mend", 2, "Heal the lowest-health player for 3.", [
+    healLowest(3),
+  ]),
+  "bloomcaller.greenbloom": support("bloomcaller", "Greenbloom", 2, "Heal both players for 2. Gain 1 Bio-Growth token.", [
+    healAll(2),
+    gainToken("bio-growth", 1),
+  ]),
+
+  // Stormtide Conduit — hybrid token class. Basics spend Storm Charge
+  // (attack) or Hydroflow (defense). Dual Channel seeds both pools so
+  // the player can repeatedly enable the engine's Conductive Surge
+  // combo (held both tokens + moveThreat → bonus damage). Storm Tide
+  // is the signature payoff: hits, redirects threat, and replenishes
+  // both tokens in a single play.
+  "stormtide-conduit.basic_attack": attack("stormtide-conduit", "Basic Attack", 1, "Deal 1 damage. Spend 1 Storm Charge token to gain +1 damage.", [
+    damageWithSpend(1, "overclock", "storm-charge", 1),
+  ]),
+  "stormtide-conduit.basic_defend": defend("stormtide-conduit", "Basic Defend", 1, "Block 2 damage. Spend 1 Hydroflow token to gain +1 block.", [
+    blockWithSpend(2, "hydroflow", 1),
+  ]),
+  "stormtide-conduit.dual_channel": support("stormtide-conduit", "Dual Channel", 1, "Gain 1 Storm Charge token and 1 Hydroflow token.", [
+    gainToken("storm-charge", 1),
+    gainToken("hydroflow", 1),
+  ]),
+  "stormtide-conduit.storm_tide": unique("stormtide-conduit", "Storm Tide", 2, "Deal 2 damage. Move up to 2 threat from highest to lowest. Gain 1 Storm Charge and 1 Hydroflow token.", [
+    damage(2, "overclock"),
+    moveThreat("highest", "lowest", 2),
+    gainToken("storm-charge", 1),
+    gainToken("hydroflow", 1),
+  ]),
 };
 
 export const starterDecks = {
@@ -610,6 +651,49 @@ export const starterDecks = {
     "hydroflow.flow_shift",
     "hydroflow.flow_shift",
     "hydroflow.delay_damage",
+  ],
+  // Bloomcaller — canonical Bio-Growth starter. 4 attack / 4 defend
+  // / 4 Mend / 3 Greenbloom = 15. Bio-Growth passive (+1 healing
+  // while held) lifts Mend to 4 / Greenbloom to 3 once tokens
+  // accumulate, and basic attack/defend spend Bio-Growth for the
+  // standard +1 damage / +1 block bump.
+  bloomcaller: [
+    "bloomcaller.basic_attack",
+    "bloomcaller.basic_attack",
+    "bloomcaller.basic_attack",
+    "bloomcaller.basic_attack",
+    "bloomcaller.basic_defend",
+    "bloomcaller.basic_defend",
+    "bloomcaller.basic_defend",
+    "bloomcaller.basic_defend",
+    "bloomcaller.mend",
+    "bloomcaller.mend",
+    "bloomcaller.mend",
+    "bloomcaller.mend",
+    "bloomcaller.greenbloom",
+    "bloomcaller.greenbloom",
+    "bloomcaller.greenbloom",
+  ],
+  // Stormtide Conduit — hybrid Storm + Hydroflow class. 6 attack /
+  // 6 defend / 2 Dual Channel / 1 Storm Tide = 15. Basics spend the
+  // opposing token type so the player constantly cycles both pools;
+  // Storm Tide fires the Conductive Surge combo natively.
+  "stormtide-conduit": [
+    "stormtide-conduit.basic_attack",
+    "stormtide-conduit.basic_attack",
+    "stormtide-conduit.basic_attack",
+    "stormtide-conduit.basic_attack",
+    "stormtide-conduit.basic_attack",
+    "stormtide-conduit.basic_attack",
+    "stormtide-conduit.basic_defend",
+    "stormtide-conduit.basic_defend",
+    "stormtide-conduit.basic_defend",
+    "stormtide-conduit.basic_defend",
+    "stormtide-conduit.basic_defend",
+    "stormtide-conduit.basic_defend",
+    "stormtide-conduit.dual_channel",
+    "stormtide-conduit.dual_channel",
+    "stormtide-conduit.storm_tide",
   ],
   // Tideflow Engineer — threat redirect / soft control. Attacks lean on
   // water element so they don't double-tax on physical defense, and the

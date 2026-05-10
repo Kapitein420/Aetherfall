@@ -9,6 +9,7 @@ import {
   partyDeckCards,
   getPartyDeckCard,
 } from "../content/party-deck.js";
+import { getRelic } from "../content/relics.js";
 
 export const DRAW_PER_ROUND = 5;
 // Canonical energy: 4 per turn, no raw carryover. Unused energy at the
@@ -70,7 +71,29 @@ export function createCoopBattle(config = {}) {
     // damage hit. Cleared/decayed by the cards that set them or at round
     // end via decay rules where appropriate.
     flags: {},
+    // Run-progression state — survives across encounters within a run.
+    // run.encounters: ordered list of encounter ids the party will face.
+    // run.currentIndex: 0-based index into that list (this fight = N).
+    // run.crystals: accumulated currency (cosmetic for v1; future shops).
+    // run.runDeckAdds: { [playerId]: cardId[] } cards added to each
+    //                  player's deck via reward picks this run.
+    // run.relics: array of relic ids the party has picked up (v1 only
+    //             tracks them; engine hooks land in Phase 4).
+    run: config.run ?? null,
   };
+
+  // Apply run-scoped player overrides: HP carryover (run.players[id].hp)
+  // so a battered party isn't auto-healed between encounters, and run
+  // deck additions appended to each player's draw pile after the
+  // initial DRAW_PER_ROUND has been dealt below.
+  if (config.run?.players) {
+    for (const p of state.players) {
+      const carry = config.run.players[p.id];
+      if (carry && typeof carry.hp === "number") {
+        p.hp = Math.min(p.maxHp, Math.max(0, carry.hp));
+      }
+    }
+  }
 
   for (const player of state.players) {
     drawCards(state, player, DRAW_PER_ROUND);
@@ -79,6 +102,16 @@ export function createCoopBattle(config = {}) {
   // Round 1: draw the opening Party hand.
   drawPartyCards(state, PARTY_CARDS_PER_ROUND);
 
+  // Apply relic onBattleStart hooks. Relics that grant tokens, heal,
+  // tweak max HP, or grant extra-draw fire here — once per encounter
+  // before the round-1 banner. We pass `helpers` so relics can call
+  // `drawCards` without depending on the engine import path.
+  applyRelicHook("onBattleStart", state, { drawCards });
+  // Round-1 also needs onRoundStart hooks (Networked Inverter etc.)
+  // since startNextRound doesn't run on the opening round. Without
+  // this, relics gated on onRoundStart would skip the first fight.
+  applyRelicHook("onRoundStart", state, { drawCards });
+
   const arenaName = monsters.length === 1 ? monsters[0].name : `${monsters.map((m) => m.name).join(" + ")}`;
   pushLog(state, {
     kind: "round-start",
@@ -86,6 +119,106 @@ export function createCoopBattle(config = {}) {
     text: `Round 1 begins. ${arenaName} step${monsters.length === 1 ? "s" : ""} into the arena. Plan your opening moves together.`,
   });
   return state;
+}
+
+// Walk the run's relic list and invoke the named hook on each.
+// Hooks read directly from state.run.relics (array of relic ids).
+// Helpers is a small bag of engine functions relics can call without
+// re-importing the engine module.
+function applyRelicHook(hookName, state, helpers) {
+  const ids = state.run?.relics ?? [];
+  for (const id of ids) {
+    const relic = getRelic(id);
+    if (!relic || typeof relic[hookName] !== "function") continue;
+    try {
+      relic[hookName](state, helpers ?? {});
+    } catch (err) {
+      // Don't let a buggy relic kill the fight — log and move on.
+      pushLog(state, {
+        kind: "info",
+        text: `Relic '${relic.name}' hook ${hookName} threw: ${err.message}`,
+      });
+    }
+  }
+}
+
+// Build a fresh battle state for the next encounter in a run.
+// Carries forward: player class + name, current HP, run state with
+// updated currentIndex, accumulated crystals + relics + deck adds.
+// Resets: per-fight monsters, deck shuffle, hand, discard, block,
+// energy, party deck, statuses, threat. Returns a brand-new state
+// ready to plug into the same render flow.
+export function advanceToNextEncounter(currentState, options = {}) {
+  if (!currentState.run) {
+    throw new Error("advanceToNextEncounter: state has no run object.");
+  }
+  const run = { ...currentState.run };
+  run.currentIndex = (run.currentIndex ?? 0) + 1;
+  // Crystals reward (default 5 per cleared encounter; future shop
+  // encounters and elite kills will pass higher amounts via options).
+  if (typeof options.crystalsEarned === "number" && options.crystalsEarned > 0) {
+    run.crystals = (run.crystals ?? 0) + options.crystalsEarned;
+  }
+  // Apply card picks from the reward screen. options.picks is keyed
+  // by playerId, value is a single card-id string. Future multi-pick
+  // rewards can swap to arrays without breaking this shape.
+  if (options.picks) {
+    const adds = { ...(run.runDeckAdds ?? {}) };
+    for (const [playerId, cardId] of Object.entries(options.picks)) {
+      if (!cardId) continue;
+      const existing = adds[playerId] ?? [];
+      adds[playerId] = existing.concat([cardId]);
+    }
+    run.runDeckAdds = adds;
+  }
+  // Apply relic pick from a boss-clear reward.
+  if (options.relicPick) {
+    const list = (run.relics ?? []).slice();
+    if (!list.includes(options.relicPick)) list.push(options.relicPick);
+    run.relics = list;
+  }
+  // HP carryover snapshot. We persist this on run.players so create-
+  // CoopBattle can reapply it when it builds the next fight.
+  const hpCarry = {};
+  for (const p of currentState.players) {
+    hpCarry[p.id] = { hp: p.hp };
+  }
+  run.players = hpCarry;
+
+  // If we've cleared the last encounter, return a "run-complete"
+  // state without spinning up combat. The app reads this and shows
+  // the run-complete screen.
+  if (run.currentIndex >= run.encounters.length) {
+    return {
+      ...currentState,
+      run,
+      phase: "run-complete",
+      winner: "players",
+    };
+  }
+
+  // Otherwise, build a fresh battle for the next encounter id. Pull
+  // the encounter's monsterIds via the registry import in app-side
+  // glue (the engine doesn't depend on the encounter registry — the
+  // caller passes monsterIds in options).
+  const playerConfigs = currentState.players.map((p) => ({
+    id: p.id,
+    name: p.name,
+    classId: p.classId,
+    runDeckAdds: run.runDeckAdds?.[p.id] ?? [],
+  }));
+  const battleConfig = {
+    players: playerConfigs,
+    run,
+  };
+  if (options.monsterIds && options.monsterIds.length > 1) {
+    battleConfig.monsterIds = options.monsterIds;
+  } else if (options.monsterIds && options.monsterIds.length === 1) {
+    battleConfig.monsterId = options.monsterIds[0];
+  } else if (options.monsterId) {
+    battleConfig.monsterId = options.monsterId;
+  }
+  return createCoopBattle(battleConfig);
 }
 
 // Helpers for the multi-monster schema. `primaryMonster` returns the first
@@ -283,8 +416,20 @@ export function resolveRound(currentState) {
   // Bruiser Duo / Synthetic Hunter Squad each squadmate must fall.
   const allDead = (state.monsters ?? [state.monster]).every((m) => m.hp <= 0);
   if (allDead) {
-    state.phase = "game-over";
-    state.winner = "players";
+    // If there's a run with more encounters queued, this is a "fight
+    // cleared" event, not a "game over". Mark phase=rewards so the
+    // app can show the reward screen and call advanceToNextEncounter
+    // afterwards. If no run, or this was the final encounter, fall
+    // through to the regular victory ending.
+    const run = state.run;
+    const hasMoreEncounters =
+      run && Array.isArray(run.encounters) && run.currentIndex + 1 < run.encounters.length;
+    if (hasMoreEncounters) {
+      state.phase = "rewards";
+    } else {
+      state.phase = "game-over";
+      state.winner = "players";
+    }
     const finalName = state.monster?.name ?? "The encounter";
     pushEvent(state, "defeat", {
       target: { type: "monster" },
@@ -293,8 +438,10 @@ export function resolveRound(currentState) {
     const arenaLabel = (state.monsters ?? [state.monster]).map((m) => m.name).join(" and ");
     pushLog(state, {
       kind: "outcome",
-      outcome: "victory",
-      text: `${arenaLabel} fall. The party wins.`,
+      outcome: hasMoreEncounters ? "encounter-cleared" : "victory",
+      text: hasMoreEncounters
+        ? `${arenaLabel} fall. Choose your reward.`
+        : `${arenaLabel} fall. The party wins.`,
     });
     return state;
   }
@@ -374,8 +521,16 @@ function createPlayer(playerConfig, index) {
   }
 
   const id = playerConfig.id ?? `player-${index}`;
+  // Run deck additions: reward-screen card picks accumulated across
+  // earlier encounters in the same run. Append AFTER the starter list
+  // so the deck-size invariant ('starter must equal DECK_SIZE') stays
+  // intact, then the whole pile is shuffled together.
+  const runAdds = Array.isArray(playerConfig.runDeckAdds)
+    ? playerConfig.runDeckAdds
+    : [];
+  const fullList = deckList.concat(runAdds);
   const deck = shuffle(
-    deckList.map((cardId, cardIndex) => ({
+    fullList.map((cardId, cardIndex) => ({
       instanceId: `${id}-card-${cardIndex + 1}`,
       cardId,
     })),
@@ -386,6 +541,10 @@ function createPlayer(playerConfig, index) {
     name: playerConfig.name ?? classDef.shortName,
     classId: classDef.id,
     role: classDef.role,
+    // Surface the class's elemental id (storm-charge / hydroflow /
+    // bio-growth) so relics like Stormrunner Anchor can grant the
+    // right token without re-importing classDefinitions.
+    element: classDef.element ?? null,
     maxHp: classDef.maxHp,
     hp: classDef.maxHp,
     block: 0,
@@ -795,6 +954,22 @@ function dealMonsterDamage(state, player, amount, element) {
     const buckets = Math.floor(totalThreat / per);
     if (buckets > 0) {
       finalDamage += buckets * bonus;
+    }
+  }
+
+  // Relic onDamageDealt hooks — Fixate Lens, future damage relics.
+  // Each relic returns a (possibly-modified) amount; we chain them.
+  if (finalDamage > 0) {
+    for (const relicId of state.run?.relics ?? []) {
+      const relic = getRelic(relicId);
+      if (relic && typeof relic.onDamageDealt === "function") {
+        try {
+          const next = relic.onDamageDealt(state, player, finalDamage, null);
+          if (typeof next === "number" && next >= 0) finalDamage = next;
+        } catch (err) {
+          // ignore — buggy relic shouldn't tank the fight
+        }
+      }
     }
   }
 
@@ -1297,6 +1472,9 @@ function startNextRound(state) {
       }
     }
   }
+
+  // Run-scoped relic onRoundStart hooks (Networked Inverter etc.).
+  applyRelicHook("onRoundStart", state, { drawCards });
 
   const threatSummary = state.players
     .map((p) => `${p.name} ${getThreat(state, p.id)}`)

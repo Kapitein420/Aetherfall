@@ -1,5 +1,6 @@
 import { classDefinitions, selectableClasses } from "./content/classes.js";
-import { getCardDefinition } from "./content/cards.js";
+import { getCardDefinition, starterDecks } from "./content/cards.js";
+import { listRelics, getRelic } from "./content/relics.js";
 import { getChampionVisual, getEffectVisual, getMonsterVisual } from "./content/game-assets.js";
 import { listMonsters, listEncounters, getEncounter, DEFAULT_MONSTER_ID } from "./content/monsters.js";
 import { assetUrl } from "./content/asset-paths.js";
@@ -8,6 +9,7 @@ import { getElementIcon } from "./content/element-icons.js";
 import { getEffectDuration, getEffectName, shouldShowEffectAmount } from "./effects/effect-library.js";
 import {
   createCoopBattle,
+  advanceToNextEncounter,
   discardPartyCard,
   duplicatePartyCard,
   getRemainingEnergy,
@@ -33,6 +35,13 @@ const app = document.querySelector("#app");
 // later listeners (including the click handler that drives every action).
 const MONSTER_INTENT_ENABLED = true;
 const QUEUE_TETHERS_ENABLED = true;
+// Stat-pill icons. Inline SVG so they pick up `currentColor` from the
+// pill's class theme (HP green, Energy gold, Block cyan, Defense slate).
+// Sized at 1em so they scale with surrounding font-size.
+const HP_ICON = '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.5-10.4C1.4 6.6 4.2 3 7.7 3c2 0 3.4 1 4.3 2.4C12.9 4 14.3 3 16.3 3c3.5 0 6.3 3.6 5.2 7.6C19.5 16.4 12 21 12 21z" fill="currentColor"/></svg>';
+const ENERGY_ICON = '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><path d="M13.6 2L4.4 13.4h5.2L8.8 22l10-12.4h-5.4z" fill="currentColor"/></svg>';
+const BLOCK_ICON = '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><path d="M12 2.5l8 3v6.4c0 4.6-3.2 8.7-8 9.6-4.8-.9-8-5-8-9.6V5.5l8-3z" fill="currentColor"/></svg>';
+const DEF_ICON = '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><path d="M12 3l7 2.5v6c0 4-2.8 7.5-7 8.5-4.2-1-7-4.5-7-8.5v-6L12 3z" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
 // Drag-and-drop targeting is intentionally disabled for now to keep the
 // playfield uncluttered: hides the play-zone "middle layer" strip + the
 // drag-arrow SVG overlay + the floating drag ghost. Click-to-queue still
@@ -48,11 +57,27 @@ let setup = {
   playerCount: 2,
   playerClasses: ["storm-forge", "hydroflow", "storm-forge", "hydroflow"],
   monsterId: "bruiser-duo",
+  runLength: 3, // 1 = single fight (legacy), 3/5/7 = run of N encounters
 };
 
 let gameState = null;
 let message = "";
 let lastSeenEventId = 0;
+// HP-change flash bookkeeping: snapshot of last-seen HP keyed by
+// entity id so the next render can detect damage / heals and pulse
+// the corresponding stat pill. Cleared on game start / new game.
+const lastHpByEntity = new Map();
+// Pre-game flow phase. Splash is the title screen (Phase A skeleton —
+// title + "PRESS ANY KEY"); setup is the existing encounter/class
+// picker; combat is gameState !== null. Persists across renders.
+let screenPhase = "splash"; // 'splash' | 'setup'
+let splashLeaving = false;  // true during the fade-out transition
+// Round summary toast — populated after each resolveRound with the
+// per-player damage taken and per-monster damage dealt deltas, then
+// auto-cleared after ROUND_SUMMARY_MS.
+let lastSummary = null;
+let lastSummaryDismissTimer = null;
+const ROUND_SUMMARY_MS = 5000;
 let activeEffects = [];
 let effectInstanceId = 1;
 let dragInited = false;
@@ -66,6 +91,15 @@ let armedCard = null; // { playerId, instanceId, cardId } | null
 // hand label to focus that player; click again to clear. Per-client only —
 // not part of game state, so multiplayer peers each pick their own focus.
 let focusedPlayerId = null;
+// Deck viewer modal — { source: 'setup' | 'combat', playerId, classId }
+// Setup viewer shows the starter deck list verbatim; combat viewer
+// shows the player's current full deck (hand + draw pile + discard).
+let deckViewer = null;
+// Pending reward screen — populated whenever the engine flips
+// state.phase === "rewards" after a victory in a multi-encounter
+// run. Holds rolled card options per player + crystals earned, so
+// rerolls / skips don't re-roll new randoms each render.
+let pendingReward = null;
 
 installMultiplayerHooks({
   runAction: (action) => {
@@ -129,6 +163,41 @@ app.addEventListener("change", (event) => {
   render();
 });
 
+// Splash screen accepts ANY key as "start". Mirrors Elden Ring's
+// "press any button" affordance. Only fires while we're on the splash
+// screen and not already mid-transition; unbinds itself once the
+// player advances. The click pathway goes through data-action so the
+// regular delegate below handles it too.
+window.addEventListener("keydown", (event) => {
+  // Esc closes the deck viewer if open. Highest priority — beats
+  // splash advancement.
+  if (event.key === "Escape" && deckViewer) {
+    event.preventDefault();
+    deckViewer = null;
+    render();
+    return;
+  }
+  if (screenPhase !== "splash" || splashLeaving) return;
+  // Ignore meta-only presses (e.g. Tab focusing) — only commit on a
+  // typing key, Space, or Enter so the player feels they pressed it.
+  if (event.key === "Tab" || event.key === "Shift" || event.key === "Control"
+      || event.key === "Alt" || event.key === "Meta") return;
+  event.preventDefault();
+  advanceSplash();
+});
+
+function advanceSplash() {
+  if (screenPhase !== "splash" || splashLeaving) return;
+  splashLeaving = true;
+  render();
+  // Fade-out duration matches .title-splash.is-leaving in styles.css.
+  window.setTimeout(() => {
+    screenPhase = "setup";
+    splashLeaving = false;
+    render();
+  }, 480);
+}
+
 app.addEventListener("click", (event) => {
   const button = event.target.closest("[data-action]");
   if (!button) {
@@ -155,6 +224,45 @@ function handleAction(element) {
     return;
   }
 
+  if (action === "set-run-length") {
+    const next = Number.parseInt(element.dataset.runLength, 10);
+    if (Number.isInteger(next) && [1, 3, 5, 7].includes(next)) {
+      setup = { ...setup, runLength: next };
+      render();
+    }
+    return;
+  }
+
+  if (action === "splash-advance") {
+    advanceSplash();
+    return;
+  }
+
+  if (action === "claim-reward") {
+    handleClaimReward(element);
+    return;
+  }
+
+  if (action === "skip-reward") {
+    handleClaimReward({ dataset: { skip: "true" } });
+    return;
+  }
+
+  if (action === "open-deck-viewer") {
+    const playerId = element.dataset.playerId ?? null;
+    const classId = element.dataset.classId ?? null;
+    const source = element.dataset.source ?? (gameState ? "combat" : "setup");
+    deckViewer = { source, playerId, classId };
+    render();
+    return;
+  }
+
+  if (action === "close-deck-viewer") {
+    deckViewer = null;
+    render();
+    return;
+  }
+
   if (action === "start-game") {
     // Canonical: setup → battle directly. Party Deck draws auto-fire each
     // round inside the engine; no pre-fight pick.
@@ -164,6 +272,14 @@ function handleAction(element) {
     // the encounter registry to a monsterIds array; fall back to the
     // single monsterId path if the entry is unknown (legacy compat).
     const encounter = getEncounter(setup.monsterId);
+    // Run-mode: when runLength > 1, generate an ordered list of N
+     // encounters (the picked one plus (N-1) random others from the
+     // registry, no immediate repeats) and feed it as state.run.
+     const runLength = setup.runLength ?? 1;
+     let runState = null;
+     if (runLength > 1) {
+       runState = generateRun(setup.monsterId, runLength);
+     }
     const battleConfig = {
       players: activeClasses.map((classId, index) => ({
         id: `player-${index + 1}`,
@@ -171,7 +287,16 @@ function handleAction(element) {
         classId,
       })),
     };
-    if (encounter && encounter.monsterIds.length > 1) {
+    if (runState) {
+      battleConfig.run = runState;
+      const firstId = runState.encounters[0];
+      const firstEnc = getEncounter(firstId);
+      if (firstEnc && firstEnc.monsterIds.length > 1) {
+        battleConfig.monsterIds = firstEnc.monsterIds;
+      } else if (firstEnc) {
+        battleConfig.monsterId = firstEnc.monsterIds[0];
+      }
+    } else if (encounter && encounter.monsterIds.length > 1) {
       battleConfig.monsterIds = encounter.monsterIds;
     } else if (encounter) {
       battleConfig.monsterId = encounter.monsterIds[0];
@@ -346,28 +471,85 @@ function handleAction(element) {
 
   if (action === "resolve-round") {
     armedCard = null;
+    // Snapshot HPs before resolution so we can build a round summary
+    // diff (damage taken per player, damage dealt per monster).
+    const preRoundSnapshot = snapshotHpForSummary(gameState);
+    const resolvedRound = gameState.roundNumber;
     gameState = resolveRound(gameState);
     enqueueEffectsFromState(gameState);
-    message =
-      gameState.phase === "game-over"
-        ? gameState.winner === "players"
-          ? "The monster is defeated. Victory."
-          : "The party fell. Try a different plan."
-        : "New round. Draw 5, energy increases, threat decays.";
+    lastSummary = buildRoundSummary(preRoundSnapshot, gameState, resolvedRound);
+    if (lastSummaryDismissTimer) window.clearTimeout(lastSummaryDismissTimer);
+    lastSummaryDismissTimer = window.setTimeout(() => {
+      lastSummary = null;
+      render();
+    }, ROUND_SUMMARY_MS);
+    if (gameState.phase === "rewards") {
+      message = "Encounter cleared. Choose a reward to continue the run.";
+    } else if (gameState.phase === "game-over") {
+      message = gameState.winner === "players"
+        ? "The monster is defeated. Victory."
+        : "The party fell. Try a different plan.";
+    } else {
+      message = "New round. Draw 5, energy increases, threat decays.";
+    }
     render();
     notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
   }
+}
+
+function snapshotHpForSummary(state) {
+  return {
+    players: state.players.map((p) => ({ id: p.id, name: p.name, classId: p.classId, hp: p.hp })),
+    monsters: (state.monsters ?? [state.monster]).map((m) => ({
+      monsterId: m.monsterId ?? m.id,
+      name: m.name,
+      hp: m.hp,
+    })),
+  };
+}
+
+// Build the per-round summary by diffing pre/post HPs. Player damage
+// taken is pre.hp - post.hp; monster damage dealt is the same diff
+// on the monster side. Kills are monsters whose HP fell to 0 this
+// round but were alive before.
+function buildRoundSummary(pre, postState, roundNumber) {
+  const playerLines = pre.players.map((preP) => {
+    const post = postState.players.find((p) => p.id === preP.id);
+    const lost = Math.max(0, preP.hp - (post?.hp ?? 0));
+    return { id: preP.id, name: preP.name, classId: preP.classId, lost };
+  }).filter((line) => line.lost > 0);
+  const monsterLines = pre.monsters.map((preM) => {
+    const post = (postState.monsters ?? [postState.monster]).find(
+      (m) => (m.monsterId ?? m.id) === preM.monsterId,
+    );
+    const dealt = Math.max(0, preM.hp - (post?.hp ?? 0));
+    const killed = preM.hp > 0 && (post?.hp ?? 0) <= 0;
+    return { name: preM.name, dealt, killed };
+  }).filter((line) => line.dealt > 0 || line.killed);
+  return { round: roundNumber, players: playerLines, monsters: monsterLines };
 }
 
 function render() {
   let html;
   if (gameState) {
     html = renderGame();
+  } else if (screenPhase === "splash") {
+    html = renderSplash();
   } else {
     html = renderSetup();
   }
+  // Reward + run-complete screens overlay combat so the player still
+  // sees the cleared battlefield underneath while choosing the reward
+  // / reading the run summary. Order: deck-viewer last so it sits on
+  // top if both are open (rare — only if the player popped the deck
+  // mid-reward to compare).
+  ensurePendingReward();
+  html += renderRewardScreen();
+  html += renderRunCompleteScreen();
+  html += renderDeckViewer();
   app.innerHTML = html;
-  document.body.dataset.gameView = gameState ? "active" : "";
+  document.body.dataset.gameView = gameState ? "active" : screenPhase;
+  document.body.dataset.modalOpen = (deckViewer || pendingReward || gameState?.phase === "run-complete") ? "true" : "";
 
   if (DRAG_AND_DROP_ENABLED && gameState && gameState.phase !== "game-over") {
     if (!dragInited) {
@@ -390,6 +572,29 @@ function render() {
   if (gameState && QUEUE_TETHERS_ENABLED) {
     // Defer one frame so the new DOM has its layout boxes.
     window.requestAnimationFrame(() => drawQueueTethers());
+  }
+
+  // HP-change flash. Snapshot every stat-hp pill's current HP and
+  // compare to the value we recorded last render — if HP dropped, the
+  // pill flashes red; if it rose, green. Animation lifecycle is pure
+  // CSS once the class is on; we just remove it after the keyframe
+  // duration so subsequent renders can re-trigger.
+  if (gameState) {
+    document.querySelectorAll(".stat-pill.stat-hp[data-hp-entity]").forEach((pill) => {
+      const entity = pill.dataset.hpEntity;
+      const current = Number(pill.dataset.hpCurrent ?? 0);
+      const prev = lastHpByEntity.get(entity);
+      if (prev !== undefined && current !== prev) {
+        const cls = current < prev ? "is-flashing-damage" : "is-flashing-heal";
+        pill.classList.remove("is-flashing-damage", "is-flashing-heal");
+        // Force reflow so the animation restarts on consecutive hits
+        // eslint-disable-next-line no-unused-expressions
+        pill.offsetWidth;
+        pill.classList.add(cls);
+        window.setTimeout(() => pill.classList.remove(cls), 700);
+      }
+      lastHpByEntity.set(entity, current);
+    });
   }
 }
 
@@ -447,6 +652,429 @@ function findTargetElement(targetKeyValue) {
     return document.querySelector(`[data-target-zone="player"][data-player-id="${id}"]`);
   }
   return null;
+}
+
+// Run-progression helpers — generate encounter list, roll reward
+// options, advance run on claim, etc. Phase 2/3 of the rogue-lite
+// roadmap; Phase 4 (relics) and 5 (run-end UI) build on these.
+
+const REWARD_CRYSTALS_PER_FIGHT = 5;
+const REWARD_CARD_OPTIONS = 3;
+
+// Build an ordered N-encounter run starting with the picked encounter
+// id. Subsequent fights are sampled (no immediate repeats) from the
+// rest of the encounter registry. Future iterations can layer in
+// difficulty curves (normal → elite → boss), but uniform-random keeps
+// the schema simple for v1.
+function generateRun(firstEncounterId, length) {
+  const allEncounters = listEncounters().map((e) => e.id);
+  const encounters = [firstEncounterId];
+  const pool = allEncounters.filter((id) => id !== firstEncounterId);
+  while (encounters.length < length && pool.length > 0) {
+    const i = Math.floor(Math.random() * pool.length);
+    encounters.push(pool.splice(i, 1)[0]);
+  }
+  // If we ran out of unique encounters, pad with random repeats.
+  while (encounters.length < length) {
+    const i = Math.floor(Math.random() * allEncounters.length);
+    encounters.push(allEncounters[i]);
+  }
+  return {
+    encounters,
+    currentIndex: 0,
+    crystals: 0,
+    runDeckAdds: {},
+    relics: [],
+  };
+}
+
+// Roll N random cards per player from their class's starter pool.
+// Same-class only (per design decision): keeps balance tight while
+// the reward economy is young. v2 can add a curated reward-only pool.
+function rollRewardOptions(state) {
+  const opts = {};
+  for (const player of state.players) {
+    const pool = (starterDecks[player.classId] ?? []).slice();
+    // De-duplicate so a player isn't offered three identical "Basic
+    // Attack"s on the reward screen.
+    const unique = Array.from(new Set(pool));
+    const choices = [];
+    while (choices.length < REWARD_CARD_OPTIONS && unique.length > 0) {
+      const i = Math.floor(Math.random() * unique.length);
+      choices.push(unique.splice(i, 1)[0]);
+    }
+    opts[player.id] = choices;
+  }
+  return opts;
+}
+
+// Build the reward screen state once when the engine flips to phase
+// "rewards" so re-renders don't re-roll new card options. Cleared
+// when the run advances or the player skips.
+function ensurePendingReward() {
+  if (!gameState || gameState.phase !== "rewards") {
+    pendingReward = null;
+    return;
+  }
+  if (pendingReward && pendingReward.encounterIndex === gameState.run?.currentIndex) {
+    return; // already rolled for this fight
+  }
+  // Determine if the encounter just cleared was a "boss" — single-
+  // monster encounters in the registry are bosses by nature
+  // (Hollow Titan, Ironjaw Bruiser, Warden of Targeting); multi-
+  // monster encounters are not. Boss clears drop a relic offer.
+  const justClearedId = gameState.run?.encounters[gameState.run.currentIndex];
+  const justClearedEnc = justClearedId ? getEncounter(justClearedId) : null;
+  const isBoss = !!(justClearedEnc && justClearedEnc.monsterIds.length === 1);
+  // Crystal Refractor relic: +5 bonus crystals per clear.
+  const ownedRelics = gameState.run?.relics ?? [];
+  const crystalBonus = ownedRelics.reduce((sum, id) => {
+    const r = getRelic(id);
+    return sum + (r?.bonusCrystalsPerClear ?? 0);
+  }, 0);
+  pendingReward = {
+    encounterIndex: gameState.run?.currentIndex ?? 0,
+    crystalsEarned: REWARD_CRYSTALS_PER_FIGHT + crystalBonus,
+    cardOptionsByPlayer: rollRewardOptions(gameState),
+    picksByPlayer: {}, // playerId -> cardId once chosen
+    isBoss,
+    relicOptions: isBoss ? rollRelicOptions(gameState) : [],
+    relicPick: null, // relic id or null (skipped)
+  };
+}
+
+// Roll 2 relic options the party doesn't already own. Boss-clear
+// reward (per Phase 4 design: B — boss encounters drop a relic).
+function rollRelicOptions(state) {
+  const owned = new Set(state.run?.relics ?? []);
+  const pool = listRelics().filter((r) => !owned.has(r.id));
+  const shuffled = pool.slice().sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 2).map((r) => r.id);
+}
+
+// Click handler for "claim this reward and advance" / "skip".
+// Tolerates both per-player picks (data-player-id + data-card-id)
+// and a final "advance to next fight" button (data-advance-only).
+function handleClaimReward(element) {
+  if (!pendingReward || !gameState) return;
+  const ds = element.dataset ?? {};
+  // Per-player card pick path: clicking one of the three card
+  // options for that player toggles it as their pick.
+  if (ds.playerId && ds.cardId) {
+    pendingReward.picksByPlayer[ds.playerId] = ds.cardId;
+    render();
+    return;
+  }
+  if (ds.playerId && ds.skipPlayer === "true") {
+    pendingReward.picksByPlayer[ds.playerId] = null;
+    render();
+    return;
+  }
+  // Relic pick (boss clears only) — toggles the relic for the party.
+  if (ds.relicId) {
+    pendingReward.relicPick = pendingReward.relicPick === ds.relicId ? null : ds.relicId;
+    render();
+    return;
+  }
+  if (ds.skipRelic === "true") {
+    pendingReward.relicPick = null;
+    render();
+    return;
+  }
+  // Advance: every player has either picked or skipped (null).
+  // For simplicity, treat any unset player as a skip on advance.
+  const picks = {};
+  for (const p of gameState.players) {
+    const pick = pendingReward.picksByPlayer[p.id];
+    if (pick) picks[p.id] = pick;
+  }
+  // Resolve the encounter id list to monsterIds via the registry.
+  const nextIndex = (gameState.run?.currentIndex ?? 0) + 1;
+  const nextEncounterId = gameState.run?.encounters[nextIndex];
+  const enc = nextEncounterId ? getEncounter(nextEncounterId) : null;
+  const monsterIds = enc?.monsterIds ?? [];
+  gameState = advanceToNextEncounter(gameState, {
+    crystalsEarned: pendingReward.crystalsEarned,
+    picks,
+    relicPick: pendingReward.relicPick,
+    monsterIds,
+  });
+  pendingReward = null;
+  lastSeenEventId = getLatestEventId(gameState);
+  activeEffects = [];
+  message = gameState.phase === "run-complete"
+    ? "Run complete. Every encounter cleared."
+    : "Next encounter inbound. Plan your opening moves.";
+  render();
+  notifyMultiplayer({ type: "claim-reward", dataset: {} });
+}
+
+// Reward screen — full-page overlay between encounters. Each player
+// gets a row with three card options (their class's starter pool,
+// de-duplicated); they click one to pick, or "Skip" to take no
+// card. A central "Continue" button advances the run to the next
+// encounter once everyone has decided.
+function renderRewardScreen() {
+  if (!pendingReward || !gameState) return "";
+  const run = gameState.run ?? {};
+  const cleared = (run.currentIndex ?? 0) + 1;
+  const total = run.encounters?.length ?? 1;
+  const playerRows = gameState.players.map((player) => {
+    const options = pendingReward.cardOptionsByPlayer[player.id] ?? [];
+    const pickedId = pendingReward.picksByPlayer[player.id];
+    const cardChoices = options.map((cardId) => {
+      let card;
+      try { card = getCardDefinition(cardId); } catch { return ""; }
+      const picked = pickedId === cardId;
+      return `
+        <button
+          type="button"
+          class="reward-card class-${escapeHtml(player.classId)} role-${escapeHtml(card.role)} ${picked ? "is-picked" : ""}"
+          data-action="claim-reward"
+          data-player-id="${player.id}"
+          data-card-id="${cardId}"
+          aria-pressed="${picked ? "true" : "false"}"
+        >
+          <span class="reward-card-cost">${card.cost}</span>
+          <span class="reward-card-name">${escapeHtml(card.name)}</span>
+          <span class="reward-card-role">${escapeHtml(formatRole(card.role))}</span>
+          <span class="reward-card-text">${escapeHtml(card.text)}</span>
+          ${picked ? `<span class="reward-card-picked-badge">Picked</span>` : ""}
+        </button>
+      `;
+    }).join("");
+    const skipped = pickedId === null;
+    return `
+      <section class="reward-row class-${escapeHtml(player.classId)}">
+        <header class="reward-row-head">
+          <h3>${escapeHtml(player.name)}</h3>
+          <span class="reward-row-sub">${escapeHtml(player.role ?? "")}</span>
+          <button
+            type="button"
+            class="reward-row-skip ${skipped ? "is-active" : ""}"
+            data-action="claim-reward"
+            data-player-id="${player.id}"
+            data-skip-player="true"
+            aria-pressed="${skipped ? "true" : "false"}"
+          >Skip</button>
+        </header>
+        <div class="reward-row-cards">${cardChoices}</div>
+      </section>
+    `;
+  }).join("");
+  // Boss-clear bonus: relic offer (2 options + skip)
+  const relicSection = pendingReward.isBoss && pendingReward.relicOptions.length > 0
+    ? `<section class="reward-relic-section">
+         <h3 class="reward-relic-title">Boss reward — claim one relic</h3>
+         <div class="reward-relic-row">
+           ${pendingReward.relicOptions.map((rid) => {
+             const r = getRelic(rid);
+             if (!r) return "";
+             const picked = pendingReward.relicPick === rid;
+             return `
+               <button
+                 type="button"
+                 class="reward-relic-card category-${escapeHtml(r.category)} ${picked ? "is-picked" : ""}"
+                 data-action="claim-reward"
+                 data-relic-id="${escapeHtml(r.id)}"
+                 aria-pressed="${picked ? "true" : "false"}"
+               >
+                 <span class="reward-relic-icon" aria-hidden="true">${escapeHtml(r.icon ?? "✦")}</span>
+                 <span class="reward-relic-name">${escapeHtml(r.name)}</span>
+                 <span class="reward-relic-desc">${escapeHtml(r.description)}</span>
+                 ${picked ? `<span class="reward-card-picked-badge">Picked</span>` : ""}
+               </button>
+             `;
+           }).join("")}
+           <button
+             type="button"
+             class="reward-relic-skip ${pendingReward.relicPick === null ? "is-active" : ""}"
+             data-action="claim-reward"
+             data-skip-relic="true"
+           >Skip relic</button>
+         </div>
+       </section>`
+    : "";
+  return `
+    <div class="reward-screen-backdrop" role="dialog" aria-modal="true" aria-label="Encounter cleared — choose rewards">
+      <div class="reward-screen-panel">
+        <header class="reward-screen-head">
+          <p class="reward-screen-eyebrow">${pendingReward.isBoss ? "Boss" : "Encounter"} ${cleared} of ${total} cleared</p>
+          <h2 class="reward-screen-title">Choose your reward</h2>
+          <p class="reward-screen-crystals">+${pendingReward.crystalsEarned} crystals · ${(run.crystals ?? 0) + pendingReward.crystalsEarned} total</p>
+        </header>
+        <div class="reward-screen-body">
+          ${playerRows}
+          ${relicSection}
+        </div>
+        <footer class="reward-screen-foot">
+          <button type="button" class="reward-screen-advance" data-action="claim-reward">
+            Continue → Encounter ${cleared + 1}
+          </button>
+        </footer>
+      </div>
+    </div>
+  `;
+}
+
+// Run end splash — handles both the victorious "run-complete" path
+// and the "run-failed" path when the party falls mid-run. Both share
+// the same layout (centered panel + run stats + restart button) but
+// theme + copy differ.
+function renderRunCompleteScreen() {
+  if (!gameState) return "";
+  const isComplete = gameState.phase === "run-complete";
+  const isRunFailure = gameState.phase === "game-over"
+    && gameState.winner === "monster"
+    && gameState.run
+    && Array.isArray(gameState.run.encounters)
+    && gameState.run.encounters.length > 1;
+  if (!isComplete && !isRunFailure) return "";
+  const run = gameState.run ?? {};
+  const cleared = isComplete ? run.encounters.length : (run.currentIndex ?? 0);
+  const total = run.encounters?.length ?? 0;
+  const cardsPicked = Object.values(run.runDeckAdds ?? {}).reduce((sum, arr) => sum + arr.length, 0);
+  const relicCount = (run.relics ?? []).length;
+  const relicNames = (run.relics ?? []).map((id) => getRelic(id)?.name).filter(Boolean).join(" · ");
+  const eyebrow = isComplete ? "Run complete" : "Run failed";
+  const title = isComplete ? "Every encounter cleared" : "The party fell";
+  const themeClass = isComplete ? "is-victory" : "is-defeat";
+  const buttonLabel = isComplete ? "Begin a new run" : "Try again";
+  return `
+    <div class="run-complete-backdrop ${themeClass}" role="dialog" aria-modal="true" aria-label="${eyebrow}">
+      <div class="run-complete-panel">
+        <p class="run-complete-eyebrow">${escapeHtml(eyebrow)}</p>
+        <h2 class="run-complete-title">${escapeHtml(title)}</h2>
+        <p class="run-complete-stats">
+          ${cleared} of ${total} encounter${total === 1 ? "" : "s"} cleared
+          · ${run.crystals ?? 0} crystals
+          · ${cardsPicked} card${cardsPicked === 1 ? "" : "s"} picked
+          · ${relicCount} relic${relicCount === 1 ? "" : "s"}
+        </p>
+        ${relicNames ? `<p class="run-complete-relics">Relics: ${escapeHtml(relicNames)}</p>` : ""}
+        <button type="button" class="run-complete-button" data-action="new-game">${escapeHtml(buttonLabel)}</button>
+      </div>
+    </div>
+  `;
+}
+
+// Deck viewer modal. Shows the cards in a player's deck as a flat
+// scrollable grid grouped by role. Source decides what we show:
+//   source === 'setup'  → the starter deck list for the picked class
+//   source === 'combat' → the player's current deck = hand + deck +
+//                         discard (every card still in the run)
+// Click anywhere on the dim backdrop or the close button to dismiss.
+function renderDeckViewer() {
+  if (!deckViewer) return "";
+
+  let cardIds = [];
+  let title = "";
+  let subtitle = "";
+  let theme = "";
+
+  if (deckViewer.source === "setup" && deckViewer.classId) {
+    cardIds = starterDecks[deckViewer.classId] ?? [];
+    const klass = classDefinitions[deckViewer.classId];
+    title = klass ? `${klass.shortName} starter deck` : "Deck preview";
+    subtitle = klass ? `${cardIds.length} cards · ${klass.role}` : `${cardIds.length} cards`;
+    theme = `class-${deckViewer.classId}`;
+  } else if (deckViewer.source === "combat" && deckViewer.playerId && gameState) {
+    const player = gameState.players.find((p) => p.id === deckViewer.playerId);
+    if (!player) return "";
+    const collected = [
+      ...(player.hand ?? []),
+      ...(player.deck ?? []),
+      ...(player.planned ?? []),
+      ...(player.discard ?? []),
+    ];
+    cardIds = collected.map((c) => c.cardId);
+    title = `${player.name}'s deck`;
+    subtitle = `${cardIds.length} cards · ${player.hand.length} in hand · ${player.deck.length} in draw · ${player.discard.length} in discard`;
+    theme = `class-${player.classId}`;
+  } else {
+    return "";
+  }
+
+  // Group by card.role so attacks / defends / heals etc. cluster together.
+  const groups = new Map();
+  for (const id of cardIds) {
+    let card;
+    try { card = getCardDefinition(id); } catch { continue; }
+    const role = card.role ?? "other";
+    if (!groups.has(role)) groups.set(role, []);
+    groups.get(role).push(card);
+  }
+  // Stable role order
+  const ROLE_ORDER = ["attack", "defense", "healing", "support", "unique"];
+  const orderedGroups = ROLE_ORDER.filter((r) => groups.has(r))
+    .concat([...groups.keys()].filter((r) => !ROLE_ORDER.includes(r)))
+    .map((role) => [role, groups.get(role)]);
+
+  const groupsMarkup = orderedGroups.map(([role, cards]) => {
+    const roleLabel = formatRole(role);
+    const cardItems = cards.map((c) => `
+      <li class="deck-viewer-card class-${escapeHtml(c.classId)} role-${escapeHtml(c.role)}">
+        <span class="deck-viewer-cost">${c.cost}</span>
+        <span class="deck-viewer-name">${escapeHtml(c.name)}</span>
+        <span class="deck-viewer-role">${escapeHtml(roleLabel)}</span>
+        <span class="deck-viewer-text">${escapeHtml(c.text)}</span>
+      </li>
+    `).join("");
+    return `
+      <section class="deck-viewer-group">
+        <h3 class="deck-viewer-group-head">
+          <span class="deck-viewer-group-name">${escapeHtml(roleLabel)}</span>
+          <span class="deck-viewer-group-count">${cards.length}</span>
+        </h3>
+        <ul class="deck-viewer-grid">${cardItems}</ul>
+      </section>
+    `;
+  }).join("");
+
+  return `
+    <div class="deck-viewer-backdrop" role="dialog" aria-modal="true" aria-label="Deck viewer">
+      <div class="deck-viewer-panel ${theme}">
+        <header class="deck-viewer-head">
+          <div>
+            <p class="deck-viewer-eyebrow">Deck</p>
+            <h2 class="deck-viewer-title">${escapeHtml(title)}</h2>
+            <p class="deck-viewer-subtitle">${escapeHtml(subtitle)}</p>
+          </div>
+          <button class="deck-viewer-close" type="button" data-action="close-deck-viewer" aria-label="Close deck viewer">×</button>
+        </header>
+        <div class="deck-viewer-body">${groupsMarkup}</div>
+      </div>
+    </div>
+  `;
+}
+
+// Title splash — the first screen the player sees. Phase A skeleton:
+// no parallax / particles yet (those land in Phase B/C per
+// docs/menu-design.md). Just the title art, a slow-breathing
+// "PRESS ANY KEY" prompt, and a background that uses the
+// battlefield image until a dedicated splash painting arrives.
+function renderSplash() {
+  return `
+    <section class="title-splash ${splashLeaving ? "is-leaving" : ""}" data-screen="splash">
+      <div class="title-splash-bg" aria-hidden="true"></div>
+      <div class="title-splash-vignette" aria-hidden="true"></div>
+      <div class="title-splash-content">
+        <p class="title-splash-eyebrow">A co-op deck-building boss trial</p>
+        <h1 class="title-splash-name">
+          <span class="title-splash-line-1">The Fracture of</span>
+          <span class="title-splash-line-2">AETHERFALL</span>
+        </h1>
+        <button
+          class="title-splash-prompt"
+          type="button"
+          data-action="splash-advance"
+          aria-label="Press any key to continue"
+        >
+          Press any key
+        </button>
+      </div>
+    </section>
+  `;
 }
 
 function renderSetup() {
@@ -546,8 +1174,23 @@ function renderEncounterPicker() {
             ${countOptions}
           </div>
         </div>
+        <div class="setup-run-length" role="group" aria-label="Run length">
+          <span class="setup-deck-label">Run length</span>
+          <div class="player-count-segment">
+            ${[1, 3, 5, 7].map((n) => `
+              <button
+                type="button"
+                class="player-count-pill ${setup.runLength === n ? "is-active" : ""}"
+                data-action="set-run-length"
+                data-run-length="${n}"
+                aria-pressed="${setup.runLength === n ? "true" : "false"}"
+                title="${n === 1 ? "Single fight (legacy)" : `${n}-encounter run`}"
+              >${n === 1 ? "1×" : `${n}×`}</button>
+            `).join("")}
+          </div>
+        </div>
         <label class="setup-encounter-selector">
-          <span class="setup-deck-label">Choose monster</span>
+          <span class="setup-deck-label">Choose first encounter</span>
           <select data-setup-field="monsterId">
             ${monsters
               .map(
@@ -608,6 +1251,14 @@ function renderSetupPlayer(label, slotIndex) {
             .join("")}
         </select>
       </label>
+      <button
+        type="button"
+        class="setup-preview-deck"
+        data-action="open-deck-viewer"
+        data-source="setup"
+        data-class-id="${selectedClass.id}"
+        title="Preview the cards in this starter deck"
+      >Preview deck</button>
     </section>
   `;
 }
@@ -867,10 +1518,69 @@ function renderGame() {
         </div>
       </div>
 
+      ${renderRoundSummary()}
       ${renderActionBar(gameState, totalQueued, gameOver)}
 
       <div class="standoff-drag-ghost" data-drag-ghost aria-hidden="true"></div>
     </section>
+  `;
+}
+
+// Round summary toast — auto-shown for ROUND_SUMMARY_MS after each
+// resolveRound. Compact card listing damage taken per player and
+// damage dealt per monster (kills get a flag). Floats above the
+// action bar so it's noticeable but doesn't block the play surface.
+function renderRoundSummary() {
+  if (!lastSummary) return "";
+  const { round, players, monsters } = lastSummary;
+  if (players.length === 0 && monsters.length === 0) return "";
+  const playerLines = players.map((p) =>
+    `<li class="round-summary-line class-${p.classId}">
+       <span class="round-summary-name">${escapeHtml(p.name)}</span>
+       <span class="round-summary-num round-summary-loss">−${p.lost}</span>
+     </li>`).join("");
+  const monsterLines = monsters.map((m) =>
+    `<li class="round-summary-line ${m.killed ? "is-killed" : ""}">
+       <span class="round-summary-name">${escapeHtml(m.name)}${m.killed ? " · slain" : ""}</span>
+       <span class="round-summary-num round-summary-deal">−${m.dealt}</span>
+     </li>`).join("");
+  return `
+    <aside class="round-summary" aria-live="polite">
+      <header class="round-summary-head">
+        <span class="round-summary-eyebrow">Round ${round} resolved</span>
+      </header>
+      ${players.length ? `<ul class="round-summary-list" data-side="players">
+        <li class="round-summary-section">Damage taken</li>
+        ${playerLines}
+      </ul>` : ""}
+      ${monsters.length ? `<ul class="round-summary-list" data-side="monsters">
+        <li class="round-summary-section">Damage dealt</li>
+        ${monsterLines}
+      </ul>` : ""}
+    </aside>
+  `;
+}
+
+// Compact run-status section in the action bar — shows fight number,
+// crystal count, and active relics. Only renders during a run.
+function renderRunStatusSection(state) {
+  const run = state.run;
+  if (!run || !Array.isArray(run.encounters) || run.encounters.length <= 1) return "";
+  const fightNum = (run.currentIndex ?? 0) + 1;
+  const totalFights = run.encounters.length;
+  const crystals = run.crystals ?? 0;
+  const relics = run.relics ?? [];
+  const relicChips = relics.map((id) => {
+    const r = getRelic(id);
+    if (!r) return "";
+    return `<span class="ab-relic-chip" title="${escapeHtml(r.name)}: ${escapeHtml(r.description)}">${escapeHtml(r.icon ?? "✦")}</span>`;
+  }).join("");
+  return `
+    <div class="ab-section ab-run" title="Run progress">
+      <span class="ab-run-fight">Fight ${fightNum}/${totalFights}</span>
+      <span class="ab-run-crystals" title="Crystals">◈ ${crystals}</span>
+      ${relicChips ? `<span class="ab-run-relics" title="Relics in play">${relicChips}</span>` : ""}
+    </div>
   `;
 }
 
@@ -893,6 +1603,7 @@ function renderActionBar(state, totalQueued, gameOver) {
         <span class="ab-blessing-label">Auras</span>
         <strong class="ab-blessing-name">${auraCount}</strong>
       </div>` : ""}
+      ${renderRunStatusSection(state)}
       <div class="ab-section ab-controls">
         <span class="ab-queued">${totalQueued} queued</span>
         <button class="ab-resolve" type="button" data-action="resolve-round" ${gameOver ? "disabled" : ""}>${gameOver ? "Round closed" : "Resolve round"}</button>
@@ -938,14 +1649,61 @@ function renderMonsterRoster(state) {
   const slots = monsters.map((monster) => {
     const armed = !!armedCard && monster.hp > 0;
     const dead = monster.hp <= 0 ? "is-dead" : "";
+    const intent = MONSTER_INTENT_ENABLED ? computeMonsterIntentFor(state, monster) : null;
     return `
       <div class="monster-slot ${dead}">
+        ${renderMonsterIntentChip(intent)}
         ${renderMonsterFigure(monster, { armedTarget: armed })}
         ${renderMonsterBaseplate(monster)}
       </div>
     `;
   }).join("");
   return `<div class="monster-roster ${isMulti ? "is-multi" : "is-solo"}">${slots}</div>`;
+}
+
+// Per-monster intent chip — Slay the Spire-style preview of the next
+// attack. Shows damage tier (color), hit count, target with class
+// color, and a "through block" hint when the hit would punch past
+// the target's current block.
+function renderMonsterIntentChip(intent) {
+  if (!intent) return "";
+  const targetPlayer = (gameState.players ?? []).find((p) => p.id === intent.targetId);
+  const totalIncoming = intent.damage * intent.actions;
+  // Damage tier — drives chip color. Single-hit damage thresholds:
+  //   light  ≤ 3       (most basic attacks)
+  //   medium 4-6       (mid-tier squad attacks)
+  //   heavy  7-9       (named fixate attacks, finisher tier)
+  //   critical 10+     (executes / boss windups)
+  const tier = intent.damage >= 10 ? "critical"
+    : intent.damage >= 7 ? "heavy"
+    : intent.damage >= 4 ? "medium"
+    : "light";
+  // Block forecast — would the next hit punch through the target's
+  // current block? Helpful at-a-glance for "do I need more block?".
+  const targetBlock = targetPlayer?.block ?? 0;
+  const willBreak = targetBlock > 0 && intent.damage > targetBlock;
+  const blockHint = targetBlock > 0
+    ? (willBreak ? "breaks block" : "blocked")
+    : "";
+  const titleLabel = intent.actions > 1
+    ? `Next: ${intent.actions} × ${intent.damage} damage to ${intent.targetName}`
+    : `Next attack: ${intent.damage} damage to ${intent.targetName}`;
+  const classMod = targetPlayer ? `class-${targetPlayer.classId}` : "";
+  return `
+    <div class="monster-intent-chip tier-${tier} ${intent.isFixated ? "is-fixated" : ""}" title="${escapeHtml(titleLabel)}">
+      <span class="intent-attack">
+        <span class="intent-icon" aria-hidden="true">⚔</span>
+        <strong class="intent-damage">${intent.damage}</strong>
+        ${intent.actions > 1 ? `<span class="intent-multi" aria-label="${intent.actions} hits">×${intent.actions}</span>` : ""}
+      </span>
+      <span class="intent-arrow" aria-hidden="true">→</span>
+      <span class="intent-target ${classMod}">
+        <span class="intent-target-dot" aria-hidden="true"></span>
+        <span class="intent-target-name">${escapeHtml(intent.targetName)}</span>
+      </span>
+      ${blockHint ? `<span class="intent-block-hint ${willBreak ? "is-break" : "is-blocked"}" aria-label="${blockHint}">${blockHint}</span>` : ""}
+    </div>
+  `;
 }
 
 // Decides whether playing a card should arm the target picker. A card
@@ -1079,19 +1837,27 @@ function renderMonsterStatusPips(monster) {
 
 function renderMonsterBaseplate(monster) {
   const hpPercent = Math.max(0, Math.round((monster.hp / monster.maxHp) * 100));
+  const defense = monster.defense ?? 0;
+  const eyebrow = [monster.role, monster.faction].filter(Boolean).join(" · ");
   return `
     <div class="baseplate monster-baseplate">
-      <div class="baseplate-name">
-        <p class="eyebrow">Threat encounter</p>
-        <h2>${escapeHtml(monster.name)}</h2>
-        ${renderMonsterStatLine(monster)}
+      <div class="baseplate-head">
+        <h2 class="baseplate-name">${escapeHtml(monster.name)}</h2>
+        ${eyebrow ? `<span class="baseplate-eyebrow">${escapeHtml(eyebrow)}</span>` : ""}
       </div>
-      <div class="baseplate-meter">
-        <div class="meter-track meter-hp">
-          <em style="width: ${hpPercent}%"></em>
-        </div>
-        <strong>${monster.hp} / ${monster.maxHp} HP</strong>
+      <div class="stat-pill-row">
+        <span class="stat-pill stat-hp" title="Hit points" data-hp-entity="monster:${escapeHtml(monster.monsterId ?? monster.name)}" data-hp-current="${monster.hp}">
+          <span class="stat-icon" aria-hidden="true">${HP_ICON}</span>
+          <span class="stat-bar"><em style="width: ${hpPercent}%"></em></span>
+          <span class="stat-num">${monster.hp}/${monster.maxHp}</span>
+        </span>
+        ${defense > 0 ? `
+          <span class="stat-pill stat-def" title="Defense (flat damage reduction)">
+            <span class="stat-icon" aria-hidden="true">${DEF_ICON}</span>
+            <span class="stat-num">${defense}</span>
+          </span>` : ""}
       </div>
+      ${renderMonsterStatLine(monster)}
       ${renderMonsterResistances(monster)}
       <div class="threat-pip-row">
         ${gameState.players
@@ -1115,10 +1881,10 @@ function renderMonsterBaseplate(monster) {
 }
 
 function renderMonsterStatLine(monster) {
+  // DEF moved into the unified .stat-pill-row in renderMonsterBaseplate
+  // (Phase 1 polish). This function now only surfaces multi-action /
+  // phase context that doesn't fit a one-shot pill.
   const parts = [];
-  if (typeof monster.defense === "number" && monster.defense > 0) {
-    parts.push(`<span class="monster-stat-chip stat-defense" title="Damage reduction (after element multiplier)">DEF ${monster.defense}</span>`);
-  }
   const actions = monster.actionsPerTurn ?? 1;
   if (actions > 1) {
     parts.push(`<span class="monster-stat-chip stat-actions" title="Actions per monster turn">${actions} actions</span>`);
@@ -1225,26 +1991,40 @@ function renderChampion(player, side, intent) {
         </div>
       </div>
       <div class="baseplate champion-baseplate">
-        <div class="baseplate-row">
-          <h3>${escapeHtml(player.name)}</h3>
-          <span>${escapeHtml(classDef.role)}</span>
+        <div class="baseplate-head">
+          <h3 class="baseplate-name">${escapeHtml(player.name)}</h3>
+          <span class="baseplate-eyebrow">${escapeHtml(classDef.role)}</span>
         </div>
-        <div class="baseplate-meter">
-          <div class="meter-track meter-hp">
-            <em style="width: ${hpPercent}%"></em>
-          </div>
-          <strong>${player.hp} / ${player.maxHp}</strong>
-        </div>
-        <div class="baseplate-stats">
-          <span class="stat-chip stat-energy">
-            <em>${remainingEnergy}</em><span>/${player.energy} Energy</span>
+        <div class="stat-pill-row">
+          <span class="stat-pill stat-hp" title="Hit points" data-hp-entity="player:${escapeHtml(player.id)}" data-hp-current="${player.hp}">
+            <span class="stat-icon" aria-hidden="true">${HP_ICON}</span>
+            <span class="stat-bar"><em style="width: ${hpPercent}%"></em></span>
+            <span class="stat-num">${player.hp}/${player.maxHp}</span>
           </span>
-          <span class="stat-chip stat-block">
-            <em>${player.block}</em><span>Block</span>
+          <span class="stat-pill stat-energy" title="Energy">
+            <span class="stat-icon" aria-hidden="true">${ENERGY_ICON}</span>
+            <span class="stat-num">${remainingEnergy}/${player.energy}</span>
           </span>
+          ${player.block > 0 ? `
+            <span class="stat-pill stat-block" title="Block">
+              <span class="stat-icon" aria-hidden="true">${BLOCK_ICON}</span>
+              <span class="stat-num">${player.block}</span>
+            </span>` : ""}
         </div>
         ${renderPlayerTokens(player)}
         ${renderPlayerBuffs(player)}
+        <button
+          type="button"
+          class="champion-deck-button"
+          data-action="open-deck-viewer"
+          data-source="combat"
+          data-player-id="${player.id}"
+          aria-label="View ${escapeHtml(player.name)}'s deck"
+          title="View deck"
+        >
+          <span class="champion-deck-button-icon" aria-hidden="true">▤</span>
+          Deck (${(player.hand?.length ?? 0) + (player.deck?.length ?? 0) + (player.discard?.length ?? 0) + (player.planned?.length ?? 0)})
+        </button>
       </div>
     </div>
   `;
@@ -1287,18 +2067,42 @@ function renderPlayerTokens(player) {
   if (!counts.some(({ count }) => count > 0)) {
     return "";
   }
+  // Spend-preview: when this player has an armed card with a
+  // spendToken rider, the matching token chip pulses so they can see
+  // "this is the token that'll be consumed if I confirm".
+  const armedSpendKey = getArmedSpendTokenKey(player);
   const chips = counts
     .filter(({ count }) => count > 0)
     .map(({ def, count }) => {
       const icon = getElementIcon(def.elementId, { title: def.label });
+      const willSpend = armedSpendKey === def.key && count > 0;
       return `
-        <span class="token-chip ${def.cls}" title="${escapeHtml(def.title)}" aria-label="${escapeHtml(def.label)}: ${count}">
+        <span class="token-chip ${def.cls} ${willSpend ? "is-pending-spend" : ""}" title="${escapeHtml(def.title)}" aria-label="${escapeHtml(def.label)}: ${count}">
           <span class="token-chip-icon" aria-hidden="true">${icon}</span>
           <strong>${count}</strong>
         </span>
       `;
     });
   return `<div class="player-tokens" role="group" aria-label="Element tokens">${chips.join("")}</div>`;
+}
+
+// Returns the TOKEN_CHIP_DEFS.key (e.g. "stormCharge") matching a
+// spendToken rider on the currently armed card if it belongs to this
+// player. Drives the token-chip pulse so the player can see exactly
+// which of their tokens will be consumed if they confirm the target.
+function getArmedSpendTokenKey(player) {
+  if (!armedCard || armedCard.playerId !== player.id) return null;
+  let card;
+  try { card = getCardDefinition(armedCard.cardId); } catch { return null; }
+  for (const action of card.actions ?? []) {
+    if (!action?.spendToken?.token) continue;
+    const tokenName = action.spendToken.token;
+    return tokenName === "bio-growth" ? "bioGrowth"
+      : tokenName === "hydroflow" ? "hydroflow"
+      : tokenName === "storm-charge" ? "stormCharge"
+      : null;
+  }
+  return null;
 }
 
 // Buff/debuff chip cluster on the player baseplate. Mirrors the layout of
@@ -1439,37 +2243,59 @@ function inferQueuedTarget(player, card) {
 }
 
 function computeMonsterIntent(state) {
+  // Backward-compat wrapper — single intent for the primary monster.
+  return computeMonsterIntentFor(state, state.monster);
+}
+
+// Per-monster intent preview. Each living monster gets its own predicted
+// target + damage so multi-monster encounters can show every threat
+// upfront (Slay the Spire style). Mirrors the engine's target picker
+// and effective-attack calc so what the player sees matches resolution.
+function computeMonsterIntentFor(state, monster) {
+  if (!monster || monster.hp <= 0) return null;
   const livingPlayers = state.players.filter((p) => p.hp > 0);
   if (!livingPlayers.length || state.phase === "game-over") {
     return null;
   }
-  // Mirror the engine target picker. Fixate locks onto the marked player.
   let target = null;
-  const fixate = state.monster.fixate;
+  const fixate = monster.fixate;
   if (fixate && fixate.roundsRemaining > 0) {
     target = livingPlayers.find((p) => p.id === fixate.playerId) ?? null;
   }
   if (!target) {
     target = [...livingPlayers].sort((a, b) => {
-      const threatDiff = (state.monster.threat[b.id] ?? 0) - (state.monster.threat[a.id] ?? 0);
-      if (threatDiff !== 0) {
-        return threatDiff;
-      }
+      const threatDiff = (monster.threat?.[b.id] ?? 0) - (monster.threat?.[a.id] ?? 0);
+      if (threatDiff !== 0) return threatDiff;
       return a.hp - b.hp;
     })[0];
   }
-  // baseAttack scales by floor(roundNumber / 2) per engine.
-  const weakened = state.monster.statuses?.weakened ?? 0;
-  const damage = Math.max(
+  // Mirror engine effectiveMonsterAttack: Pack Hunter / Crossfire +1
+  // when squadmates alive, Target Uplink +1 from a separate uplinker.
+  const others = (state.monsters ?? []).filter((m) => m !== monster && m.hp > 0);
+  const abilities = monster.abilities ?? [];
+  let abilityBonus = 0;
+  if ((abilities.includes("packHunter") || abilities.includes("crossfire")) && others.length > 0) {
+    abilityBonus += 1;
+  }
+  if (others.some((m) => (m.abilities ?? []).includes("targetUplink"))) {
+    abilityBonus += 1;
+  }
+  const weakened = monster.statuses?.weakened ?? 0;
+  let damage = Math.max(
     1,
-    state.monster.baseAttack + Math.floor(state.roundNumber / 2) - weakened,
+    (monster.baseAttack ?? 0) + abilityBonus + Math.floor(state.roundNumber / 2) - weakened,
   );
-  const actions = Math.max(1, state.monster.actionsPerTurn ?? 1);
+  const isFixated = fixate && fixate.roundsRemaining > 0 && fixate.playerId === target.id;
+  if (isFixated && typeof monster.fixateAttack === "number") {
+    damage = monster.fixateAttack;
+  }
+  const actions = Math.max(1, monster.actionsPerTurn ?? 1);
   return {
     targetId: target.id,
     targetName: target.name,
     damage,
     actions,
+    isFixated,
   };
 }
 
@@ -1481,8 +2307,8 @@ function renderHandCard(player, cardInstance, cardIndex, totalCards, side) {
   const fanCount = Math.max(1, totalCards);
   const center = (fanCount - 1) / 2;
   const offset = cardIndex - center;
-  const baseRot = offset * 5; // degrees
-  const baseLift = -Math.abs(offset) * 6;
+  const baseRot = offset * 3; // degrees — was 5°, tightened in Phase 1 polish
+  const baseLift = -Math.abs(offset) * 4;
   const rotation = side === "right" ? -baseRot : baseRot;
   const lift = baseLift;
   const styleVars = `--card-rotation: ${rotation}deg; --card-lift: ${lift}px;`;

@@ -4,7 +4,13 @@
 
 The Fracture of Aetherfall is a browser prototype for a fantasy co-op deck-building boss fight. It currently runs without npm or Node dependencies through a small PowerShell static server.
 
-For a full takeover brief, read:
+## Pick up here (latest)
+
+**Most recent session handoff:** [`docs/handoff-2026-05-10.md`](handoff-2026-05-10.md)
+
+That file has the TL;DR, what's open in PR #51, and a "do this first tomorrow" list. Read it before touching anything.
+
+For the full takeover brief (architecture, history), read:
 
 ```text
 docs/claude-handoff.md

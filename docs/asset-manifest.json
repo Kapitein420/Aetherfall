@@ -1,0 +1,1608 @@
+{
+  "version": 1,
+  "generated_at": "2026-05-10",
+  "naming_convention": "kebab-case under assets/<category>/<sub>/<name>.<ext>",
+  "image_format_guidance": {
+    "icons": "SVG preferred, PNG fallback",
+    "card_art": "PNG sRGB, 768x768 hero illustration, subject centered, alpha channel optional",
+    "banners": "PNG, 1500x1024 landscape, sRGB",
+    "portraits": "PNG, 512x512 head + upper body, sRGB",
+    "effects": "PNG horizontal sprite-strip, transparent BG, frames sized 64x64 or 256x256",
+    "backgrounds": "PNG/JPG 1920x1080+, sRGB"
+  },
+  "categories": {
+    "cards": {
+      "default_size_px": [
+        768,
+        768
+      ],
+      "format": "PNG",
+      "path_template": "assets/cards/art/{class_id}/{card_slug}.png",
+      "items": [
+        {
+          "id": "rook.guardian_strike",
+          "class_id": "rook",
+          "name": "Guardian Strike",
+          "role": "attack",
+          "cost": 1
+        },
+        {
+          "id": "rook.shield_bash",
+          "class_id": "rook",
+          "name": "Shield Bash",
+          "role": "attack",
+          "cost": 2
+        },
+        {
+          "id": "rook.iron_cleave",
+          "class_id": "rook",
+          "name": "Iron Cleave",
+          "role": "attack",
+          "cost": 3
+        },
+        {
+          "id": "rook.reprisal",
+          "class_id": "rook",
+          "name": "Reprisal",
+          "role": "attack",
+          "cost": 2
+        },
+        {
+          "id": "rook.raise_shield",
+          "class_id": "rook",
+          "name": "Raise Shield",
+          "role": "defend",
+          "cost": 1
+        },
+        {
+          "id": "rook.guardian_wall",
+          "class_id": "rook",
+          "name": "Guardian Wall",
+          "role": "defend",
+          "cost": 2
+        },
+        {
+          "id": "rook.stone_stance",
+          "class_id": "rook",
+          "name": "Stone Stance",
+          "role": "defend",
+          "cost": 2
+        },
+        {
+          "id": "rook.intercept",
+          "class_id": "rook",
+          "name": "Intercept",
+          "role": "defend",
+          "cost": 3
+        },
+        {
+          "id": "rook.field_mending",
+          "class_id": "rook",
+          "name": "Field Mending",
+          "role": "heal",
+          "cost": 2
+        },
+        {
+          "id": "rook.commanding_roar",
+          "class_id": "rook",
+          "name": "Commanding Roar",
+          "role": "support",
+          "cost": 1
+        },
+        {
+          "id": "rook.anchor_oath",
+          "class_id": "rook",
+          "name": "Anchor Oath",
+          "role": "unique",
+          "cost": 2
+        },
+        {
+          "id": "rook.taunting_banner",
+          "class_id": "rook",
+          "name": "Taunting Banner",
+          "role": "unique",
+          "cost": 1
+        },
+        {
+          "id": "rook.fortress_heart",
+          "class_id": "rook",
+          "name": "Fortress Heart",
+          "role": "unique",
+          "cost": 4
+        },
+        {
+          "id": "rook.last_bastion",
+          "class_id": "rook",
+          "name": "Last Bastion",
+          "role": "unique",
+          "cost": 3
+        },
+        {
+          "id": "rook.break_the_charge",
+          "class_id": "rook",
+          "name": "Break the Charge",
+          "role": "unique",
+          "cost": 4
+        },
+        {
+          "id": "lyra.quick_shot",
+          "class_id": "lyra",
+          "name": "Quick Shot",
+          "role": "attack",
+          "cost": 1
+        },
+        {
+          "id": "lyra.ember_lance",
+          "class_id": "lyra",
+          "name": "Ember Lance",
+          "role": "attack",
+          "cost": 2
+        },
+        {
+          "id": "lyra.twin_cut",
+          "class_id": "lyra",
+          "name": "Twin Cut",
+          "role": "attack",
+          "cost": 2
+        },
+        {
+          "id": "lyra.marked_pierce",
+          "class_id": "lyra",
+          "name": "Marked Pierce",
+          "role": "attack",
+          "cost": 3
+        },
+        {
+          "id": "lyra.smoke_step",
+          "class_id": "lyra",
+          "name": "Smoke Step",
+          "role": "defend",
+          "cost": 1
+        },
+        {
+          "id": "lyra.mirage_guard",
+          "class_id": "lyra",
+          "name": "Mirage Guard",
+          "role": "defend",
+          "cost": 2
+        },
+        {
+          "id": "lyra.silver_feint",
+          "class_id": "lyra",
+          "name": "Silver Feint",
+          "role": "defend",
+          "cost": 2
+        },
+        {
+          "id": "lyra.vanish",
+          "class_id": "lyra",
+          "name": "Vanish",
+          "role": "defend",
+          "cost": 3
+        },
+        {
+          "id": "lyra.warm_light",
+          "class_id": "lyra",
+          "name": "Warm Light",
+          "role": "heal",
+          "cost": 2
+        },
+        {
+          "id": "lyra.spot_weakness",
+          "class_id": "lyra",
+          "name": "Spot Weakness",
+          "role": "support",
+          "cost": 1
+        },
+        {
+          "id": "lyra.ember_veil",
+          "class_id": "lyra",
+          "name": "Ember Veil",
+          "role": "unique",
+          "cost": 2
+        },
+        {
+          "id": "lyra.hunters_tempo",
+          "class_id": "lyra",
+          "name": "Hunter's Tempo",
+          "role": "unique",
+          "cost": 1
+        },
+        {
+          "id": "lyra.pinpoint_flurry",
+          "class_id": "lyra",
+          "name": "Pinpoint Flurry",
+          "role": "unique",
+          "cost": 4
+        },
+        {
+          "id": "lyra.afterimage",
+          "class_id": "lyra",
+          "name": "Afterimage",
+          "role": "unique",
+          "cost": 2
+        },
+        {
+          "id": "lyra.finishing_spark",
+          "class_id": "lyra",
+          "name": "Finishing Spark",
+          "role": "unique",
+          "cost": 5
+        },
+        {
+          "id": "virex.cutlass_sweep",
+          "class_id": "virex",
+          "name": "Cutlass Sweep",
+          "role": "attack",
+          "cost": 1
+        },
+        {
+          "id": "virex.plasma_volley",
+          "class_id": "virex",
+          "name": "Plasma Volley",
+          "role": "attack",
+          "cost": 2
+        },
+        {
+          "id": "virex.boarding_charge",
+          "class_id": "virex",
+          "name": "Boarding Charge",
+          "role": "attack",
+          "cost": 2
+        },
+        {
+          "id": "virex.opportunist_strike",
+          "class_id": "virex",
+          "name": "Opportunist Strike",
+          "role": "attack",
+          "cost": 3
+        },
+        {
+          "id": "virex.fleet_broadside",
+          "class_id": "virex",
+          "name": "Fleet Broadside",
+          "role": "attack",
+          "cost": 4
+        },
+        {
+          "id": "virex.smoke_canister",
+          "class_id": "virex",
+          "name": "Smoke Canister",
+          "role": "defend",
+          "cost": 1
+        },
+        {
+          "id": "virex.hull_plating",
+          "class_id": "virex",
+          "name": "Hull Plating",
+          "role": "defend",
+          "cost": 2
+        },
+        {
+          "id": "virex.ducking_volley",
+          "class_id": "virex",
+          "name": "Ducking Volley",
+          "role": "defend",
+          "cost": 2
+        },
+        {
+          "id": "virex.field_dressing",
+          "class_id": "virex",
+          "name": "Field Dressing",
+          "role": "heal",
+          "cost": 2
+        },
+        {
+          "id": "virex.salvage_right",
+          "class_id": "virex",
+          "name": "Salvage Right",
+          "role": "support",
+          "cost": 1
+        },
+        {
+          "id": "virex.mark_the_prize",
+          "class_id": "virex",
+          "name": "Mark the Prize",
+          "role": "support",
+          "cost": 1
+        },
+        {
+          "id": "virex.fleet_rally",
+          "class_id": "virex",
+          "name": "Fleet Rally",
+          "role": "unique",
+          "cost": 2
+        },
+        {
+          "id": "virex.scattershot",
+          "class_id": "virex",
+          "name": "Scattershot",
+          "role": "unique",
+          "cost": 2
+        },
+        {
+          "id": "virex.cut_and_run",
+          "class_id": "virex",
+          "name": "Cut and Run",
+          "role": "unique",
+          "cost": 3
+        },
+        {
+          "id": "virex.captains_gambit",
+          "class_id": "virex",
+          "name": "Captain's Gambit",
+          "role": "unique",
+          "cost": 5
+        },
+        {
+          "id": "elyra.sap_pulse",
+          "class_id": "elyra",
+          "name": "Sap Pulse",
+          "role": "attack",
+          "cost": 1
+        },
+        {
+          "id": "elyra.bramble_lash",
+          "class_id": "elyra",
+          "name": "Bramble Lash",
+          "role": "attack",
+          "cost": 2
+        },
+        {
+          "id": "elyra.heartwood_strike",
+          "class_id": "elyra",
+          "name": "Heartwood Strike",
+          "role": "attack",
+          "cost": 3
+        },
+        {
+          "id": "elyra.canopy_bind",
+          "class_id": "elyra",
+          "name": "Canopy Bind",
+          "role": "attack",
+          "cost": 3
+        },
+        {
+          "id": "elyra.heartwood_brace",
+          "class_id": "elyra",
+          "name": "Heartwood Brace",
+          "role": "defend",
+          "cost": 1
+        },
+        {
+          "id": "elyra.living_ward",
+          "class_id": "elyra",
+          "name": "Living Ward",
+          "role": "defend",
+          "cost": 2
+        },
+        {
+          "id": "elyra.rootweave",
+          "class_id": "elyra",
+          "name": "Rootweave",
+          "role": "defend",
+          "cost": 2
+        },
+        {
+          "id": "elyra.thornwall",
+          "class_id": "elyra",
+          "name": "Thornwall",
+          "role": "defend",
+          "cost": 3
+        },
+        {
+          "id": "elyra.sapflow",
+          "class_id": "elyra",
+          "name": "Sapflow",
+          "role": "heal",
+          "cost": 2
+        },
+        {
+          "id": "elyra.greenheart_bloom",
+          "class_id": "elyra",
+          "name": "Greenheart Bloom",
+          "role": "heal",
+          "cost": 3
+        },
+        {
+          "id": "elyra.canopy_council",
+          "class_id": "elyra",
+          "name": "Canopy Council",
+          "role": "support",
+          "cost": 1
+        },
+        {
+          "id": "elyra.spirit_engine",
+          "class_id": "elyra",
+          "name": "Spirit Engine",
+          "role": "support",
+          "cost": 2
+        },
+        {
+          "id": "elyra.golem_summon",
+          "class_id": "elyra",
+          "name": "Golem Summon",
+          "role": "unique",
+          "cost": 3
+        },
+        {
+          "id": "elyra.ancient_grove",
+          "class_id": "elyra",
+          "name": "Ancient Grove",
+          "role": "unique",
+          "cost": 4
+        },
+        {
+          "id": "elyra.thornharvest",
+          "class_id": "elyra",
+          "name": "Thornharvest",
+          "role": "unique",
+          "cost": 4
+        },
+        {
+          "id": "gorath.harpoon_throw",
+          "class_id": "gorath",
+          "name": "Harpoon Throw",
+          "role": "attack",
+          "cost": 1
+        },
+        {
+          "id": "gorath.crushgrip",
+          "class_id": "gorath",
+          "name": "Crushgrip",
+          "role": "attack",
+          "cost": 2
+        },
+        {
+          "id": "gorath.bonebreak_volley",
+          "class_id": "gorath",
+          "name": "Bonebreak Volley",
+          "role": "attack",
+          "cost": 2
+        },
+        {
+          "id": "gorath.tide_lung",
+          "class_id": "gorath",
+          "name": "Tide Lung",
+          "role": "attack",
+          "cost": 3
+        },
+        {
+          "id": "gorath.deep_strike",
+          "class_id": "gorath",
+          "name": "Deep Strike",
+          "role": "attack",
+          "cost": 3
+        },
+        {
+          "id": "gorath.leviathan_slam",
+          "class_id": "gorath",
+          "name": "Leviathan Slam",
+          "role": "attack",
+          "cost": 4
+        },
+        {
+          "id": "gorath.scaleguard",
+          "class_id": "gorath",
+          "name": "Scaleguard",
+          "role": "defend",
+          "cost": 1
+        },
+        {
+          "id": "gorath.brace_for_pressure",
+          "class_id": "gorath",
+          "name": "Brace for Pressure",
+          "role": "defend",
+          "cost": 2
+        },
+        {
+          "id": "gorath.blood_meal",
+          "class_id": "gorath",
+          "name": "Blood Meal",
+          "role": "heal",
+          "cost": 2
+        },
+        {
+          "id": "gorath.abyssal_roar",
+          "class_id": "gorath",
+          "name": "Abyssal Roar",
+          "role": "support",
+          "cost": 1
+        },
+        {
+          "id": "gorath.pressurize",
+          "class_id": "gorath",
+          "name": "Pressurize",
+          "role": "unique",
+          "cost": 2
+        },
+        {
+          "id": "gorath.frenzy_charge",
+          "class_id": "gorath",
+          "name": "Frenzy Charge",
+          "role": "unique",
+          "cost": 2
+        },
+        {
+          "id": "gorath.predator_lock",
+          "class_id": "gorath",
+          "name": "Predator Lock",
+          "role": "unique",
+          "cost": 3
+        },
+        {
+          "id": "gorath.crush_depth",
+          "class_id": "gorath",
+          "name": "Crush Depth",
+          "role": "unique",
+          "cost": 4
+        },
+        {
+          "id": "gorath.deepbreaker_finish",
+          "class_id": "gorath",
+          "name": "Deepbreaker Finish",
+          "role": "unique",
+          "cost": 5
+        },
+        {
+          "id": "storm-forge.basic_attack",
+          "class_id": "storm-forge",
+          "name": "Basic Attack",
+          "role": "attack",
+          "cost": 1
+        },
+        {
+          "id": "storm-forge.basic_defend",
+          "class_id": "storm-forge",
+          "name": "Basic Defend",
+          "role": "defend",
+          "cost": 1
+        },
+        {
+          "id": "storm-forge.power_strike",
+          "class_id": "storm-forge",
+          "name": "Power Strike",
+          "role": "attack",
+          "cost": 2
+        },
+        {
+          "id": "storm-forge.surge_channel",
+          "class_id": "storm-forge",
+          "name": "Surge Channel",
+          "role": "attack",
+          "cost": 2
+        },
+        {
+          "id": "storm-forge.thunderclap",
+          "class_id": "storm-forge",
+          "name": "Thunderclap",
+          "role": "attack",
+          "cost": 1
+        },
+        {
+          "id": "storm-forge.arc_volley",
+          "class_id": "storm-forge",
+          "name": "Arc Volley",
+          "role": "attack",
+          "cost": 2
+        },
+        {
+          "id": "storm-forge.static_field",
+          "class_id": "storm-forge",
+          "name": "Static Field",
+          "role": "defend",
+          "cost": 2
+        },
+        {
+          "id": "storm-forge.charged_lance",
+          "class_id": "storm-forge",
+          "name": "Charged Lance",
+          "role": "unique",
+          "cost": 2
+        },
+        {
+          "id": "storm-forge.overload_burst",
+          "class_id": "storm-forge",
+          "name": "Overload Burst",
+          "role": "unique",
+          "cost": 3
+        },
+        {
+          "id": "storm-forge.thunderhead_finish",
+          "class_id": "storm-forge",
+          "name": "Thunderhead Finish",
+          "role": "unique",
+          "cost": 4
+        },
+        {
+          "id": "verdant-reach.thorn_lash",
+          "class_id": "verdant-reach",
+          "name": "Thorn Lash",
+          "role": "attack",
+          "cost": 1
+        },
+        {
+          "id": "verdant-reach.bramble_strike",
+          "class_id": "verdant-reach",
+          "name": "Bramble Strike",
+          "role": "attack",
+          "cost": 2
+        },
+        {
+          "id": "verdant-reach.heartwood_smash",
+          "class_id": "verdant-reach",
+          "name": "Heartwood Smash",
+          "role": "attack",
+          "cost": 3
+        },
+        {
+          "id": "verdant-reach.bark_brace",
+          "class_id": "verdant-reach",
+          "name": "Bark Brace",
+          "role": "defend",
+          "cost": 1
+        },
+        {
+          "id": "verdant-reach.living_thicket",
+          "class_id": "verdant-reach",
+          "name": "Living Thicket",
+          "role": "defend",
+          "cost": 2
+        },
+        {
+          "id": "verdant-reach.taproot_stance",
+          "class_id": "verdant-reach",
+          "name": "Taproot Stance",
+          "role": "defend",
+          "cost": 2
+        },
+        {
+          "id": "verdant-reach.greenheart_pulse",
+          "class_id": "verdant-reach",
+          "name": "Greenheart Pulse",
+          "role": "heal",
+          "cost": 1
+        },
+        {
+          "id": "verdant-reach.canopy_bloom",
+          "class_id": "verdant-reach",
+          "name": "Canopy Bloom",
+          "role": "heal",
+          "cost": 2
+        },
+        {
+          "id": "verdant-reach.sap_renewal",
+          "class_id": "verdant-reach",
+          "name": "Sap Renewal",
+          "role": "heal",
+          "cost": 2
+        },
+        {
+          "id": "verdant-reach.world_root_mend",
+          "class_id": "verdant-reach",
+          "name": "World-Root Mend",
+          "role": "heal",
+          "cost": 3
+        },
+        {
+          "id": "verdant-reach.guardian_call",
+          "class_id": "verdant-reach",
+          "name": "Guardian Call",
+          "role": "support",
+          "cost": 1
+        },
+        {
+          "id": "verdant-reach.thornward",
+          "class_id": "verdant-reach",
+          "name": "Thornward",
+          "role": "unique",
+          "cost": 2
+        },
+        {
+          "id": "verdant-reach.standing_stone",
+          "class_id": "verdant-reach",
+          "name": "Standing Stone",
+          "role": "unique",
+          "cost": 3
+        },
+        {
+          "id": "verdant-reach.bloomtide",
+          "class_id": "verdant-reach",
+          "name": "Bloomtide",
+          "role": "unique",
+          "cost": 3
+        },
+        {
+          "id": "verdant-reach.ancient_oath",
+          "class_id": "verdant-reach",
+          "name": "Ancient Oath",
+          "role": "unique",
+          "cost": 4
+        },
+        {
+          "id": "tideflow-engineer.current_jab",
+          "class_id": "tideflow-engineer",
+          "name": "Current Jab",
+          "role": "attack",
+          "cost": 1
+        },
+        {
+          "id": "tideflow-engineer.spiral_torrent",
+          "class_id": "tideflow-engineer",
+          "name": "Spiral Torrent",
+          "role": "attack",
+          "cost": 2
+        },
+        {
+          "id": "tideflow-engineer.tidal_lance",
+          "class_id": "tideflow-engineer",
+          "name": "Tidal Lance",
+          "role": "attack",
+          "cost": 3
+        },
+        {
+          "id": "tideflow-engineer.dampen_shield",
+          "class_id": "tideflow-engineer",
+          "name": "Dampen Shield",
+          "role": "defend",
+          "cost": 1
+        },
+        {
+          "id": "tideflow-engineer.flow_state",
+          "class_id": "tideflow-engineer",
+          "name": "Flow State",
+          "role": "defend",
+          "cost": 2
+        },
+        {
+          "id": "tideflow-engineer.runoff_ward",
+          "class_id": "tideflow-engineer",
+          "name": "Runoff Ward",
+          "role": "defend",
+          "cost": 2
+        },
+        {
+          "id": "tideflow-engineer.reroute",
+          "class_id": "tideflow-engineer",
+          "name": "Reroute",
+          "role": "support",
+          "cost": 1
+        },
+        {
+          "id": "tideflow-engineer.crosscurrent",
+          "class_id": "tideflow-engineer",
+          "name": "Crosscurrent",
+          "role": "support",
+          "cost": 2
+        },
+        {
+          "id": "tideflow-engineer.pressure_valve",
+          "class_id": "tideflow-engineer",
+          "name": "Pressure Valve",
+          "role": "support",
+          "cost": 1
+        },
+        {
+          "id": "tideflow-engineer.confluence",
+          "class_id": "tideflow-engineer",
+          "name": "Confluence",
+          "role": "support",
+          "cost": 2
+        },
+        {
+          "id": "tideflow-engineer.tide_mend",
+          "class_id": "tideflow-engineer",
+          "name": "Tide Mend",
+          "role": "heal",
+          "cost": 2
+        },
+        {
+          "id": "tideflow-engineer.undertow",
+          "class_id": "tideflow-engineer",
+          "name": "Undertow",
+          "role": "unique",
+          "cost": 2
+        },
+        {
+          "id": "tideflow-engineer.riptide_pull",
+          "class_id": "tideflow-engineer",
+          "name": "Riptide Pull",
+          "role": "unique",
+          "cost": 3
+        },
+        {
+          "id": "tideflow-engineer.deluge",
+          "class_id": "tideflow-engineer",
+          "name": "Deluge",
+          "role": "unique",
+          "cost": 3
+        },
+        {
+          "id": "tideflow-engineer.spillway_finish",
+          "class_id": "tideflow-engineer",
+          "name": "Spillway Finish",
+          "role": "unique",
+          "cost": 4
+        },
+        {
+          "id": "hydroflow.basic_attack",
+          "class_id": "hydroflow",
+          "name": "Basic Attack",
+          "role": "attack",
+          "cost": 1
+        },
+        {
+          "id": "hydroflow.basic_defend",
+          "class_id": "hydroflow",
+          "name": "Basic Defend",
+          "role": "defend",
+          "cost": 1
+        },
+        {
+          "id": "hydroflow.flow_shift",
+          "class_id": "hydroflow",
+          "name": "Flow Shift",
+          "role": "support",
+          "cost": 2
+        },
+        {
+          "id": "hydroflow.delay_damage",
+          "class_id": "hydroflow",
+          "name": "Delay Damage",
+          "role": "defend",
+          "cost": 2
+        }
+      ]
+    },
+    "classes": {
+      "banner": {
+        "size_px": [
+          1500,
+          1024
+        ],
+        "format": "PNG",
+        "path_template": "assets/ui/banners/{class_id}.png"
+      },
+      "portrait": {
+        "size_px": [
+          512,
+          512
+        ],
+        "format": "PNG",
+        "path_template": "assets/ui/portraits/{class_id}.png"
+      },
+      "items": [
+        {
+          "id": "rook",
+          "name": "Rook, the Iron Vanguard",
+          "role": "Defender",
+          "palette": "warm bronze + ember"
+        },
+        {
+          "id": "lyra",
+          "name": "Lyra, the Ember Veil",
+          "role": "Striker",
+          "palette": "forest green + ember"
+        },
+        {
+          "id": "virex",
+          "name": "Captain Virex, the Loot Fleet",
+          "role": "Opportunist",
+          "palette": "teal + brass"
+        },
+        {
+          "id": "elyra",
+          "name": "Elyra Rootweaver, Forest Golem Architect",
+          "role": "Builder",
+          "palette": "verdant + bone-bark"
+        },
+        {
+          "id": "gorath",
+          "name": "Gorath Deepbreaker, Abyss Hunter",
+          "role": "Berserker",
+          "palette": "deep violet + abyss black"
+        },
+        {
+          "id": "storm-forge",
+          "name": "Storm Forge Vanguard",
+          "role": "Striker",
+          "palette": "violet lightning + void black"
+        },
+        {
+          "id": "verdant-reach",
+          "name": "Verdant Reach, Greenheart Sentinel",
+          "role": "Sustain",
+          "palette": "moss green + bio-light"
+        },
+        {
+          "id": "tideflow-engineer",
+          "name": "Tideflow Engineer",
+          "role": "Support",
+          "palette": "deep ocean + cyan"
+        },
+        {
+          "id": "hydroflow",
+          "name": "Hydroflow Adept",
+          "role": "Support",
+          "palette": "cyan water + indigo"
+        }
+      ]
+    },
+    "monsters": {
+      "portrait": {
+        "size_px": [
+          512,
+          512
+        ],
+        "format": "PNG",
+        "path_template": "assets/ui/monsters/{monster_id}.png"
+      },
+      "items": [
+        {
+          "id": "hollow-titan",
+          "name": "The Hollow Titan",
+          "role": "Boss",
+          "encounter": "hollow-titan"
+        },
+        {
+          "id": "ironjaw-bruiser",
+          "name": "Ironjaw Bruiser",
+          "role": "Frontline / Tank",
+          "encounter": "ironjaw-bruiser"
+        },
+        {
+          "id": "warden-of-targeting",
+          "name": "Warden of Targeting",
+          "role": "Surveillance Construct",
+          "encounter": "warden-of-targeting"
+        },
+        {
+          "id": "siege-mauler",
+          "name": "Siege Mauler",
+          "role": "Frontline Bruiser",
+          "encounter": "bruiser-duo"
+        },
+        {
+          "id": "savage-hound",
+          "name": "Savage Hound",
+          "role": "Aggressive Hunter",
+          "encounter": "bruiser-duo"
+        },
+        {
+          "id": "execution-drone",
+          "name": "Execution Drone",
+          "role": "Finisher",
+          "encounter": "synthetic-hunter-squad"
+        },
+        {
+          "id": "signal-commander",
+          "name": "Signal Commander",
+          "role": "Support Buffer",
+          "encounter": "synthetic-hunter-squad"
+        },
+        {
+          "id": "bulwark-unit",
+          "name": "Bulwark Unit",
+          "role": "Defensive Frontline",
+          "encounter": "synthetic-hunter-squad"
+        }
+      ]
+    },
+    "encounters": {
+      "banner": {
+        "size_px": [
+          1500,
+          1024
+        ],
+        "format": "PNG",
+        "path_template": "assets/ui/banners/{encounter_id}.png"
+      },
+      "items": [
+        {
+          "id": "bruiser-duo",
+          "name": "Bruiser Duo",
+          "monsters": "siege-mauler, savage-hound",
+          "banner_status": "DONE \u2014 banners/bruiser-duo.png"
+        },
+        {
+          "id": "synthetic-hunter-squad",
+          "name": "Synthetic Hunter Squad",
+          "monsters": "signal-commander, bulwark-unit, execution-drone",
+          "banner_status": "DONE \u2014 banners/synthetic-hunter-squad.png"
+        },
+        {
+          "id": "hollow-titan",
+          "name": "The Hollow Titan",
+          "monsters": "hollow-titan",
+          "banner_status": "needs banner"
+        },
+        {
+          "id": "ironjaw-bruiser",
+          "name": "Ironjaw Bruiser",
+          "monsters": "ironjaw-bruiser",
+          "banner_status": "needs banner"
+        },
+        {
+          "id": "warden-of-targeting",
+          "name": "Warden of Targeting",
+          "monsters": "warden-of-targeting",
+          "banner_status": "needs banner"
+        }
+      ]
+    },
+    "tokens": {
+      "icon": {
+        "size_px": [
+          64,
+          64
+        ],
+        "format": "PNG transparent",
+        "path_template": "assets/ui/icons/tokens/{token_id}.png"
+      },
+      "items": [
+        {
+          "id": "storm-charge",
+          "label": "Storm Charge",
+          "color": "#c084ff (violet)",
+          "passive": "+1 first damage action per turn while held",
+          "icon_size": "64x64 PNG transparent",
+          "prompt": "lightning bolt sigil with electric arc trails, violet-purple glow, dark void background, transparent edges, sci-fi etched-glass treatment"
+        },
+        {
+          "id": "hydroflow",
+          "label": "Hydroflow",
+          "color": "#3ec4ff (cyan)",
+          "passive": "Reduce 2+ threat gains by 1 while held",
+          "icon_size": "64x64 PNG transparent",
+          "prompt": "water droplet sigil with circular flow trails, cyan glow, deep blue void, transparent edges, sci-fi etched-glass treatment"
+        },
+        {
+          "id": "bio-growth",
+          "label": "Bio-Growth",
+          "color": "#5cd66b (green)",
+          "passive": "+1 to each healing action while held",
+          "icon_size": "64x64 PNG transparent",
+          "prompt": "leaf sigil with bio-luminescent vein trails, vibrant green glow, dark forest void, transparent edges, sci-fi etched-glass treatment"
+        }
+      ]
+    },
+    "ui_icons": {
+      "default_size_px": [
+        32,
+        32
+      ],
+      "format": "SVG preferred, PNG fallback",
+      "path_template": "assets/ui/icons/{key}.svg",
+      "items": [
+        {
+          "name": "HP / Heart",
+          "key": "hp",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "red ramp",
+          "usage": ".stat-pill.stat-hp"
+        },
+        {
+          "name": "Energy / Bolt",
+          "key": "energy",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "gold/amber",
+          "usage": ".stat-pill.stat-energy"
+        },
+        {
+          "name": "Block / Shield-filled",
+          "key": "block",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "cyan",
+          "usage": ".stat-pill.stat-block"
+        },
+        {
+          "name": "Defense / Shield-outline",
+          "key": "defense",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "slate",
+          "usage": ".stat-pill.stat-def (monster)"
+        },
+        {
+          "name": "Threat / Target",
+          "key": "threat",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "warm orange",
+          "usage": ".threat-pip"
+        },
+        {
+          "name": "Fixate / Marked",
+          "key": "fixate",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "deep red",
+          "usage": "fixate ring overlay"
+        },
+        {
+          "name": "Sword / Attack",
+          "key": "attack",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "tier accent",
+          "usage": "intent chip + attack card role"
+        },
+        {
+          "name": "Aegis / Defend",
+          "key": "defend",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "cyan",
+          "usage": "defense card role"
+        },
+        {
+          "name": "Ember / Heal",
+          "key": "heal",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "warm green",
+          "usage": "healing card role"
+        },
+        {
+          "name": "Banner / Support",
+          "key": "support",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "gold",
+          "usage": "support card role"
+        },
+        {
+          "name": "Star / Unique",
+          "key": "unique",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "lilac",
+          "usage": "unique card role"
+        },
+        {
+          "name": "Pack Hunter",
+          "key": "pack-hunter",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "blood orange",
+          "usage": "Bruiser Duo trait badge"
+        },
+        {
+          "name": "Crossfire",
+          "key": "crossfire",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "violet",
+          "usage": "Execution Drone trait badge"
+        },
+        {
+          "name": "Target Uplink",
+          "key": "target-uplink",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "purple",
+          "usage": "Signal Commander trait badge"
+        },
+        {
+          "name": "Shared Shielding",
+          "key": "shared-shielding",
+          "size": "32x32",
+          "format": "SVG / PNG",
+          "color": "steel",
+          "usage": "Bulwark Unit trait badge"
+        }
+      ]
+    },
+    "ui_frames": {
+      "items": [
+        {
+          "name": "Stat pill backplate",
+          "key": "frame-stat-pill",
+          "size": "1x22 (9-slice horizontal)",
+          "format": "PNG with transparency",
+          "notes": "rounded pill, faint inner highlight, used by .stat-pill"
+        },
+        {
+          "name": "Baseplate panel",
+          "key": "frame-baseplate",
+          "size": "9-slice 320x88",
+          "format": "PNG with transparency",
+          "notes": "rounded rect, subtle gradient, replaces .baseplate gradient"
+        },
+        {
+          "name": "Action bar background",
+          "key": "frame-action-bar",
+          "size": "1920x76 (or 9-slice horizontal)",
+          "format": "PNG with transparency",
+          "notes": "fixed bottom bar; chamfered top corners"
+        },
+        {
+          "name": "Threat orb",
+          "key": "frame-threat-orb",
+          "size": "96x96",
+          "format": "PNG with transparency",
+          "notes": "floating round indicator that says 'X to <name>'"
+        },
+        {
+          "name": "Battle log frame",
+          "key": "frame-log",
+          "size": "9-slice 320x420",
+          "format": "PNG with transparency",
+          "notes": "top-right corner widget; chamfered top-left + top-right"
+        },
+        {
+          "name": "Token chip backplate",
+          "key": "frame-token-chip",
+          "size": "9-slice 80x24",
+          "format": "PNG with transparency",
+          "notes": "elemental glow, faction-tinted; used by .token-chip"
+        },
+        {
+          "name": "Hand card frame",
+          "key": "frame-card",
+          "size": "9-slice 158x210",
+          "format": "PNG with transparency",
+          "notes": "decorative frame surrounding card art / text; per-faction palette"
+        },
+        {
+          "name": "Intent chip frame",
+          "key": "frame-intent",
+          "size": "9-slice horizontal",
+          "format": "PNG with transparency",
+          "notes": "tier-accent border + soft inner shadow"
+        },
+        {
+          "name": "Round summary toast",
+          "key": "frame-summary",
+          "size": "9-slice 540x200",
+          "format": "PNG with transparency",
+          "notes": "centered toast above action bar"
+        },
+        {
+          "name": "Setup encounter card",
+          "key": "frame-setup-card",
+          "size": "9-slice 600x340",
+          "format": "PNG with transparency",
+          "notes": "encounter picker hero card on the setup screen"
+        }
+      ]
+    },
+    "effects": {
+      "items": [
+        {
+          "name": "Damage hit",
+          "key": "fx-damage",
+          "size": "256x256 (9-frame strip 64x256)",
+          "format": "PNG sprite-sheet",
+          "notes": "8-frame sword slash + spark"
+        },
+        {
+          "name": "Heal pulse",
+          "key": "fx-heal",
+          "size": "256x256 (8-frame strip)",
+          "format": "PNG sprite-sheet",
+          "notes": "soft green wash + leaf trails"
+        },
+        {
+          "name": "Block / shield",
+          "key": "fx-block",
+          "size": "256x256 (8-frame strip)",
+          "format": "PNG sprite-sheet",
+          "notes": "hex-grid shield bloom"
+        },
+        {
+          "name": "Token gain",
+          "key": "fx-token-gain",
+          "size": "256x256 (12-frame strip)",
+          "format": "PNG sprite-sheet",
+          "notes": "elemental sigil swirling in"
+        },
+        {
+          "name": "Card play burst",
+          "key": "fx-card-play",
+          "size": "512x256 (8-frame)",
+          "format": "PNG sprite-sheet",
+          "notes": "horizontal sweep + faction sparks"
+        },
+        {
+          "name": "Death / kill",
+          "key": "fx-death",
+          "size": "512x512 (16-frame)",
+          "format": "PNG sprite-sheet",
+          "notes": "shatter + dissolve, monster falls"
+        },
+        {
+          "name": "Threat gain",
+          "key": "fx-threat",
+          "size": "256x256 (8-frame)",
+          "format": "PNG sprite-sheet",
+          "notes": "warm orange ember rising over portrait"
+        },
+        {
+          "name": "Fixate lock-on",
+          "key": "fx-fixate",
+          "size": "256x256 (12-frame)",
+          "format": "PNG sprite-sheet",
+          "notes": "red brackets snap onto target portrait"
+        },
+        {
+          "name": "Spell hit",
+          "key": "fx-spell",
+          "size": "256x256 (8-frame)",
+          "format": "PNG sprite-sheet",
+          "notes": "purple arc + impact rings"
+        },
+        {
+          "name": "Critical line",
+          "key": "fx-critical",
+          "size": "256x256 (12-frame)",
+          "format": "PNG sprite-sheet",
+          "notes": "yellow flash + gold motes"
+        }
+      ]
+    },
+    "backgrounds": {
+      "items": [
+        {
+          "name": "Battlefield (in-fight)",
+          "key": "bg-battlefield",
+          "size": "1920x1080+ (16:9)",
+          "format": "PNG/JPG",
+          "status": "DONE \u2014 assets/ui/battlefield-aetherfall.png"
+        },
+        {
+          "name": "Title splash",
+          "key": "bg-title",
+          "size": "1920x1080 (16:9)",
+          "format": "PNG/JPG",
+          "status": "TODO \u2014 see Menu/Title sheet"
+        },
+        {
+          "name": "Title splash parallax \u2014 far",
+          "key": "bg-title-far",
+          "size": "2400x1200 (oversize for parallax)",
+          "format": "PNG with transparency",
+          "status": "TODO"
+        },
+        {
+          "name": "Title splash parallax \u2014 mid",
+          "key": "bg-title-mid",
+          "size": "2400x1200",
+          "format": "PNG with transparency",
+          "status": "TODO"
+        },
+        {
+          "name": "Title splash parallax \u2014 near",
+          "key": "bg-title-near",
+          "size": "2400x1200",
+          "format": "PNG with transparency",
+          "status": "TODO"
+        },
+        {
+          "name": "Setup screen ambient",
+          "key": "bg-setup",
+          "size": "1920x1080",
+          "format": "PNG/JPG",
+          "status": "TODO \u2014 currently reuses battlefield"
+        },
+        {
+          "name": "Loading transition",
+          "key": "bg-loading",
+          "size": "1920x1080",
+          "format": "PNG/JPG",
+          "status": "TODO"
+        },
+        {
+          "name": "Victory splash",
+          "key": "bg-victory",
+          "size": "1920x1080",
+          "format": "PNG/JPG",
+          "status": "TODO"
+        },
+        {
+          "name": "Defeat splash",
+          "key": "bg-defeat",
+          "size": "1920x1080",
+          "format": "PNG/JPG",
+          "status": "TODO"
+        }
+      ]
+    },
+    "sprite_sheets": {
+      "items": [
+        {
+          "name": "All token icons",
+          "key": "sheet-tokens",
+          "layout": "3 cols x 1 row",
+          "cell": "64x64",
+          "total": "192x64",
+          "contains": "storm, hydro, bio"
+        },
+        {
+          "name": "All UI role icons",
+          "key": "sheet-roles",
+          "layout": "5 cols x 1 row",
+          "cell": "32x32",
+          "total": "160x32",
+          "contains": "attack, defend, heal, support, unique"
+        },
+        {
+          "name": "All stat icons",
+          "key": "sheet-stats",
+          "layout": "6 cols x 1 row",
+          "cell": "32x32",
+          "total": "192x32",
+          "contains": "hp, energy, block, defense, threat, fixate"
+        },
+        {
+          "name": "Monster trait badges",
+          "key": "sheet-traits",
+          "layout": "4 cols x 1 row",
+          "cell": "32x32",
+          "total": "128x32",
+          "contains": "pack hunter, crossfire, target uplink, shared shielding"
+        },
+        {
+          "name": "Effect strip \u2014 damage",
+          "key": "sheet-fx-damage",
+          "layout": "8 cols x 1 row",
+          "cell": "64x64",
+          "total": "512x64",
+          "contains": "8 frames per effect"
+        },
+        {
+          "name": "Card faction frames",
+          "key": "sheet-card-frames",
+          "layout": "9 cols x 1 row",
+          "cell": "158x210",
+          "total": "1422x210",
+          "contains": "one frame per playable class"
+        },
+        {
+          "name": "Card backs",
+          "key": "sheet-card-backs",
+          "layout": "9 cols x 1 row",
+          "cell": "158x210",
+          "total": "1422x210",
+          "contains": "one back per playable class"
+        }
+      ]
+    },
+    "menu_screens": {
+      "items": [
+        {
+          "screen": "Boot logo",
+          "element": "Studio / engine logo",
+          "notes": "Fade in 800ms hold 1500ms fade out 600ms"
+        },
+        {
+          "screen": "Title splash",
+          "element": "Background (parallax 3-layer)",
+          "notes": "Mouse-tracking offset 1-3% per layer"
+        },
+        {
+          "screen": "Title splash",
+          "element": "Game logo / title art",
+          "notes": "Centered, scales on hover; 1024x256 PNG transparent"
+        },
+        {
+          "screen": "Title splash",
+          "element": "\"Press any key\" prompt",
+          "notes": "Fades in after 1.2s, soft slow breath; 480x40 PNG"
+        },
+        {
+          "screen": "Title splash",
+          "element": "Ambient particles (embers / dust)",
+          "notes": "tsParticles or canvas \u2014 80-120 particles, mouse-repulse"
+        },
+        {
+          "screen": "Title splash",
+          "element": "Atmospheric audio loop",
+          "notes": "Background drone music, 60-120s loop, ducks 60% on key press"
+        },
+        {
+          "screen": "Main menu",
+          "element": "Menu items (Continue / New / Options / Credits)",
+          "notes": "Hover scale 1.06 + glow + class-tinted underline"
+        },
+        {
+          "screen": "Encounter selection",
+          "element": "Encounter cards (3D tilt on hover)",
+          "notes": "css transform: rotateY/X based on mouse position; banner art lives in card"
+        },
+        {
+          "screen": "Encounter selection",
+          "element": "Selected card pop-out",
+          "notes": "Hovered card lifts + scales 1.15; siblings dim 70%"
+        },
+        {
+          "screen": "Class selection",
+          "element": "Class cards (rolling carousel)",
+          "notes": "horizontal swipe / scroll; selected center is bigger"
+        },
+        {
+          "screen": "Class selection",
+          "element": "Class info panel",
+          "notes": "Tagline, HP, kit summary, key cards preview"
+        },
+        {
+          "screen": "Loading transition",
+          "element": "Banner reveal",
+          "notes": "Encounter banner sweeps in left\u2192right; tip-of-the-game text below"
+        },
+        {
+          "screen": "Victory / Defeat",
+          "element": "Outcome card",
+          "notes": "Slow zoom on monster portrait or party shot; round count + summary stats"
+        }
+      ]
+    },
+    "sound": {
+      "items": [
+        {
+          "slot": "ui-click",
+          "duration": "60-120ms",
+          "format": "OGG/MP3",
+          "notes": "soft click for any button"
+        },
+        {
+          "slot": "ui-hover",
+          "duration": "40-80ms",
+          "format": "OGG/MP3",
+          "notes": "softer than click; subtle"
+        },
+        {
+          "slot": "card-play",
+          "duration": "200-400ms",
+          "format": "OGG/MP3",
+          "notes": "per role: attack swoosh / defend low thud / heal chime"
+        },
+        {
+          "slot": "monster-hit",
+          "duration": "300-600ms",
+          "format": "OGG/MP3",
+          "notes": "impact thud + flesh"
+        },
+        {
+          "slot": "monster-defeat",
+          "duration": "1.0-1.5s",
+          "format": "OGG/MP3",
+          "notes": "shatter / dissolve"
+        },
+        {
+          "slot": "round-resolve",
+          "duration": "1.0s",
+          "format": "OGG/MP3",
+          "notes": "transition whoosh"
+        },
+        {
+          "slot": "victory",
+          "duration": "2-3s",
+          "format": "OGG/MP3",
+          "notes": "triumphant brass swell"
+        },
+        {
+          "slot": "defeat",
+          "duration": "2-3s",
+          "format": "OGG/MP3",
+          "notes": "low brass + reverb"
+        },
+        {
+          "slot": "music-title",
+          "duration": "60-120s loop",
+          "format": "OGG",
+          "notes": "atmospheric drone"
+        },
+        {
+          "slot": "music-combat",
+          "duration": "90-180s loop",
+          "format": "OGG",
+          "notes": "tension build per round"
+        }
+      ]
+    }
+  }
+}

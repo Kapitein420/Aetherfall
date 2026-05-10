@@ -117,6 +117,36 @@ export const classDefinitions = {
     personality: "Patient and deliberate. Wins by routing the monster's attention, not by trading blows.",
     implemented: true,
   },
+  bloomcaller: {
+    id: "bloomcaller",
+    name: "Bloomcaller",
+    shortName: "Bloomcaller",
+    role: "Sustain",
+    aspect: "Healing / Bio-Growth / Threat Sink",
+    faction: "Aetherfall — Greenheart Conclave",
+    element: "bio-growth",
+    maxHp: 38,
+    archetypes: ["Healing", "Bio-Growth", "Sustain"],
+    tagline: "Tend the wound. Grow the bloom.",
+    summary: "Third canonical starter — heals through Bio-Growth, drinks aggression and breathes it back. Mend single-targets and Greenbloom flood-heals the party while seeding the token pool.",
+    personality: "Quiet and rooted. Treats every wound as a chance for the canopy to grow back stronger.",
+    implemented: true,
+  },
+  "stormtide-conduit": {
+    id: "stormtide-conduit",
+    name: "Stormtide Conduit",
+    shortName: "Stormtide",
+    role: "Striker",
+    aspect: "Hybrid / Storm + Hydroflow / Conductive Surge",
+    faction: "Aetherfall — Stormtide Pact",
+    element: "storm-charge",
+    maxHp: 36,
+    archetypes: ["Hybrid", "Storm Charge", "Hydroflow"],
+    tagline: "Where current meets storm — a strike that cannot be stopped.",
+    summary: "Hybrid class that runs on BOTH Storm Charge and Hydroflow tokens. Basics spend one or the other; Storm Tide naturally fires the engine's Conductive Surge combo when both tokens are held.",
+    personality: "Volatile and precise. Lives for the moment lightning hits a wave and the whole arena answers.",
+    implemented: true,
+  },
 };
 
 // Playable shortlist: while we balance the new token-themed starter decks
@@ -124,7 +154,7 @@ export const classDefinitions = {
 // Re-add ids here to bring older classes back into the picker. classDefinitions
 // itself is NOT filtered — engine, content, and saved games still resolve any
 // classId that exists.
-const PLAYABLE_CLASS_IDS = new Set(["hydroflow", "storm-forge"]);
+const PLAYABLE_CLASS_IDS = new Set(["hydroflow", "storm-forge", "bloomcaller", "stormtide-conduit"]);
 
 export const selectableClasses = Object.values(classDefinitions)
   .filter((classDef) => PLAYABLE_CLASS_IDS.has(classDef.id));
