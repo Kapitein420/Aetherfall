@@ -5077,6 +5077,224 @@ body.dragging-card .standoff-champion {
   filter: drop-shadow(0 0 10px rgba(122, 78, 194, 0.75));
 }
 
+/* =====================================================================
+ * Faction: STORM FORGE — Storm Charge (sci-fi violet, lightning circuitry)
+ * Palette: #c084ff arc-violet, #1a0e2e deep void, #f0d6ff plasma highlight
+ * Mood: dark sci-fi panel, lightning arcs, glowing circuit lines
+ * Mirrors the printed card art (purple lightning bolt on void background).
+ * ===================================================================== */
+.hand-card.class-storm-forge {
+  --class-edge: #6a3aa6;
+  --class-glow: rgba(192, 132, 255, 0.5);
+  --faction-ink: #f0d6ff;
+  --faction-paper-1: #2a1648;
+  --faction-paper-2: #14081f;
+  --faction-band: #4a1f7a;
+  border-color: #6a3aa6;
+  background:
+    linear-gradient(180deg, rgba(192, 132, 255, 0.18) 0%, transparent 22%),
+    linear-gradient(180deg, var(--faction-paper-1) 0%, var(--faction-paper-2) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(192, 132, 255, 0.3),
+    inset 0 0 0 3px rgba(60, 20, 110, 0.5),
+    0 12px 24px rgba(0, 0, 0, 0.7);
+  color: #ecdcff;
+}
+
+.hand-card.class-storm-forge::before {
+  /* circuitry crosshatch */
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(0deg,
+      rgba(192, 132, 255, 0.06) 0 2px,
+      transparent 2px 8px),
+    repeating-linear-gradient(90deg,
+      rgba(192, 132, 255, 0.05) 0 2px,
+      transparent 2px 10px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-storm-forge::after {
+  /* arc-violet banner across the top */
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 6px;
+  height: 28px;
+  border-radius: 4px 4px 9px 9px;
+  background:
+    linear-gradient(180deg, #7a3eb4 0%, #3a1670 60%, #1a082e 100%),
+    radial-gradient(circle at 20% 50%, rgba(255, 220, 255, 0.32), transparent 30%);
+  box-shadow:
+    inset 0 1px 0 rgba(240, 214, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-storm-forge .card-name {
+  position: relative;
+  z-index: 2;
+  color: #f6e8ff;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7), 0 0 8px rgba(192, 132, 255, 0.45);
+}
+
+.hand-card.class-storm-forge .card-cost {
+  background: linear-gradient(180deg, #b070f0, #4c1f8a);
+  border-color: #e8c8ff;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.hand-card.class-storm-forge .card-role {
+  background: linear-gradient(180deg, rgba(74, 31, 122, 0.86), rgba(28, 10, 54, 0.86));
+  color: #f0d6ff;
+  border: 1px solid rgba(192, 132, 255, 0.5);
+}
+
+.hand-card.class-storm-forge .card-text {
+  background: rgba(10, 4, 22, 0.55);
+  color: #e6d2ff;
+  border: 1px solid rgba(192, 132, 255, 0.22);
+  border-radius: 4px;
+}
+
+.hand-card.class-storm-forge .card-art::before {
+  /* dark sci-fi panel with lightning hint */
+  background:
+    radial-gradient(circle at 30% 28%, rgba(192, 132, 255, 0.42) 0 8%, transparent 16%),
+    radial-gradient(circle at 70% 72%, rgba(192, 132, 255, 0.32) 0 7%, transparent 14%),
+    repeating-linear-gradient(115deg,
+      rgba(192, 132, 255, 0.07) 0 2px,
+      transparent 2px 12px),
+    linear-gradient(135deg, #2a1450 0%, #160726 50%, #08020e 100%);
+}
+
+.hand-card.class-storm-forge .card-art-glyph {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(240, 214, 255, 0.6), transparent 60%),
+    rgba(0, 0, 0, 0.6);
+  box-shadow:
+    inset 0 0 0 1px rgba(192, 132, 255, 0.7),
+    0 2px 8px rgba(0, 0, 0, 0.7);
+  filter: drop-shadow(0 0 10px rgba(192, 132, 255, 0.85));
+}
+
+/* =====================================================================
+ * Faction: HYDROFLOW — Hydroflow tokens (deep ocean, electric cyan)
+ * Palette: #3ec4ff hydro-cyan, #06182e deep ocean, #d0eeff foam highlight
+ * Mood: dark cyber panel, water droplets, glowing flow lines
+ * Mirrors the printed card art (cyan water on dark blue background).
+ * ===================================================================== */
+.hand-card.class-hydroflow {
+  --class-edge: #2a78b8;
+  --class-glow: rgba(62, 196, 255, 0.5);
+  --faction-ink: #d0eeff;
+  --faction-paper-1: #0e2a4a;
+  --faction-paper-2: #06121f;
+  --faction-band: #1a4a78;
+  border-color: #2a78b8;
+  background:
+    linear-gradient(180deg, rgba(62, 196, 255, 0.18) 0%, transparent 22%),
+    linear-gradient(180deg, var(--faction-paper-1) 0%, var(--faction-paper-2) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(62, 196, 255, 0.32),
+    inset 0 0 0 3px rgba(20, 60, 100, 0.5),
+    0 12px 24px rgba(0, 0, 0, 0.65);
+  color: #d8efff;
+}
+
+.hand-card.class-hydroflow::before {
+  /* flow-line lattice */
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(45deg,
+      rgba(62, 196, 255, 0.06) 0 2px,
+      transparent 2px 10px),
+    repeating-linear-gradient(-45deg,
+      rgba(62, 196, 255, 0.05) 0 2px,
+      transparent 2px 12px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-hydroflow::after {
+  /* hydro-cyan banner across the top */
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 6px;
+  height: 28px;
+  border-radius: 4px 4px 9px 9px;
+  background:
+    linear-gradient(180deg, #2a78b8 0%, #143a64 60%, #06121f 100%),
+    radial-gradient(circle at 20% 50%, rgba(220, 240, 255, 0.32), transparent 30%);
+  box-shadow:
+    inset 0 1px 0 rgba(208, 238, 255, 0.42),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-hydroflow .card-name {
+  position: relative;
+  z-index: 2;
+  color: #eaf6ff;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7), 0 0 8px rgba(62, 196, 255, 0.45);
+}
+
+.hand-card.class-hydroflow .card-cost {
+  background: linear-gradient(180deg, #5cc8ff, #1a4a78);
+  border-color: #d0eeff;
+  color: #051422;
+  text-shadow: 0 1px 0 rgba(208, 238, 255, 0.4);
+}
+
+.hand-card.class-hydroflow .card-role {
+  background: linear-gradient(180deg, rgba(26, 74, 120, 0.88), rgba(8, 22, 38, 0.88));
+  color: #d0eeff;
+  border: 1px solid rgba(62, 196, 255, 0.5);
+}
+
+.hand-card.class-hydroflow .card-text {
+  background: rgba(4, 14, 26, 0.55);
+  color: #d8efff;
+  border: 1px solid rgba(62, 196, 255, 0.24);
+  border-radius: 4px;
+}
+
+.hand-card.class-hydroflow .card-art::before {
+  /* deep ocean panel with droplet hints */
+  background:
+    radial-gradient(circle at 28% 30%, rgba(62, 196, 255, 0.42) 0 8%, transparent 16%),
+    radial-gradient(circle at 72% 70%, rgba(62, 196, 255, 0.34) 0 7%, transparent 14%),
+    repeating-linear-gradient(115deg,
+      rgba(62, 196, 255, 0.06) 0 2px,
+      transparent 2px 14px),
+    linear-gradient(135deg, #0e2a4a 0%, #06182e 50%, #02080f 100%);
+}
+
+.hand-card.class-hydroflow .card-art-glyph {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(208, 238, 255, 0.6), transparent 60%),
+    rgba(0, 0, 0, 0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(62, 196, 255, 0.7),
+    0 2px 8px rgba(0, 0, 0, 0.65);
+  filter: drop-shadow(0 0 10px rgba(62, 196, 255, 0.85));
+}
+
 /* ---- Hover/drag faction-glow polish (works for all factions) ---- */
 .hand-card.class-virex.playable:hover,
 .standoff-hand .hand-card.class-virex.playable:hover {

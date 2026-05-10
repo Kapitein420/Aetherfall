@@ -413,7 +413,16 @@ function resolveCard(state, player, card) {
 
 function resolveAction(state, player, action) {
   if (action.type === "damage") {
-    dealMonsterDamage(state, player, action.amount, action.element);
+    let amount = action.amount;
+    if (action.spendToken && spendOneToken(player, action.spendToken.token)) {
+      amount += action.spendToken.bonus ?? 1;
+      pushEvent(state, "criticalLine", {
+        target: { type: "player", playerId: player.id },
+        label: `Infuse +${action.spendToken.bonus ?? 1}`,
+        amount: action.spendToken.bonus ?? 1,
+      });
+    }
+    dealMonsterDamage(state, player, amount, action.element);
     return;
   }
 
@@ -434,11 +443,20 @@ function resolveAction(state, player, action) {
   }
 
   if (action.type === "block") {
+    let amount = action.amount;
+    if (action.spendToken && spendOneToken(player, action.spendToken.token)) {
+      amount += action.spendToken.bonus ?? 1;
+      pushEvent(state, "criticalLine", {
+        target: { type: "player", playerId: player.id },
+        label: `Infuse +${action.spendToken.bonus ?? 1}`,
+        amount: action.spendToken.bonus ?? 1,
+      });
+    }
     for (const target of getPlayerTargets(state, player, action.target)) {
-      target.block += action.amount;
+      target.block += amount;
       pushEvent(state, "block", {
         target: { type: "player", playerId: target.id },
-        amount: action.amount,
+        amount,
       });
     }
     return;
@@ -482,6 +500,15 @@ function resolveAction(state, player, action) {
   }
 
   if (action.type === "reduceThreat") {
+    // Threat-based targets ("highest" / "lowest-threat") use the threat
+    // picker so reduceThreat stays meaningful when no one is taking heat.
+    if (action.target === "highest") {
+      const top = [...state.players]
+        .filter((p) => p.hp > 0)
+        .sort((a, b) => getThreat(state, b.id) - getThreat(state, a.id))[0];
+      if (top) reduceThreat(state, top.id, action.amount);
+      return;
+    }
     for (const target of getPlayerTargets(state, player, action.target)) {
       reduceThreat(state, target.id, action.amount);
     }
@@ -558,6 +585,26 @@ function resolveAction(state, player, action) {
       });
     }
 
+    // bonusToken: card-driven token grant when the relocation moved at
+    // least `threshold` threat. Used by Flow Shift ("If 3 or more threat
+    // is moved, gain 1 Hydroflow token").
+    if (action.bonusToken && moved >= (action.bonusToken.threshold ?? 1)) {
+      const bonus = action.bonusToken;
+      const key = bonus.token === "bio-growth" ? "bioGrowth"
+               : bonus.token === "hydroflow" ? "hydroflow"
+               : bonus.token === "storm-charge" ? "stormCharge"
+               : null;
+      if (key) {
+        const grant = bonus.amount ?? 1;
+        player.tokens[key] = (player.tokens[key] ?? 0) + grant;
+        pushEvent(state, "criticalLine", {
+          target: { type: "player", playerId: player.id },
+          label: `${key === "bioGrowth" ? "Bio-Growth" : key === "hydroflow" ? "Hydroflow" : "Storm Charge"} +${grant}`,
+          amount: grant,
+        });
+      }
+    }
+
     // Combination — Conductive Surge (Hydroflow + Storm Charge):
     // deal `moved` damage to the monster; if the dealt damage is 5+, gain
     // 1 Storm Charge token. Damage routes through dealMonsterDamage so
@@ -590,6 +637,22 @@ function resolveAction(state, player, action) {
     return;
   }
 
+}
+
+// Spend one token of the named type from the player's pool. Returns true
+// on success, false if the player doesn't have one. Used by `spendToken`
+// payloads on damage / block actions to power "Spend 1 token to gain +X"
+// rules text on Storm Forge / Hydroflow basics.
+function spendOneToken(player, tokenName) {
+  if (!player?.tokens) return false;
+  const key = tokenName === "bio-growth" ? "bioGrowth"
+           : tokenName === "hydroflow" ? "hydroflow"
+           : tokenName === "storm-charge" ? "stormCharge"
+           : null;
+  if (!key) return false;
+  if ((player.tokens[key] ?? 0) <= 0) return false;
+  player.tokens[key] -= 1;
+  return true;
 }
 
 // moveThreat target picker — accepts the standard `self` / `ally` /
