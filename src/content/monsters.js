@@ -353,6 +353,7 @@ export const encounterRegistry = {
     faction: "Bruiser Duo",
     monsterIds: ["siege-mauler", "savage-hound"],
     summary: "Two Pack Hunters that ramp damage while both stand. Drop one fast or take sustained pressure.",
+    banner: "ui/banners/bruiser-duo.png",
   },
   "synthetic-hunter-squad": {
     id: "synthetic-hunter-squad",
@@ -361,6 +362,7 @@ export const encounterRegistry = {
     faction: "Synthetic Hunter Squad",
     monsterIds: ["signal-commander", "bulwark-unit", "execution-drone"],
     summary: "Three linked drones — Commander buffs attack, Bulwark eats hits, Drone finishes after the rest.",
+    banner: "ui/banners/synthetic-hunter-squad.png",
   },
   // Legacy single-monster encounters, still selectable.
   "hollow-titan": {

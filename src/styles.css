@@ -3714,6 +3714,65 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5));
 }
 
+/* Encounter banner on the setup screen. Shown only when the picked
+ * encounter has a banner image — switches the row from the original
+ * compact text-only layout into a visual hero with the banner on top
+ * and the info column underneath. */
+.setup-encounter-row.has-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: start;
+  gap: 16px 24px;
+}
+.setup-encounter-banner-wrap {
+  grid-column: 1 / -1;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(192, 132, 255, 0.22),
+    0 12px 32px rgba(0, 0, 0, 0.55);
+  background: rgba(8, 4, 14, 0.6);
+}
+.setup-encounter-banner {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 240px;
+  object-fit: cover;
+  object-position: center;
+}
+.setup-encounter-summary {
+  margin-top: 6px;
+  font-size: 0.86rem;
+  color: rgba(232, 220, 196, 0.78);
+  line-height: 1.4;
+  max-width: 60ch;
+}
+
+/* In-game encounter banner strip — sits above the primary monster
+ * figure in multi-monster fights to anchor the encounter identity. */
+.encounter-banner-strip {
+  width: 100%;
+  max-width: 540px;
+  height: 110px;
+  margin: 0 auto 8px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px rgba(192, 132, 255, 0.24),
+    0 8px 22px rgba(0, 0, 0, 0.55);
+}
+.encounter-banner-strip-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 38%;
+  filter: brightness(0.92) saturate(1.05);
+}
+
 /* Squadmate tray — compact tiles for non-primary monsters in a
  * multi-monster encounter. Mounts under the primary monster's
  * baseplate so players can track every member of the squad. */

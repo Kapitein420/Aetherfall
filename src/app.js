@@ -2,6 +2,7 @@ import { classDefinitions, selectableClasses } from "./content/classes.js";
 import { getCardDefinition } from "./content/cards.js";
 import { getChampionVisual, getEffectVisual, getMonsterVisual } from "./content/game-assets.js";
 import { listMonsters, listEncounters, getEncounter, DEFAULT_MONSTER_ID } from "./content/monsters.js";
+import { assetUrl } from "./content/asset-paths.js";
 import { getPartyDeckCard, PARTY_DECK_INTERACTIONS } from "./content/party-deck.js";
 import { getElementIcon } from "./content/element-icons.js";
 import { getEffectDuration, getEffectName, shouldShowEffectAmount } from "./effects/effect-library.js";
@@ -466,12 +467,28 @@ function renderEncounterPicker() {
       `,
     )
     .join("");
+  // When the selected encounter has a hero banner, surface it as the
+  // visual anchor of the row. The summary text moves under the banner so
+  // the "what am I fighting" panel reads top-to-bottom: banner → name →
+  // role → summary → controls. Encounters without a banner fall through
+  // to the legacy compact row.
+  const bannerHtml = selected.banner
+    ? `<div class="setup-encounter-banner-wrap">
+         <img src="${assetUrl(selected.banner)}" alt="${escapeHtml(selected.name)}" class="setup-encounter-banner" />
+       </div>`
+    : "";
+  const summaryHtml = selected.summary
+    ? `<p class="setup-encounter-summary">${escapeHtml(selected.summary)}</p>`
+    : "";
+  const rowClass = selected.banner ? "setup-encounter-row has-banner" : "setup-encounter-row";
   return `
-    <div class="setup-encounter-row">
+    <div class="${rowClass}">
+      ${bannerHtml}
       <div class="setup-encounter-info">
         <p class="eyebrow">Encounter</p>
         <h2>${escapeHtml(selected.name)}</h2>
         <p class="setup-encounter-role">${escapeHtml(selected.role)} · ${escapeHtml(selected.faction)}</p>
+        ${summaryHtml}
       </div>
       <div class="setup-encounter-controls">
         <div class="setup-player-count" role="group" aria-label="Number of players">
@@ -750,6 +767,7 @@ function renderGame() {
         <svg class="standoff-tethers" data-tethers aria-hidden="true"></svg>
 
         <div class="standoff-monster ${(gameState.monsters?.length ?? 1) > 1 ? "multi" : ""}" data-target-zone="monster" data-monster-id="${gameState.monster.id}">
+          ${renderEncounterBanner()}
           ${renderMonsterIntent(intent)}
           ${renderMonsterFigure(gameState.monster)}
           ${renderMonsterBaseplate(gameState.monster)}
@@ -861,6 +879,20 @@ function renderWinnerTitle() {
   }
 
   return "The monster wins";
+}
+
+// Encounter banner above the monster zone. Shows only when the
+// chosen encounter has a banner image and the fight has more than
+// one monster — single-monster boss fights keep the original look.
+function renderEncounterBanner() {
+  const encounter = getEncounter(setup.monsterId);
+  if (!encounter || !encounter.banner) return "";
+  if ((gameState.monsters?.length ?? 1) <= 1) return "";
+  return `
+    <div class="encounter-banner-strip" aria-hidden="true">
+      <img src="${assetUrl(encounter.banner)}" alt="" class="encounter-banner-strip-img" />
+    </div>
+  `;
 }
 
 // For multi-monster encounters, render the non-primary squadmates as
