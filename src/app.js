@@ -984,21 +984,47 @@ function renderMonsterRoster(state) {
   return `<div class="monster-roster ${isMulti ? "is-multi" : "is-solo"}">${slots}</div>`;
 }
 
-// Compact intent chip rendered above each monster figure. Shows the
-// damage they're about to deal and who they're aiming at — Slay the
-// Spire's most-loved at-a-glance feature. Single-monster fights still
-// also render the legacy floating intent badge for backward compat.
+// Per-monster intent chip — Slay the Spire-style preview of the next
+// attack. Shows damage tier (color), hit count, target with class
+// color, and a "through block" hint when the hit would punch past
+// the target's current block.
 function renderMonsterIntentChip(intent) {
   if (!intent) return "";
-  const total = intent.actions > 1 ? `${intent.damage} × ${intent.actions}` : `${intent.damage}`;
+  const targetPlayer = (gameState.players ?? []).find((p) => p.id === intent.targetId);
+  const totalIncoming = intent.damage * intent.actions;
+  // Damage tier — drives chip color. Single-hit damage thresholds:
+  //   light  ≤ 3       (most basic attacks)
+  //   medium 4-6       (mid-tier squad attacks)
+  //   heavy  7-9       (named fixate attacks, finisher tier)
+  //   critical 10+     (executes / boss windups)
+  const tier = intent.damage >= 10 ? "critical"
+    : intent.damage >= 7 ? "heavy"
+    : intent.damage >= 4 ? "medium"
+    : "light";
+  // Block forecast — would the next hit punch through the target's
+  // current block? Helpful at-a-glance for "do I need more block?".
+  const targetBlock = targetPlayer?.block ?? 0;
+  const willBreak = targetBlock > 0 && intent.damage > targetBlock;
+  const blockHint = targetBlock > 0
+    ? (willBreak ? "breaks block" : "blocked")
+    : "";
   const titleLabel = intent.actions > 1
     ? `Next: ${intent.actions} × ${intent.damage} damage to ${intent.targetName}`
     : `Next attack: ${intent.damage} damage to ${intent.targetName}`;
+  const classMod = targetPlayer ? `class-${targetPlayer.classId}` : "";
   return `
-    <div class="monster-intent-chip ${intent.isFixated ? "is-fixated" : ""}" title="${escapeHtml(titleLabel)}">
-      <span class="intent-chip-icon" aria-hidden="true">⚔</span>
-      <strong class="intent-chip-damage">${total}</strong>
-      <span class="intent-chip-target">→ ${escapeHtml(intent.targetName)}</span>
+    <div class="monster-intent-chip tier-${tier} ${intent.isFixated ? "is-fixated" : ""}" title="${escapeHtml(titleLabel)}">
+      <span class="intent-attack">
+        <span class="intent-icon" aria-hidden="true">⚔</span>
+        <strong class="intent-damage">${intent.damage}</strong>
+        ${intent.actions > 1 ? `<span class="intent-multi" aria-label="${intent.actions} hits">×${intent.actions}</span>` : ""}
+      </span>
+      <span class="intent-arrow" aria-hidden="true">→</span>
+      <span class="intent-target ${classMod}">
+        <span class="intent-target-dot" aria-hidden="true"></span>
+        <span class="intent-target-name">${escapeHtml(intent.targetName)}</span>
+      </span>
+      ${blockHint ? `<span class="intent-block-hint ${willBreak ? "is-break" : "is-blocked"}" aria-label="${blockHint}">${blockHint}</span>` : ""}
     </div>
   `;
 }

@@ -4088,55 +4088,171 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
 }
 
 /* =====================================================================
- * Phase 2 monster intent chip — small banner above each monster slot
- * that previews the next attack (damage × actions, target). Inspired
- * by Slay the Spire's pre-turn intent icon. Fixated monsters get a
- * red glow so the locked-on threat reads instantly. */
+ * Monster intent chip v2 — Slay the Spire-style threat preview.
+ * Compact horizontal pill above each monster figure showing:
+ *   [⚔ damage ×actions]  →  [target dot + name]  [block hint]
+ * Damage tier (light/medium/heavy/critical) drives the chip's accent
+ * color; fixated monsters get an extra pulsing ring.
+ *
+ * Class-color dot beside the target name uses the same per-class
+ * accent as the player's banner (purple Storm Forge, cyan Hydroflow,
+ * etc) so the player can tell at a glance who's about to be hit. */
 .monster-intent-chip {
+  --intent-accent: rgba(255, 153, 90, 0.75);
+  --intent-accent-soft: rgba(255, 153, 90, 0.18);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
-  margin-bottom: 4px;
+  gap: 8px;
+  padding: 4px 10px 4px 8px;
+  margin-bottom: 6px;
   border-radius: 999px;
-  border: 1px solid rgba(246, 122, 90, 0.45);
-  background: linear-gradient(180deg, rgba(54, 22, 18, 0.88), rgba(28, 12, 10, 0.94));
-  color: #f6cfb6;
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  border: 1px solid var(--intent-accent);
+  background: linear-gradient(180deg, rgba(28, 18, 22, 0.92), rgba(14, 8, 12, 0.96));
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
-}
-.monster-intent-chip.is-fixated {
-  border-color: rgba(255, 80, 60, 0.85);
   box-shadow:
-    0 0 0 2px rgba(255, 80, 60, 0.35),
-    0 4px 10px rgba(0, 0, 0, 0.45);
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 6px 14px rgba(0, 0, 0, 0.5);
+  color: #f6e3d6;
+  transition: transform 160ms ease;
+}
+.monster-intent-chip:hover { transform: translateY(-1px); }
+
+/* Damage tiers — color codes the threat at a glance.
+ *   light    yellow-orange  (1-3 dmg)
+ *   medium   orange         (4-6 dmg)
+ *   heavy    red            (7-9 dmg)
+ *   critical deep red       (10+ dmg, pulses) */
+.monster-intent-chip.tier-light    { --intent-accent: rgba(255, 200, 120, 0.7); --intent-accent-soft: rgba(255, 200, 120, 0.18); }
+.monster-intent-chip.tier-medium   { --intent-accent: rgba(255, 153, 90, 0.78); --intent-accent-soft: rgba(255, 153, 90, 0.2); }
+.monster-intent-chip.tier-heavy    { --intent-accent: rgba(255, 95, 75, 0.85); --intent-accent-soft: rgba(255, 95, 75, 0.22); }
+.monster-intent-chip.tier-critical {
+  --intent-accent: rgba(255, 60, 50, 0.95);
+  --intent-accent-soft: rgba(255, 60, 50, 0.28);
+  animation: intent-critical-pulse 1.4s ease-in-out infinite;
+}
+@keyframes intent-critical-pulse {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 0 rgba(255, 60, 50, 0); 0 6px 14px rgba(0,0,0,0.5); }
+  50%      { box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 6px rgba(255, 60, 50, 0.15), 0 6px 14px rgba(0,0,0,0.5); }
+}
+
+/* Fixate glow — outer ring on top of the tier accent. */
+.monster-intent-chip.is-fixated::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 80, 60, 0.7);
+  pointer-events: none;
   animation: intent-fixate-pulse 1.6s ease-in-out infinite;
 }
-.monster-intent-chip .intent-chip-icon {
-  color: #f06b6b;
-  font-size: 0.86rem;
+.monster-intent-chip.is-fixated { position: relative; }
+@keyframes intent-fixate-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.06); }
+}
+
+/* Attack block — sword icon + big damage number + tiny multi-hit badge */
+.monster-intent-chip .intent-attack {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.monster-intent-chip .intent-icon {
+  color: var(--intent-accent);
+  font-size: 1rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 4px var(--intent-accent-soft));
+}
+.monster-intent-chip .intent-damage {
+  color: #ffe9d8;
+  font-size: 1.05rem;
+  font-weight: 900;
+  font-style: normal;
+  letter-spacing: 0;
+}
+.monster-intent-chip .intent-multi {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--intent-accent-soft);
+  color: var(--intent-accent);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
   line-height: 1;
 }
-.monster-intent-chip .intent-chip-damage {
-  color: #ffe5d6;
-  font-size: 0.84rem;
-  font-weight: 900;
+
+.monster-intent-chip .intent-arrow {
+  color: rgba(246, 207, 182, 0.45);
+  font-size: 0.78rem;
 }
-.monster-intent-chip .intent-chip-target {
-  color: rgba(246, 207, 182, 0.8);
-  font-weight: 700;
+
+/* Target chip — class-color dot + name, tinted to match the player's
+ * banner palette so the threat target is readable at a glance. */
+.monster-intent-chip .intent-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  color: rgba(246, 207, 182, 0.92);
 }
-@keyframes intent-fixate-pulse {
-  0%, 100% { box-shadow: 0 0 0 2px rgba(255, 80, 60, 0.35), 0 4px 10px rgba(0, 0, 0, 0.45); }
-  50%      { box-shadow: 0 0 0 5px rgba(255, 80, 60, 0.18), 0 4px 10px rgba(0, 0, 0, 0.45); }
+.monster-intent-chip .intent-target-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(246, 207, 182, 0.6);
+  box-shadow: 0 0 6px rgba(246, 207, 182, 0.45);
+}
+/* Per-class target accents — match the player banner palette. */
+.intent-target.class-storm-forge        .intent-target-dot { background: #c084ff; box-shadow: 0 0 6px rgba(192,132,255,0.7); }
+.intent-target.class-storm-forge        { color: #e9d6ff; border-color: rgba(192,132,255,0.32); }
+.intent-target.class-hydroflow          .intent-target-dot { background: #3ec4ff; box-shadow: 0 0 6px rgba(62,196,255,0.7); }
+.intent-target.class-hydroflow          { color: #d6efff; border-color: rgba(62,196,255,0.32); }
+.intent-target.class-verdant-reach      .intent-target-dot { background: #5cd66b; box-shadow: 0 0 6px rgba(92,214,107,0.7); }
+.intent-target.class-tideflow-engineer  .intent-target-dot { background: #3ec4ff; box-shadow: 0 0 6px rgba(62,196,255,0.7); }
+.intent-target.class-rook   .intent-target-dot { background: #e19c48; box-shadow: 0 0 6px rgba(225,156,72,0.7); }
+.intent-target.class-lyra   .intent-target-dot { background: #4aa36c; box-shadow: 0 0 6px rgba(74,163,108,0.7); }
+.intent-target.class-virex  .intent-target-dot { background: #6ed8d8; }
+.intent-target.class-elyra  .intent-target-dot { background: #9af0c0; }
+.intent-target.class-gorath .intent-target-dot { background: #7a4ec2; }
+
+/* Block forecast — small badge on the right end of the chip showing
+ * whether the hit will punch through the target's current block. */
+.monster-intent-chip .intent-block-hint {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+.monster-intent-chip .intent-block-hint.is-blocked {
+  background: rgba(111, 200, 224, 0.18);
+  color: #b7e2f3;
+  border: 1px solid rgba(111, 200, 224, 0.35);
+}
+.monster-intent-chip .intent-block-hint.is-break {
+  background: rgba(255, 95, 75, 0.18);
+  color: #ffd0c4;
+  border: 1px solid rgba(255, 95, 75, 0.45);
 }
 
 /* =====================================================================
