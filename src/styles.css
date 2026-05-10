@@ -3714,6 +3714,86 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5));
 }
 
+/* Squadmate tray — compact tiles for non-primary monsters in a
+ * multi-monster encounter. Mounts under the primary monster's
+ * baseplate so players can track every member of the squad. */
+.squadmate-tray {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.squadmate-tile {
+  display: grid;
+  gap: 3px;
+  min-width: 130px;
+  padding: 7px 9px 8px;
+  background: linear-gradient(180deg, rgba(20, 14, 10, 0.94), rgba(8, 6, 4, 0.96));
+  border: 1px solid rgba(214, 156, 88, 0.32);
+  border-radius: 6px;
+  color: #e8dcc4;
+  font-size: 0.74rem;
+  text-align: left;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.squadmate-tile.is-dead {
+  opacity: 0.35;
+  filter: grayscale(0.7);
+}
+
+.squadmate-name {
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #f6e8c4;
+  letter-spacing: 0.04em;
+}
+
+.squadmate-role {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(232, 220, 196, 0.7);
+}
+
+.squadmate-meter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.squadmate-meter .meter-track {
+  flex: 1 1 auto;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.squadmate-meter .meter-track em {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #e07b4a, #d6c89c);
+  border-radius: 3px;
+  font-style: normal;
+}
+
+.squadmate-meter strong {
+  font-weight: 700;
+  font-size: 0.7rem;
+  color: #f6e8c4;
+  white-space: nowrap;
+}
+
+.squadmate-traits {
+  font-size: 0.62rem;
+  color: rgba(232, 220, 196, 0.6);
+  font-style: italic;
+}
+
 /* Banner-art classes: the source images are wide hero banners with the
  * character's head in the upper-left quadrant. We zoom in on that quadrant
  * via transform: scale + transform-origin (object-fit: cover already shows

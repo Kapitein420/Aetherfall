@@ -1,7 +1,7 @@
 import { classDefinitions, selectableClasses } from "./content/classes.js";
 import { getCardDefinition } from "./content/cards.js";
 import { getChampionVisual, getEffectVisual, getMonsterVisual } from "./content/game-assets.js";
-import { listMonsters, DEFAULT_MONSTER_ID } from "./content/monsters.js";
+import { listMonsters, listEncounters, getEncounter, DEFAULT_MONSTER_ID } from "./content/monsters.js";
 import { getPartyDeckCard, PARTY_DECK_INTERACTIONS } from "./content/party-deck.js";
 import { getElementIcon } from "./content/element-icons.js";
 import { getEffectDuration, getEffectName, shouldShowEffectAmount } from "./effects/effect-library.js";
@@ -46,7 +46,7 @@ const MAX_PLAYERS = 4;
 let setup = {
   playerCount: 2,
   playerClasses: ["storm-forge", "hydroflow", "storm-forge", "hydroflow"],
-  monsterId: DEFAULT_MONSTER_ID,
+  monsterId: "bruiser-duo",
 };
 
 let gameState = null;
@@ -152,14 +152,26 @@ function handleAction(element) {
     // Canonical: setup → battle directly. Party Deck draws auto-fire each
     // round inside the engine; no pre-fight pick.
     const activeClasses = setup.playerClasses.slice(0, setup.playerCount);
-    gameState = createCoopBattle({
+    // Encounter resolution: setup.monsterId may now name a multi-monster
+    // encounter (Bruiser Duo / Synthetic Hunter Squad). Resolve through
+    // the encounter registry to a monsterIds array; fall back to the
+    // single monsterId path if the entry is unknown (legacy compat).
+    const encounter = getEncounter(setup.monsterId);
+    const battleConfig = {
       players: activeClasses.map((classId, index) => ({
         id: `player-${index + 1}`,
         name: classDefinitions[classId].shortName,
         classId,
       })),
-      monsterId: setup.monsterId,
-    });
+    };
+    if (encounter && encounter.monsterIds.length > 1) {
+      battleConfig.monsterIds = encounter.monsterIds;
+    } else if (encounter) {
+      battleConfig.monsterId = encounter.monsterIds[0];
+    } else {
+      battleConfig.monsterId = setup.monsterId;
+    }
+    gameState = createCoopBattle(battleConfig);
     lastSeenEventId = getLatestEventId(gameState);
     activeEffects = [];
     message = DRAG_AND_DROP_ENABLED
@@ -435,7 +447,11 @@ function renderSetup() {
 }
 
 function renderEncounterPicker() {
-  const monsters = listMonsters();
+  // Pull from the encounter registry so multi-monster scenarios show up
+  // alongside single-monster boss fights. The Bruiser Duo and Synthetic
+  // Hunter Squad sit at the top of the registry and therefore the
+  // dropdown — they're the headlining encounters per the design PDF.
+  const monsters = listEncounters();
   const selected = monsters.find((m) => m.id === setup.monsterId) ?? monsters[0];
   const countOptions = [2, 3, 4]
     .map(
@@ -733,10 +749,11 @@ function renderGame() {
       <div class="standoff-stage" data-stage>
         <svg class="standoff-tethers" data-tethers aria-hidden="true"></svg>
 
-        <div class="standoff-monster" data-target-zone="monster" data-monster-id="${gameState.monster.id}">
+        <div class="standoff-monster ${(gameState.monsters?.length ?? 1) > 1 ? "multi" : ""}" data-target-zone="monster" data-monster-id="${gameState.monster.id}">
           ${renderMonsterIntent(intent)}
           ${renderMonsterFigure(gameState.monster)}
           ${renderMonsterBaseplate(gameState.monster)}
+          ${renderSquadmates(gameState)}
         </div>
 
         <div class="standoff-flanks players-${gameState.players.length}">
@@ -844,6 +861,39 @@ function renderWinnerTitle() {
   }
 
   return "The monster wins";
+}
+
+// For multi-monster encounters, render the non-primary squadmates as
+// compact tiles next to the primary so the player can track every
+// monster's HP, ability, and "still alive" status. Returns an empty
+// string for single-monster fights.
+function renderSquadmates(state) {
+  const monsters = state.monsters ?? [];
+  if (monsters.length <= 1) return "";
+  const others = monsters.filter((m) => m !== state.monster);
+  if (others.length === 0) return "";
+  return `
+    <div class="squadmate-tray">
+      ${others.map(renderSquadmateTile).join("")}
+    </div>
+  `;
+}
+
+function renderSquadmateTile(monster) {
+  const hpPct = Math.max(0, Math.round((monster.hp / monster.maxHp) * 100));
+  const dead = monster.hp <= 0 ? "is-dead" : "";
+  const traits = (monster.traits ?? []).join(" · ");
+  return `
+    <div class="squadmate-tile ${dead}" data-monster-id="${monster.id}-${escapeHtml(monster.name)}">
+      <div class="squadmate-name">${escapeHtml(monster.name)}</div>
+      <div class="squadmate-role">${escapeHtml(monster.role ?? "")}</div>
+      <div class="squadmate-meter">
+        <div class="meter-track meter-hp"><em style="width: ${hpPct}%"></em></div>
+        <strong>${monster.hp} / ${monster.maxHp}</strong>
+      </div>
+      ${traits ? `<div class="squadmate-traits">${escapeHtml(traits)}</div>` : ""}
+    </div>
+  `;
 }
 
 function renderMonsterFigure(monster) {
@@ -1351,6 +1401,11 @@ function formatRole(role) {
   return role === "defense" ? "defend" : role;
 }
 
+// Per-event stagger so card / monster actions resolve visibly one after
+// the other instead of all flashing at once. Earlier events kick off
+// first; each one sits on screen for its own duration before clearing.
+const EFFECT_STAGGER_MS = 220;
+
 function enqueueEffectsFromState(state) {
   const newEvents = state.events.filter((event) => event.id > lastSeenEventId);
   if (newEvents.length === 0) {
@@ -1359,6 +1414,7 @@ function enqueueEffectsFromState(state) {
 
   lastSeenEventId = Math.max(...newEvents.map((event) => event.id));
 
+  let startDelay = 0;
   for (const event of newEvents) {
     if (!event.target) {
       continue;
@@ -1372,15 +1428,21 @@ function enqueueEffectsFromState(state) {
       label: event.label,
     };
     effectInstanceId += 1;
-    activeEffects.push(effect);
+    const localStart = startDelay;
+    const duration = getEffectDuration(effect.type);
 
     window.setTimeout(() => {
-      activeEffects = activeEffects.filter((candidate) => candidate.instanceId !== effect.instanceId);
+      activeEffects.push(effect);
+      activeEffects = activeEffects.slice(-24);
       render();
-    }, getEffectDuration(effect.type));
-  }
+      window.setTimeout(() => {
+        activeEffects = activeEffects.filter((candidate) => candidate.instanceId !== effect.instanceId);
+        render();
+      }, duration);
+    }, localStart);
 
-  activeEffects = activeEffects.slice(-24);
+    startDelay += EFFECT_STAGGER_MS;
+  }
 }
 
 function renderEffectSprites(target) {

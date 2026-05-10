@@ -252,18 +252,23 @@ export function resolveRound(currentState) {
     // but the auto-grant block is removed.
   }
 
-  if (state.monster.hp <= 0) {
-    state.monster.hp = 0;
+  // Victory when every monster in the encounter is dead. For single-
+  // monster fights this is just `state.monster.hp <= 0`; for the
+  // Bruiser Duo / Synthetic Hunter Squad each squadmate must fall.
+  const allDead = (state.monsters ?? [state.monster]).every((m) => m.hp <= 0);
+  if (allDead) {
     state.phase = "game-over";
     state.winner = "players";
+    const finalName = state.monster?.name ?? "The encounter";
     pushEvent(state, "defeat", {
       target: { type: "monster" },
-      label: state.monster.name,
+      label: finalName,
     });
+    const arenaLabel = (state.monsters ?? [state.monster]).map((m) => m.name).join(" and ");
     pushLog(state, {
       kind: "outcome",
       outcome: "victory",
-      text: `${state.monster.name} falls. The party wins.`,
+      text: `${arenaLabel} fall. The party wins.`,
     });
     return state;
   }
@@ -699,7 +704,7 @@ function dealMonsterDamage(state, player, amount, element) {
     }
   }
   const multiplier = getElementMultiplier(state.monster, el);
-  const defense = state.monster.defense ?? 0;
+  const defense = effectiveMonsterDefense(state, state.monster);
   // Element first, then defense subtraction. Floor at 0.
   const afterElement = Math.ceil(rawDamage * multiplier);
   let finalDamage = Math.max(0, afterElement - defense);
@@ -795,6 +800,17 @@ function dealMonsterDamage(state, player, amount, element) {
       pushLog(state, {
         kind: "info",
         text: `${player.name} lands the killing blow on ${state.monster.name} — ${others.length} other ${others.length === 1 ? "monster gains" : "monsters gain"} +5 threat.`,
+      });
+      // Advance the primary-monster alias to the next living squadmate.
+      // Player damage routes through `state.monster`, so without this
+      // swap the rest of the round (and subsequent rounds) would have
+      // nothing to hit. Iteration order matches state.monsters so the
+      // squad falls in the order the encounter was authored.
+      const nextLiving = others[0];
+      state.monster = nextLiving;
+      pushLog(state, {
+        kind: "info",
+        text: `Targeting shifts to ${nextLiving.name}.`,
       });
     }
   }
@@ -926,28 +942,42 @@ function describePhase(monster, phase) {
 }
 
 function resolveMonsterTurn(state) {
-  // Optional per-monster pre-turn hook. Phase hooks may install a
-  // function on `monster.onMonsterTurnStart` to run side-effects (e.g.
-  // Warden's Override Protocol dampening all threat by 2 each turn).
-  if (typeof state.monster.onMonsterTurnStart === "function") {
-    state.monster.onMonsterTurnStart(state);
+  // Multi-monster turn order. Iterate every living monster in
+  // turnPriority order (lowest first; "Attacks Last" monsters like the
+  // Execution Drone get a high turnPriority so they fire after the rest
+  // of the squad). Single-monster encounters fall through naturally
+  // because the array has one element.
+  const order = (state.monsters ?? [state.monster])
+    .filter((m) => m && m.hp > 0)
+    .sort((a, b) => (a.turnPriority ?? 0) - (b.turnPriority ?? 0));
+
+  for (const monster of order) {
+    if (state.players.every((player) => player.hp <= 0)) return;
+    if (monster.hp <= 0) continue;
+    runSingleMonsterTurn(state, monster);
+  }
+}
+
+// Runs one monster's full turn (pre-turn hook + N attack actions).
+// Reads from the passed `monster` rather than the `state.monster`
+// alias so multi-monster encounters work without temp-swapping.
+function runSingleMonsterTurn(state, monster) {
+  if (typeof monster.onMonsterTurnStart === "function") {
+    monster.onMonsterTurnStart(state);
   }
 
-  const actions = Math.max(1, state.monster.actionsPerTurn ?? 1);
+  const actions = Math.max(1, monster.actionsPerTurn ?? 1);
 
   for (let actionIndex = 0; actionIndex < actions; actionIndex += 1) {
     if (state.players.every((player) => player.hp <= 0)) {
       return;
     }
 
-    const target = chooseMonsterTarget(state);
+    const target = chooseMonsterTargetFor(state, monster);
     if (!target) {
       return;
     }
 
-    // Bio-Growth generation: a player gains 1 Bio-Growth token whenever
-    // a monster targets them. Fires per attack action (multi-action
-    // monsters can grant multiple tokens in one turn).
     if (!target.tokens) target.tokens = { bioGrowth: 0, hydroflow: 0, stormCharge: 0 };
     target.tokens.bioGrowth = (target.tokens.bioGrowth ?? 0) + 1;
     pushEvent(state, "criticalLine", {
@@ -958,14 +988,18 @@ function resolveMonsterTurn(state) {
 
     let damage = Math.max(
       1,
-      state.monster.baseAttack + Math.floor(state.roundNumber / 2),
+      effectiveMonsterAttack(state, monster) + Math.floor(state.roundNumber / 2),
     );
-    // Canonical Enrage: when the monster strikes its fixated target,
-    // damage gets `monster.enrageDamageBonus` extra (default 3). Other
-    // targets are hit at the base damage.
-    const fix = state.monster.fixate;
+    // Fixate damage: monsters with an explicit `fixateAttack` use that
+    // flat number on the locked target (Bruiser Duo / Synthetic Squad
+    // statline). Otherwise apply the canonical Enrage bonus.
+    const fix = monster.fixate;
     if (fix && fix.roundsRemaining > 0 && fix.playerId === target.id) {
-      damage += state.monster.enrageDamageBonus ?? 3;
+      if (typeof monster.fixateAttack === "number") {
+        damage = monster.fixateAttack;
+      } else {
+        damage += monster.enrageDamageBonus ?? 3;
+      }
     }
 
     const blockBefore = target.block;
@@ -980,33 +1014,105 @@ function resolveMonsterTurn(state) {
       blocked,
       through,
       text: through > 0
-        ? `${state.monster.name} strikes ${target.name} for ${damage} (${blocked > 0 ? `${blocked} blocked, ` : ""}${through} through)`
-        : `${state.monster.name} strikes ${target.name} — ${damage} fully blocked`,
+        ? `${monster.name} strikes ${target.name} for ${damage} (${blocked > 0 ? `${blocked} blocked, ` : ""}${through} through)`
+        : `${monster.name} strikes ${target.name} — ${damage} fully blocked`,
     });
     pushEvent(state, "spellHit", {
       target: { type: "player", playerId: target.id },
       amount: damage,
-      label: "Monster",
+      label: monster.name,
     });
   }
 }
 
+// Effective attack for a monster, factoring in declarative abilities.
+// `packHunter` / `crossfire` add +1 while at least one other living
+// squadmate exists. `targetUplink` from a SEPARATE living monster
+// adds +1 to this monster's attack.
+function effectiveMonsterAttack(state, monster) {
+  let bonus = 0;
+  const others = (state.monsters ?? []).filter((m) => m !== monster && m.hp > 0);
+  const abilities = monster.abilities ?? [];
+  if ((abilities.includes("packHunter") || abilities.includes("crossfire")) && others.length > 0) {
+    bonus += 1;
+  }
+  if (others.some((m) => (m.abilities ?? []).includes("targetUplink"))) {
+    bonus += 1;
+  }
+  return (monster.baseAttack ?? 0) + bonus;
+}
+
+// Effective defense for a monster, factoring in declarative abilities.
+// `sharedShielding` adds +2 defense while at least one other squadmate
+// is alive. Used by dealMonsterDamage when computing damage applied to
+// the primary monster alias.
+function effectiveMonsterDefense(state, monster) {
+  let def = monster.defense ?? 0;
+  const others = (state.monsters ?? []).filter((m) => m !== monster && m.hp > 0);
+  if ((monster.abilities ?? []).includes("sharedShielding") && others.length > 0) {
+    def += 2;
+  }
+  return def;
+}
+
 function chooseMonsterTarget(state) {
+  return chooseMonsterTargetFor(state, state.monster);
+}
+
+// Per-monster target picker. Reads the threat map and fixate flag off
+// the passed monster so multi-monster encounters don't have to swap
+// the `state.monster` alias.
+function chooseMonsterTargetFor(state, monster) {
   const livingPlayers = state.players.filter((player) => player.hp > 0);
   if (!livingPlayers.length) {
     return null;
   }
 
-  // Fixate-aware target selector. Locks onto the marked player while
-  // their `marked` counter is > 0, regardless of threat tiebreak.
-  if (state.monster.targetSelector === "fixate") {
-    const fixated = selectTargetWithFixate(state, livingPlayers);
+  if (monster.targetSelector === "fixate") {
+    const fixated = selectTargetWithFixateFor(state, monster, livingPlayers);
     if (fixated) {
       return fixated;
     }
   }
 
-  return defaultTargetSelector(state, livingPlayers);
+  return defaultTargetSelectorFor(state, monster, livingPlayers);
+}
+
+function defaultTargetSelectorFor(state, monster, livingPlayers) {
+  return [...livingPlayers].sort((a, b) => {
+    const threatDiff = (monster.threat?.[b.id] ?? 0) - (monster.threat?.[a.id] ?? 0);
+    if (threatDiff !== 0) {
+      return threatDiff;
+    }
+    return a.hp - b.hp;
+  })[0];
+}
+
+function selectTargetWithFixateFor(state, monster, livingPlayers) {
+  const current = monster.fixate;
+  if (current && current.roundsRemaining > 0) {
+    const target = livingPlayers.find((p) => p.id === current.playerId);
+    if (target) {
+      return target;
+    }
+    monster.fixate = null;
+  }
+
+  const threshold = monster.fixateThreshold ?? FIXATE_THREAT_THRESHOLD;
+  const candidates = livingPlayers
+    .filter((p) => (monster.threat?.[p.id] ?? 0) >= threshold)
+    .sort((a, b) => (monster.threat?.[b.id] ?? 0) - (monster.threat?.[a.id] ?? 0));
+
+  if (candidates.length === 0) {
+    return defaultTargetSelectorFor(state, monster, livingPlayers);
+  }
+
+  const lock = candidates[0];
+  monster.fixate = {
+    playerId: lock.id,
+    roundsRemaining: FIXATE_DURATION,
+  };
+  return lock;
 }
 
 function defaultTargetSelector(state, livingPlayers) {
