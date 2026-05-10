@@ -64,6 +64,11 @@ let lastSeenEventId = 0;
 // entity id so the next render can detect damage / heals and pulse
 // the corresponding stat pill. Cleared on game start / new game.
 const lastHpByEntity = new Map();
+// Pre-game flow phase. Splash is the title screen (Phase A skeleton —
+// title + "PRESS ANY KEY"); setup is the existing encounter/class
+// picker; combat is gameState !== null. Persists across renders.
+let screenPhase = "splash"; // 'splash' | 'setup'
+let splashLeaving = false;  // true during the fade-out transition
 // Round summary toast — populated after each resolveRound with the
 // per-player damage taken and per-monster damage dealt deltas, then
 // auto-cleared after ROUND_SUMMARY_MS.
@@ -146,6 +151,33 @@ app.addEventListener("change", (event) => {
   render();
 });
 
+// Splash screen accepts ANY key as "start". Mirrors Elden Ring's
+// "press any button" affordance. Only fires while we're on the splash
+// screen and not already mid-transition; unbinds itself once the
+// player advances. The click pathway goes through data-action so the
+// regular delegate below handles it too.
+window.addEventListener("keydown", (event) => {
+  if (screenPhase !== "splash" || splashLeaving) return;
+  // Ignore meta-only presses (e.g. Tab focusing) — only commit on a
+  // typing key, Space, or Enter so the player feels they pressed it.
+  if (event.key === "Tab" || event.key === "Shift" || event.key === "Control"
+      || event.key === "Alt" || event.key === "Meta") return;
+  event.preventDefault();
+  advanceSplash();
+});
+
+function advanceSplash() {
+  if (screenPhase !== "splash" || splashLeaving) return;
+  splashLeaving = true;
+  render();
+  // Fade-out duration matches .title-splash.is-leaving in styles.css.
+  window.setTimeout(() => {
+    screenPhase = "setup";
+    splashLeaving = false;
+    render();
+  }, 480);
+}
+
 app.addEventListener("click", (event) => {
   const button = event.target.closest("[data-action]");
   if (!button) {
@@ -169,6 +201,11 @@ function handleAction(element) {
       setup = { ...setup, playerCount: next };
       render();
     }
+    return;
+  }
+
+  if (action === "splash-advance") {
+    advanceSplash();
     return;
   }
 
@@ -422,11 +459,13 @@ function render() {
   let html;
   if (gameState) {
     html = renderGame();
+  } else if (screenPhase === "splash") {
+    html = renderSplash();
   } else {
     html = renderSetup();
   }
   app.innerHTML = html;
-  document.body.dataset.gameView = gameState ? "active" : "";
+  document.body.dataset.gameView = gameState ? "active" : screenPhase;
 
   if (DRAG_AND_DROP_ENABLED && gameState && gameState.phase !== "game-over") {
     if (!dragInited) {
@@ -529,6 +568,35 @@ function findTargetElement(targetKeyValue) {
     return document.querySelector(`[data-target-zone="player"][data-player-id="${id}"]`);
   }
   return null;
+}
+
+// Title splash — the first screen the player sees. Phase A skeleton:
+// no parallax / particles yet (those land in Phase B/C per
+// docs/menu-design.md). Just the title art, a slow-breathing
+// "PRESS ANY KEY" prompt, and a background that uses the
+// battlefield image until a dedicated splash painting arrives.
+function renderSplash() {
+  return `
+    <section class="title-splash ${splashLeaving ? "is-leaving" : ""}" data-screen="splash">
+      <div class="title-splash-bg" aria-hidden="true"></div>
+      <div class="title-splash-vignette" aria-hidden="true"></div>
+      <div class="title-splash-content">
+        <p class="title-splash-eyebrow">A co-op deck-building boss trial</p>
+        <h1 class="title-splash-name">
+          <span class="title-splash-line-1">The Fracture of</span>
+          <span class="title-splash-line-2">AETHERFALL</span>
+        </h1>
+        <button
+          class="title-splash-prompt"
+          type="button"
+          data-action="splash-advance"
+          aria-label="Press any key to continue"
+        >
+          Press any key
+        </button>
+      </div>
+    </section>
+  `;
 }
 
 function renderSetup() {
