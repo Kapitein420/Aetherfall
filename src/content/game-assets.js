@@ -85,6 +85,23 @@ export const championVisuals = {
     banner: uiAsset("banners/hydroflow.png"),
     cardBack: uiAsset("card-backs/wouter.png"),
   },
+  // Bloomcaller — Bio-Growth starter. Banner art is TODO (see
+  // docs/asset-inventory.xlsx); falls back to the Verdant Reach palette
+  // via the Wouter card-back + a placeholder portrait reusing the
+  // Hydroflow banner so the slot doesn't render blank. Replace with
+  // a dedicated bloomcaller.png once generated.
+  bloomcaller: {
+    portrait: uiAsset("banners/hydroflow.png"),
+    banner: uiAsset("banners/hydroflow.png"),
+    cardBack: uiAsset("card-backs/wouter.png"),
+  },
+  // Stormtide Conduit — hybrid Storm + Hydroflow. Banner art TODO; uses
+  // Storm Forge's banner as a temporary stand-in.
+  "stormtide-conduit": {
+    portrait: uiAsset("banners/storm-forge.png"),
+    banner: uiAsset("banners/storm-forge.png"),
+    cardBack: uiAsset("card-backs/arian.png"),
+  },
 };
 
 export const effectVisuals = {
