@@ -3783,24 +3783,20 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5));
 }
 
-/* Armed-card target picker. When an attack card is "armed" (clicked
- * once in a multi-monster fight), the card glows and any living
- * monster turns into a click-target. A second click on a monster
- * confirms the target and queues the card. */
+/* Armed-card target picker. The yellow outline + brightness lift are
+ * static signals so the card reads as armed at a glance; a slow,
+ * shallow "breathing" glow replaces the previous fast box-shadow
+ * ripple that contributed to the strobe feeling. */
 .hand-card.is-armed {
-  outline: 3px solid #f6d77a;
+  outline: 2px solid #f6d77a;
   outline-offset: 4px;
-  filter: brightness(1.18) drop-shadow(0 0 12px rgba(246, 215, 122, 0.7));
-  animation: armed-card-pulse 1.4s ease-in-out infinite;
+  filter: brightness(1.12) drop-shadow(0 0 8px rgba(246, 215, 122, 0.5));
+  animation: armed-card-breath 3s ease-in-out infinite;
   z-index: 6;
 }
-@keyframes armed-card-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(246, 215, 122, 0.6), 0 18px 34px rgba(0, 0, 0, 0.5);
-  }
-  50% {
-    box-shadow: 0 0 0 8px rgba(246, 215, 122, 0), 0 18px 34px rgba(0, 0, 0, 0.5);
-  }
+@keyframes armed-card-breath {
+  0%, 100% { filter: brightness(1.1) drop-shadow(0 0 6px rgba(246, 215, 122, 0.4)); }
+  50%      { filter: brightness(1.16) drop-shadow(0 0 12px rgba(246, 215, 122, 0.6)); }
 }
 
 /* Monster zone in armed mode — soft tint so the player sees they're in
@@ -3819,7 +3815,9 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   outline: 2px dashed rgba(246, 122, 90, 0.7);
   outline-offset: 6px;
   border-radius: 14%;
-  animation: target-pulse 1.4s ease-in-out infinite;
+  /* Slower, smaller breath so multiple armed targets don't sync into
+   * a strobe. The dashed outline alone already reads as targetable. */
+  animation: target-breath 3s ease-in-out infinite;
   pointer-events: auto;
 }
 .monster-figure.is-armed-target .monster-aura,
@@ -3843,9 +3841,9 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   border-color: rgba(255, 160, 110, 1);
 }
 
-@keyframes target-pulse {
-  0%, 100% { outline-offset: 4px; }
-  50% { outline-offset: 8px; }
+@keyframes target-breath {
+  0%, 100% { outline-color: rgba(246, 122, 90, 0.55); outline-offset: 5px; }
+  50%      { outline-color: rgba(246, 122, 90, 0.85); outline-offset: 7px; }
 }
 
 /* Per-monster banner crops. Bruiser Duo and Synthetic Hunter Squad
@@ -4227,11 +4225,13 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
 .monster-intent-chip.tier-critical {
   --intent-accent: rgba(255, 60, 50, 0.95);
   --intent-accent-soft: rgba(255, 60, 50, 0.28);
-  animation: intent-critical-pulse 1.4s ease-in-out infinite;
+  /* Slower critical pulse — was 1.4s, now 3.2s. The deep red color
+   * already conveys "critical"; the pulse just nudges attention. */
+  animation: intent-critical-breath 3.2s ease-in-out infinite;
 }
-@keyframes intent-critical-pulse {
-  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 0 rgba(255, 60, 50, 0); 0 6px 14px rgba(0,0,0,0.5); }
-  50%      { box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 6px rgba(255, 60, 50, 0.15), 0 6px 14px rgba(0,0,0,0.5); }
+@keyframes intent-critical-breath {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 0 rgba(255, 60, 50, 0), 0 6px 14px rgba(0,0,0,0.5); }
+  50%      { box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 0 4px rgba(255, 60, 50, 0.12), 0 6px 14px rgba(0,0,0,0.5); }
 }
 
 /* Fixate glow — outer ring on top of the tier accent. */
@@ -4242,12 +4242,14 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   border-radius: inherit;
   border: 1px solid rgba(255, 80, 60, 0.7);
   pointer-events: none;
-  animation: intent-fixate-pulse 1.6s ease-in-out infinite;
+  /* Slower, smaller fixate breath. Pure opacity (no scale) so it
+   * doesn't pump the chip's bounding box and feel jittery. */
+  animation: intent-fixate-breath 3.4s ease-in-out infinite;
 }
 .monster-intent-chip.is-fixated { position: relative; }
-@keyframes intent-fixate-pulse {
-  0%, 100% { opacity: 0.55; transform: scale(1); }
-  50%      { opacity: 1;    transform: scale(1.06); }
+@keyframes intent-fixate-breath {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.9; }
 }
 
 /* Attack block — sword icon + big damage number + tiny multi-hit badge */
@@ -4459,26 +4461,24 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   background: linear-gradient(90deg, #c0473a, #d9663b);
 }
 
-/* Phase 2 — HP change flash. The pill briefly tints + lifts when HP
- * drops (red) or recovers (green). Triggered by render() comparing
- * data-hp-current against the cached last-render value. */
+/* HP change flash — smooth one-shot tint, no shake. Damage uses a
+ * gentle red wash that fades back to baseline; heal a soft green
+ * wash. Both keep the pill at scale 1 so the layout doesn't pulse. */
 .stat-pill.stat-hp.is-flashing-damage {
-  animation: hp-flash-damage 700ms ease;
+  animation: hp-flash-damage 900ms ease-out;
 }
 .stat-pill.stat-hp.is-flashing-heal {
-  animation: hp-flash-heal 700ms ease;
+  animation: hp-flash-heal 900ms ease-out;
 }
 @keyframes hp-flash-damage {
-  0%   { background: rgba(255, 70, 60, 0.55); transform: scale(1); }
-  20%  { background: rgba(255, 70, 60, 0.78); transform: scale(1.06) translateX(-2px); }
-  40%  { transform: scale(1.04) translateX(2px); }
-  60%  { transform: scale(1.02) translateX(-1px); }
-  100% { background: linear-gradient(180deg, rgba(20, 24, 22, 0.7), rgba(8, 11, 14, 0.82)); transform: scale(1); }
+  0%   { background: rgba(255, 90, 80, 0.55); }
+  35%  { background: rgba(255, 90, 80, 0.4); }
+  100% { background: linear-gradient(180deg, rgba(20, 24, 22, 0.7), rgba(8, 11, 14, 0.82)); }
 }
 @keyframes hp-flash-heal {
-  0%   { background: rgba(101, 213, 125, 0.45); transform: scale(1); }
-  35%  { background: rgba(101, 213, 125, 0.65); transform: scale(1.05); }
-  100% { background: linear-gradient(180deg, rgba(20, 24, 22, 0.7), rgba(8, 11, 14, 0.82)); transform: scale(1); }
+  0%   { background: rgba(101, 213, 125, 0.4); }
+  35%  { background: rgba(101, 213, 125, 0.28); }
+  100% { background: linear-gradient(180deg, rgba(20, 24, 22, 0.7), rgba(8, 11, 14, 0.82)); }
 }
 
 /* Squadmate tray — compact tiles for non-primary monsters in a
@@ -4766,7 +4766,9 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
  * the matching token chip pulses so the player can see exactly which
  * of their tokens will be consumed if they confirm the target. */
 .token-chip.is-pending-spend {
-  animation: token-spend-pulse 1.1s ease-in-out infinite;
+  /* Slower, smaller pulse than the original 1.1s/1.08x — enough to
+   * draw the eye without competing with the armed-card breath. */
+  animation: token-spend-pulse 2.6s ease-in-out infinite;
   position: relative;
 }
 .token-chip.is-pending-spend::after {
@@ -4792,7 +4794,7 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
 }
 @keyframes token-spend-pulse {
   0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.08); }
+  50%      { transform: scale(1.04); }
 }
 .token-chip.token-bio.is-pending-spend  { box-shadow: 0 0 0 2px rgba(92, 214, 107, 0.55), 0 0 12px rgba(92, 214, 107, 0.35); }
 .token-chip.token-hydro.is-pending-spend { box-shadow: 0 0 0 2px rgba(62, 196, 255, 0.55), 0 0 12px rgba(62, 196, 255, 0.35); }
