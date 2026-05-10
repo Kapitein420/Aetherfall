@@ -3949,6 +3949,56 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   filter: brightness(0.92) saturate(1.05);
 }
 
+/* Monster roster — every monster in the encounter renders as an
+ * equal-sized slot (figure + baseplate stacked vertically), arranged
+ * in a horizontal flex row so the player sees all enemies as peers
+ * rather than primary + squadmates. Solo fights collapse to one
+ * centered slot. */
+.monster-roster {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.monster-roster.is-solo {
+  display: grid;
+  place-items: center;
+}
+.monster-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.monster-slot.is-dead {
+  opacity: 0.4;
+  filter: grayscale(0.7);
+}
+/* Tighten the figure size for multi-monster slots so 2-3 fighters fit
+ * between the player flanks. The .standoff-flanks float over both
+ * sides absolutely, so monsters need to live in the central column
+ * without overlapping the players. */
+.monster-roster.is-multi .monster-figure {
+  width: clamp(110px, 14vh, 170px);
+}
+.monster-roster.is-multi .monster-baseplate {
+  width: min(220px, 100%);
+  font-size: 0.78em;
+  padding: 6px 10px 8px;
+}
+.monster-roster.is-multi .monster-baseplate h2 {
+  font-size: 1.1em;
+}
+.monster-roster {
+  /* Float monsters above the player flanks so they're not visually
+   * occluded when slot widths are tight. */
+  position: relative;
+  z-index: 5;
+}
+
 /* Squadmate tray — compact tiles for non-primary monsters in a
  * multi-monster encounter. Mounts under the primary monster's
  * baseplate so players can track every member of the squad. */

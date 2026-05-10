@@ -1005,12 +1005,20 @@ function runSingleMonsterTurn(state, monster) {
     }
 
     if (!target.tokens) target.tokens = { bioGrowth: 0, hydroflow: 0, stormCharge: 0 };
-    target.tokens.bioGrowth = (target.tokens.bioGrowth ?? 0) + 1;
-    pushEvent(state, "criticalLine", {
-      target: { type: "player", playerId: target.id },
-      label: "Bio-Growth +1",
-      amount: 1,
-    });
+    // Bio-Growth generation is the canonical Verdant Reach passive ("gain
+    // 1 Bio-Growth when targeted by a monster") and should only fire for
+    // bio-growth-themed classes — Hydroflow / Storm Forge players don't
+    // generate someone else's token just for getting hit. The class's
+    // `element` field is the source of truth.
+    const targetClass = classDefinitions[target.classId];
+    if (targetClass?.element === "bio-growth") {
+      target.tokens.bioGrowth = (target.tokens.bioGrowth ?? 0) + 1;
+      pushEvent(state, "criticalLine", {
+        target: { type: "player", playerId: target.id },
+        label: "Bio-Growth +1",
+        amount: 1,
+      });
+    }
 
     let damage = Math.max(
       1,
