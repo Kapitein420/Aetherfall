@@ -70,7 +70,29 @@ export function createCoopBattle(config = {}) {
     // damage hit. Cleared/decayed by the cards that set them or at round
     // end via decay rules where appropriate.
     flags: {},
+    // Run-progression state — survives across encounters within a run.
+    // run.encounters: ordered list of encounter ids the party will face.
+    // run.currentIndex: 0-based index into that list (this fight = N).
+    // run.crystals: accumulated currency (cosmetic for v1; future shops).
+    // run.runDeckAdds: { [playerId]: cardId[] } cards added to each
+    //                  player's deck via reward picks this run.
+    // run.relics: array of relic ids the party has picked up (v1 only
+    //             tracks them; engine hooks land in Phase 4).
+    run: config.run ?? null,
   };
+
+  // Apply run-scoped player overrides: HP carryover (run.players[id].hp)
+  // so a battered party isn't auto-healed between encounters, and run
+  // deck additions appended to each player's draw pile after the
+  // initial DRAW_PER_ROUND has been dealt below.
+  if (config.run?.players) {
+    for (const p of state.players) {
+      const carry = config.run.players[p.id];
+      if (carry && typeof carry.hp === "number") {
+        p.hp = Math.min(p.maxHp, Math.max(0, carry.hp));
+      }
+    }
+  }
 
   for (const player of state.players) {
     drawCards(state, player, DRAW_PER_ROUND);
@@ -86,6 +108,79 @@ export function createCoopBattle(config = {}) {
     text: `Round 1 begins. ${arenaName} step${monsters.length === 1 ? "s" : ""} into the arena. Plan your opening moves together.`,
   });
   return state;
+}
+
+// Build a fresh battle state for the next encounter in a run.
+// Carries forward: player class + name, current HP, run state with
+// updated currentIndex, accumulated crystals + relics + deck adds.
+// Resets: per-fight monsters, deck shuffle, hand, discard, block,
+// energy, party deck, statuses, threat. Returns a brand-new state
+// ready to plug into the same render flow.
+export function advanceToNextEncounter(currentState, options = {}) {
+  if (!currentState.run) {
+    throw new Error("advanceToNextEncounter: state has no run object.");
+  }
+  const run = { ...currentState.run };
+  run.currentIndex = (run.currentIndex ?? 0) + 1;
+  // Crystals reward (default 5 per cleared encounter; future shop
+  // encounters and elite kills will pass higher amounts via options).
+  if (typeof options.crystalsEarned === "number" && options.crystalsEarned > 0) {
+    run.crystals = (run.crystals ?? 0) + options.crystalsEarned;
+  }
+  // Apply card picks from the reward screen. options.picks is keyed
+  // by playerId, value is a single card-id string. Future multi-pick
+  // rewards can swap to arrays without breaking this shape.
+  if (options.picks) {
+    const adds = { ...(run.runDeckAdds ?? {}) };
+    for (const [playerId, cardId] of Object.entries(options.picks)) {
+      if (!cardId) continue;
+      const existing = adds[playerId] ?? [];
+      adds[playerId] = existing.concat([cardId]);
+    }
+    run.runDeckAdds = adds;
+  }
+  // HP carryover snapshot. We persist this on run.players so create-
+  // CoopBattle can reapply it when it builds the next fight.
+  const hpCarry = {};
+  for (const p of currentState.players) {
+    hpCarry[p.id] = { hp: p.hp };
+  }
+  run.players = hpCarry;
+
+  // If we've cleared the last encounter, return a "run-complete"
+  // state without spinning up combat. The app reads this and shows
+  // the run-complete screen.
+  if (run.currentIndex >= run.encounters.length) {
+    return {
+      ...currentState,
+      run,
+      phase: "run-complete",
+      winner: "players",
+    };
+  }
+
+  // Otherwise, build a fresh battle for the next encounter id. Pull
+  // the encounter's monsterIds via the registry import in app-side
+  // glue (the engine doesn't depend on the encounter registry — the
+  // caller passes monsterIds in options).
+  const playerConfigs = currentState.players.map((p) => ({
+    id: p.id,
+    name: p.name,
+    classId: p.classId,
+    runDeckAdds: run.runDeckAdds?.[p.id] ?? [],
+  }));
+  const battleConfig = {
+    players: playerConfigs,
+    run,
+  };
+  if (options.monsterIds && options.monsterIds.length > 1) {
+    battleConfig.monsterIds = options.monsterIds;
+  } else if (options.monsterIds && options.monsterIds.length === 1) {
+    battleConfig.monsterId = options.monsterIds[0];
+  } else if (options.monsterId) {
+    battleConfig.monsterId = options.monsterId;
+  }
+  return createCoopBattle(battleConfig);
 }
 
 // Helpers for the multi-monster schema. `primaryMonster` returns the first
@@ -283,8 +378,20 @@ export function resolveRound(currentState) {
   // Bruiser Duo / Synthetic Hunter Squad each squadmate must fall.
   const allDead = (state.monsters ?? [state.monster]).every((m) => m.hp <= 0);
   if (allDead) {
-    state.phase = "game-over";
-    state.winner = "players";
+    // If there's a run with more encounters queued, this is a "fight
+    // cleared" event, not a "game over". Mark phase=rewards so the
+    // app can show the reward screen and call advanceToNextEncounter
+    // afterwards. If no run, or this was the final encounter, fall
+    // through to the regular victory ending.
+    const run = state.run;
+    const hasMoreEncounters =
+      run && Array.isArray(run.encounters) && run.currentIndex + 1 < run.encounters.length;
+    if (hasMoreEncounters) {
+      state.phase = "rewards";
+    } else {
+      state.phase = "game-over";
+      state.winner = "players";
+    }
     const finalName = state.monster?.name ?? "The encounter";
     pushEvent(state, "defeat", {
       target: { type: "monster" },
@@ -293,8 +400,10 @@ export function resolveRound(currentState) {
     const arenaLabel = (state.monsters ?? [state.monster]).map((m) => m.name).join(" and ");
     pushLog(state, {
       kind: "outcome",
-      outcome: "victory",
-      text: `${arenaLabel} fall. The party wins.`,
+      outcome: hasMoreEncounters ? "encounter-cleared" : "victory",
+      text: hasMoreEncounters
+        ? `${arenaLabel} fall. Choose your reward.`
+        : `${arenaLabel} fall. The party wins.`,
     });
     return state;
   }
@@ -374,8 +483,16 @@ function createPlayer(playerConfig, index) {
   }
 
   const id = playerConfig.id ?? `player-${index}`;
+  // Run deck additions: reward-screen card picks accumulated across
+  // earlier encounters in the same run. Append AFTER the starter list
+  // so the deck-size invariant ('starter must equal DECK_SIZE') stays
+  // intact, then the whole pile is shuffled together.
+  const runAdds = Array.isArray(playerConfig.runDeckAdds)
+    ? playerConfig.runDeckAdds
+    : [];
+  const fullList = deckList.concat(runAdds);
   const deck = shuffle(
-    deckList.map((cardId, cardIndex) => ({
+    fullList.map((cardId, cardIndex) => ({
       instanceId: `${id}-card-${cardIndex + 1}`,
       cardId,
     })),

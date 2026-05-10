@@ -8,6 +8,7 @@ import { getElementIcon } from "./content/element-icons.js";
 import { getEffectDuration, getEffectName, shouldShowEffectAmount } from "./effects/effect-library.js";
 import {
   createCoopBattle,
+  advanceToNextEncounter,
   discardPartyCard,
   duplicatePartyCard,
   getRemainingEnergy,
@@ -55,6 +56,7 @@ let setup = {
   playerCount: 2,
   playerClasses: ["storm-forge", "hydroflow", "storm-forge", "hydroflow"],
   monsterId: "bruiser-duo",
+  runLength: 3, // 1 = single fight (legacy), 3/5/7 = run of N encounters
 };
 
 let gameState = null;
@@ -92,6 +94,11 @@ let focusedPlayerId = null;
 // Setup viewer shows the starter deck list verbatim; combat viewer
 // shows the player's current full deck (hand + draw pile + discard).
 let deckViewer = null;
+// Pending reward screen — populated whenever the engine flips
+// state.phase === "rewards" after a victory in a multi-encounter
+// run. Holds rolled card options per player + crystals earned, so
+// rerolls / skips don't re-roll new randoms each render.
+let pendingReward = null;
 
 installMultiplayerHooks({
   runAction: (action) => {
@@ -216,8 +223,27 @@ function handleAction(element) {
     return;
   }
 
+  if (action === "set-run-length") {
+    const next = Number.parseInt(element.dataset.runLength, 10);
+    if (Number.isInteger(next) && [1, 3, 5, 7].includes(next)) {
+      setup = { ...setup, runLength: next };
+      render();
+    }
+    return;
+  }
+
   if (action === "splash-advance") {
     advanceSplash();
+    return;
+  }
+
+  if (action === "claim-reward") {
+    handleClaimReward(element);
+    return;
+  }
+
+  if (action === "skip-reward") {
+    handleClaimReward({ dataset: { skip: "true" } });
     return;
   }
 
@@ -245,6 +271,14 @@ function handleAction(element) {
     // the encounter registry to a monsterIds array; fall back to the
     // single monsterId path if the entry is unknown (legacy compat).
     const encounter = getEncounter(setup.monsterId);
+    // Run-mode: when runLength > 1, generate an ordered list of N
+     // encounters (the picked one plus (N-1) random others from the
+     // registry, no immediate repeats) and feed it as state.run.
+     const runLength = setup.runLength ?? 1;
+     let runState = null;
+     if (runLength > 1) {
+       runState = generateRun(setup.monsterId, runLength);
+     }
     const battleConfig = {
       players: activeClasses.map((classId, index) => ({
         id: `player-${index + 1}`,
@@ -252,7 +286,16 @@ function handleAction(element) {
         classId,
       })),
     };
-    if (encounter && encounter.monsterIds.length > 1) {
+    if (runState) {
+      battleConfig.run = runState;
+      const firstId = runState.encounters[0];
+      const firstEnc = getEncounter(firstId);
+      if (firstEnc && firstEnc.monsterIds.length > 1) {
+        battleConfig.monsterIds = firstEnc.monsterIds;
+      } else if (firstEnc) {
+        battleConfig.monsterId = firstEnc.monsterIds[0];
+      }
+    } else if (encounter && encounter.monsterIds.length > 1) {
       battleConfig.monsterIds = encounter.monsterIds;
     } else if (encounter) {
       battleConfig.monsterId = encounter.monsterIds[0];
@@ -439,12 +482,15 @@ function handleAction(element) {
       lastSummary = null;
       render();
     }, ROUND_SUMMARY_MS);
-    message =
-      gameState.phase === "game-over"
-        ? gameState.winner === "players"
-          ? "The monster is defeated. Victory."
-          : "The party fell. Try a different plan."
-        : "New round. Draw 5, energy increases, threat decays.";
+    if (gameState.phase === "rewards") {
+      message = "Encounter cleared. Choose a reward to continue the run.";
+    } else if (gameState.phase === "game-over") {
+      message = gameState.winner === "players"
+        ? "The monster is defeated. Victory."
+        : "The party fell. Try a different plan.";
+    } else {
+      message = "New round. Draw 5, energy increases, threat decays.";
+    }
     render();
     notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
   }
@@ -491,12 +537,18 @@ function render() {
   } else {
     html = renderSetup();
   }
-  // Deck viewer overlays the active screen so it works on setup AND
-  // mid-combat. Render it last so it sits on top of everything.
+  // Reward + run-complete screens overlay combat so the player still
+  // sees the cleared battlefield underneath while choosing the reward
+  // / reading the run summary. Order: deck-viewer last so it sits on
+  // top if both are open (rare — only if the player popped the deck
+  // mid-reward to compare).
+  ensurePendingReward();
+  html += renderRewardScreen();
+  html += renderRunCompleteScreen();
   html += renderDeckViewer();
   app.innerHTML = html;
   document.body.dataset.gameView = gameState ? "active" : screenPhase;
-  document.body.dataset.modalOpen = deckViewer ? "true" : "";
+  document.body.dataset.modalOpen = (deckViewer || pendingReward || gameState?.phase === "run-complete") ? "true" : "";
 
   if (DRAG_AND_DROP_ENABLED && gameState && gameState.phase !== "game-over") {
     if (!dragInited) {
@@ -599,6 +651,215 @@ function findTargetElement(targetKeyValue) {
     return document.querySelector(`[data-target-zone="player"][data-player-id="${id}"]`);
   }
   return null;
+}
+
+// Run-progression helpers — generate encounter list, roll reward
+// options, advance run on claim, etc. Phase 2/3 of the rogue-lite
+// roadmap; Phase 4 (relics) and 5 (run-end UI) build on these.
+
+const REWARD_CRYSTALS_PER_FIGHT = 5;
+const REWARD_CARD_OPTIONS = 3;
+
+// Build an ordered N-encounter run starting with the picked encounter
+// id. Subsequent fights are sampled (no immediate repeats) from the
+// rest of the encounter registry. Future iterations can layer in
+// difficulty curves (normal → elite → boss), but uniform-random keeps
+// the schema simple for v1.
+function generateRun(firstEncounterId, length) {
+  const allEncounters = listEncounters().map((e) => e.id);
+  const encounters = [firstEncounterId];
+  const pool = allEncounters.filter((id) => id !== firstEncounterId);
+  while (encounters.length < length && pool.length > 0) {
+    const i = Math.floor(Math.random() * pool.length);
+    encounters.push(pool.splice(i, 1)[0]);
+  }
+  // If we ran out of unique encounters, pad with random repeats.
+  while (encounters.length < length) {
+    const i = Math.floor(Math.random() * allEncounters.length);
+    encounters.push(allEncounters[i]);
+  }
+  return {
+    encounters,
+    currentIndex: 0,
+    crystals: 0,
+    runDeckAdds: {},
+    relics: [],
+  };
+}
+
+// Roll N random cards per player from their class's starter pool.
+// Same-class only (per design decision): keeps balance tight while
+// the reward economy is young. v2 can add a curated reward-only pool.
+function rollRewardOptions(state) {
+  const opts = {};
+  for (const player of state.players) {
+    const pool = (starterDecks[player.classId] ?? []).slice();
+    // De-duplicate so a player isn't offered three identical "Basic
+    // Attack"s on the reward screen.
+    const unique = Array.from(new Set(pool));
+    const choices = [];
+    while (choices.length < REWARD_CARD_OPTIONS && unique.length > 0) {
+      const i = Math.floor(Math.random() * unique.length);
+      choices.push(unique.splice(i, 1)[0]);
+    }
+    opts[player.id] = choices;
+  }
+  return opts;
+}
+
+// Build the reward screen state once when the engine flips to phase
+// "rewards" so re-renders don't re-roll new card options. Cleared
+// when the run advances or the player skips.
+function ensurePendingReward() {
+  if (!gameState || gameState.phase !== "rewards") {
+    pendingReward = null;
+    return;
+  }
+  if (pendingReward && pendingReward.encounterIndex === gameState.run?.currentIndex) {
+    return; // already rolled for this fight
+  }
+  pendingReward = {
+    encounterIndex: gameState.run?.currentIndex ?? 0,
+    crystalsEarned: REWARD_CRYSTALS_PER_FIGHT,
+    cardOptionsByPlayer: rollRewardOptions(gameState),
+    picksByPlayer: {}, // playerId -> cardId once chosen
+  };
+}
+
+// Click handler for "claim this reward and advance" / "skip".
+// Tolerates both per-player picks (data-player-id + data-card-id)
+// and a final "advance to next fight" button (data-advance-only).
+function handleClaimReward(element) {
+  if (!pendingReward || !gameState) return;
+  const ds = element.dataset ?? {};
+  // Per-player card pick path: clicking one of the three card
+  // options for that player toggles it as their pick.
+  if (ds.playerId && ds.cardId) {
+    pendingReward.picksByPlayer[ds.playerId] = ds.cardId;
+    render();
+    return;
+  }
+  if (ds.playerId && ds.skipPlayer === "true") {
+    pendingReward.picksByPlayer[ds.playerId] = null;
+    render();
+    return;
+  }
+  // Advance: every player has either picked or skipped (null).
+  // For simplicity, treat any unset player as a skip on advance.
+  const picks = {};
+  for (const p of gameState.players) {
+    const pick = pendingReward.picksByPlayer[p.id];
+    if (pick) picks[p.id] = pick;
+  }
+  // Resolve the encounter id list to monsterIds via the registry.
+  const nextIndex = (gameState.run?.currentIndex ?? 0) + 1;
+  const nextEncounterId = gameState.run?.encounters[nextIndex];
+  const enc = nextEncounterId ? getEncounter(nextEncounterId) : null;
+  const monsterIds = enc?.monsterIds ?? [];
+  gameState = advanceToNextEncounter(gameState, {
+    crystalsEarned: pendingReward.crystalsEarned,
+    picks,
+    monsterIds,
+  });
+  pendingReward = null;
+  lastSeenEventId = getLatestEventId(gameState);
+  activeEffects = [];
+  message = gameState.phase === "run-complete"
+    ? "Run complete. Every encounter cleared."
+    : "Next encounter inbound. Plan your opening moves.";
+  render();
+  notifyMultiplayer({ type: "claim-reward", dataset: {} });
+}
+
+// Reward screen — full-page overlay between encounters. Each player
+// gets a row with three card options (their class's starter pool,
+// de-duplicated); they click one to pick, or "Skip" to take no
+// card. A central "Continue" button advances the run to the next
+// encounter once everyone has decided.
+function renderRewardScreen() {
+  if (!pendingReward || !gameState) return "";
+  const run = gameState.run ?? {};
+  const cleared = (run.currentIndex ?? 0) + 1;
+  const total = run.encounters?.length ?? 1;
+  const playerRows = gameState.players.map((player) => {
+    const options = pendingReward.cardOptionsByPlayer[player.id] ?? [];
+    const pickedId = pendingReward.picksByPlayer[player.id];
+    const cardChoices = options.map((cardId) => {
+      let card;
+      try { card = getCardDefinition(cardId); } catch { return ""; }
+      const picked = pickedId === cardId;
+      return `
+        <button
+          type="button"
+          class="reward-card class-${escapeHtml(player.classId)} role-${escapeHtml(card.role)} ${picked ? "is-picked" : ""}"
+          data-action="claim-reward"
+          data-player-id="${player.id}"
+          data-card-id="${cardId}"
+          aria-pressed="${picked ? "true" : "false"}"
+        >
+          <span class="reward-card-cost">${card.cost}</span>
+          <span class="reward-card-name">${escapeHtml(card.name)}</span>
+          <span class="reward-card-role">${escapeHtml(formatRole(card.role))}</span>
+          <span class="reward-card-text">${escapeHtml(card.text)}</span>
+          ${picked ? `<span class="reward-card-picked-badge">Picked</span>` : ""}
+        </button>
+      `;
+    }).join("");
+    const skipped = pickedId === null;
+    return `
+      <section class="reward-row class-${escapeHtml(player.classId)}">
+        <header class="reward-row-head">
+          <h3>${escapeHtml(player.name)}</h3>
+          <span class="reward-row-sub">${escapeHtml(player.role ?? "")}</span>
+          <button
+            type="button"
+            class="reward-row-skip ${skipped ? "is-active" : ""}"
+            data-action="claim-reward"
+            data-player-id="${player.id}"
+            data-skip-player="true"
+            aria-pressed="${skipped ? "true" : "false"}"
+          >Skip</button>
+        </header>
+        <div class="reward-row-cards">${cardChoices}</div>
+      </section>
+    `;
+  }).join("");
+  return `
+    <div class="reward-screen-backdrop" role="dialog" aria-modal="true" aria-label="Encounter cleared — choose rewards">
+      <div class="reward-screen-panel">
+        <header class="reward-screen-head">
+          <p class="reward-screen-eyebrow">Encounter ${cleared} of ${total} cleared</p>
+          <h2 class="reward-screen-title">Choose your reward</h2>
+          <p class="reward-screen-crystals">+${pendingReward.crystalsEarned} crystals · ${(run.crystals ?? 0) + pendingReward.crystalsEarned} total</p>
+        </header>
+        <div class="reward-screen-body">${playerRows}</div>
+        <footer class="reward-screen-foot">
+          <button type="button" class="reward-screen-advance" data-action="claim-reward">
+            Continue → Encounter ${cleared + 1}
+          </button>
+        </footer>
+      </div>
+    </div>
+  `;
+}
+
+// Run-complete splash — shown when advanceToNextEncounter returns a
+// state with phase === "run-complete".
+function renderRunCompleteScreen() {
+  if (!gameState || gameState.phase !== "run-complete") return "";
+  const run = gameState.run ?? {};
+  return `
+    <div class="run-complete-backdrop" role="dialog" aria-modal="true" aria-label="Run complete">
+      <div class="run-complete-panel">
+        <p class="run-complete-eyebrow">Run complete</p>
+        <h2 class="run-complete-title">Every encounter cleared</h2>
+        <p class="run-complete-stats">
+          ${run.encounters?.length ?? 0} encounters · ${run.crystals ?? 0} crystals · ${Object.values(run.runDeckAdds ?? {}).reduce((sum, arr) => sum + arr.length, 0)} cards picked
+        </p>
+        <button type="button" class="run-complete-button" data-action="new-game">Begin a new run</button>
+      </div>
+    </div>
+  `;
 }
 
 // Deck viewer modal. Shows the cards in a player's deck as a flat
@@ -817,8 +1078,23 @@ function renderEncounterPicker() {
             ${countOptions}
           </div>
         </div>
+        <div class="setup-run-length" role="group" aria-label="Run length">
+          <span class="setup-deck-label">Run length</span>
+          <div class="player-count-segment">
+            ${[1, 3, 5, 7].map((n) => `
+              <button
+                type="button"
+                class="player-count-pill ${setup.runLength === n ? "is-active" : ""}"
+                data-action="set-run-length"
+                data-run-length="${n}"
+                aria-pressed="${setup.runLength === n ? "true" : "false"}"
+                title="${n === 1 ? "Single fight (legacy)" : `${n}-encounter run`}"
+              >${n === 1 ? "1×" : `${n}×`}</button>
+            `).join("")}
+          </div>
+        </div>
         <label class="setup-encounter-selector">
-          <span class="setup-deck-label">Choose monster</span>
+          <span class="setup-deck-label">Choose first encounter</span>
           <select data-setup-field="monsterId">
             ${monsters
               .map(
