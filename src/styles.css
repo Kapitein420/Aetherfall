@@ -2733,6 +2733,57 @@ body[data-game-view="active"] {
   gap: 6px;
 }
 
+/* Banner-art setup panels (Storm Forge, Hydroflow): the portrait slot
+ * stretches into a wide hero banner above the info column instead of
+ * the default circular head shot. The body switches to a single column
+ * so the banner spans the full panel width. */
+.setup-panel-v2.class-storm-forge .setup-panel-body,
+.setup-panel-v2.class-hydroflow .setup-panel-body {
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.setup-panel-v2.class-storm-forge .setup-portrait-wrap,
+.setup-panel-v2.class-hydroflow .setup-portrait-wrap {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  padding: 0;
+  background: none;
+  overflow: hidden;
+}
+
+.setup-panel-v2.class-storm-forge .setup-portrait-wrap::before,
+.setup-panel-v2.class-hydroflow .setup-portrait-wrap::before {
+  inset: -8px;
+  border-radius: 12px;
+  filter: blur(14px);
+  opacity: 0.7;
+}
+
+.setup-panel-v2.class-storm-forge .setup-champion-portrait,
+.setup-panel-v2.class-hydroflow .setup-champion-portrait {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  object-fit: cover;
+  object-position: center;
+}
+
+.setup-panel-v2.class-storm-forge .setup-champion-portrait {
+  border-color: rgba(192, 132, 255, 0.55);
+  box-shadow:
+    inset 0 0 18px rgba(192, 132, 255, 0.3),
+    0 0 22px rgba(192, 132, 255, 0.35);
+}
+.setup-panel-v2.class-hydroflow .setup-champion-portrait {
+  border-color: rgba(62, 196, 255, 0.55);
+  box-shadow:
+    inset 0 0 18px rgba(62, 196, 255, 0.3),
+    0 0 22px rgba(62, 196, 255, 0.35);
+}
+
 .setup-class-name {
   margin: 0;
   font-size: 1.6rem;
@@ -3661,6 +3712,344 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   object-position: center 22%;
   z-index: 1;
   filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5));
+}
+
+/* Armed-card target picker. When an attack card is "armed" (clicked
+ * once in a multi-monster fight), the card glows and any living
+ * monster turns into a click-target. A second click on a monster
+ * confirms the target and queues the card. */
+.hand-card.is-armed {
+  outline: 3px solid #f6d77a;
+  outline-offset: 4px;
+  filter: brightness(1.18) drop-shadow(0 0 12px rgba(246, 215, 122, 0.7));
+  animation: armed-card-pulse 1.4s ease-in-out infinite;
+  z-index: 6;
+}
+@keyframes armed-card-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(246, 215, 122, 0.6), 0 18px 34px rgba(0, 0, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(246, 215, 122, 0), 0 18px 34px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Monster zone in armed mode — soft tint so the player sees they're in
+ * pick-a-target mode. */
+.standoff-monster.armed .monster-target-button,
+.standoff-monster.armed .squadmate-tile.is-armed {
+  cursor: crosshair;
+}
+
+.monster-target-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: contents;
+  cursor: crosshair;
+}
+
+.standoff-monster.armed .monster-figure {
+  outline: 2px dashed rgba(246, 122, 90, 0.7);
+  outline-offset: 4px;
+  border-radius: 14%;
+  animation: target-pulse 1.4s ease-in-out infinite;
+}
+.standoff-monster.armed .squadmate-tile.is-armed {
+  border-color: rgba(246, 122, 90, 0.85);
+  box-shadow: 0 0 0 2px rgba(246, 122, 90, 0.6), 0 6px 14px rgba(0, 0, 0, 0.6);
+  animation: target-pulse 1.4s ease-in-out infinite;
+  background: linear-gradient(180deg, rgba(40, 18, 14, 0.96), rgba(16, 8, 6, 0.98));
+}
+.standoff-monster.armed .squadmate-tile.is-armed:hover {
+  background: linear-gradient(180deg, rgba(60, 24, 16, 0.98), rgba(24, 10, 6, 1));
+  border-color: rgba(255, 160, 110, 1);
+}
+.standoff-monster.armed .monster-figure:hover,
+.monster-target-button:hover .monster-figure {
+  outline-color: rgba(255, 160, 110, 1);
+  filter: drop-shadow(0 0 18px rgba(255, 160, 110, 0.85));
+}
+
+@keyframes target-pulse {
+  0%, 100% { outline-offset: 4px; }
+  50% { outline-offset: 8px; }
+}
+
+/* Per-monster banner crops. Bruiser Duo and Synthetic Hunter Squad
+ * monsters share the encounter banner as a source image; each monster
+ * focuses on a different region via object-position + a zoom transform.
+ * The figures sit in the lower 50–70% of the banner (title bar takes
+ * the top), so the head Y values lean toward the bottom of the image.
+ *
+ * Bruiser Duo banner (1500×1024, two armored bruisers under title):
+ *   Siege Mauler — left figure  (~28% x, ~58% y)
+ *   Savage Hound — right figure (~72% x, ~58% y)
+ *
+ * Synthetic Hunter Squad banner (1500×1024, commander + 4 drones):
+ *   Signal Commander — central commander (~50% x, ~52% y)
+ *   Bulwark Unit     — second-left drone (~32% x, ~58% y)
+ *   Execution Drone  — second-right drone (~70% x, ~58% y) */
+/* Banner-cropped monster portraits. The IMG inside .monster-figure
+ * uses transform: scale to zoom into a region of the encounter banner;
+ * because clip-path on the IMG runs *before* transform, we put it on
+ * the figure parent instead — that clips the post-transform pixels to
+ * the figure's actual box. overflow: hidden would have the same effect
+ * but collapses the figure's grid cell, so clip-path it is. */
+.monster-figure[data-monster-art-id="siege-mauler"],
+.monster-figure[data-monster-art-id="savage-hound"],
+.monster-figure[data-monster-art-id="signal-commander"],
+.monster-figure[data-monster-art-id="bulwark-unit"],
+.monster-figure[data-monster-art-id="execution-drone"] {
+  clip-path: inset(0 round 12%);
+}
+.monster-figure[data-monster-art-id="siege-mauler"] .monster-portrait {
+  object-position: 28% 58%;
+  transform: scale(2.4);
+  transform-origin: 28% 58%;
+}
+.monster-figure[data-monster-art-id="savage-hound"] .monster-portrait {
+  object-position: 72% 58%;
+  transform: scale(2.4);
+  transform-origin: 72% 58%;
+}
+.monster-figure[data-monster-art-id="signal-commander"] .monster-portrait {
+  object-position: 50% 52%;
+  transform: scale(2.2);
+  transform-origin: 50% 52%;
+}
+.monster-figure[data-monster-art-id="bulwark-unit"] .monster-portrait {
+  object-position: 32% 58%;
+  transform: scale(2.6);
+  transform-origin: 32% 58%;
+}
+.monster-figure[data-monster-art-id="execution-drone"] .monster-portrait {
+  object-position: 70% 58%;
+  transform: scale(2.6);
+  transform-origin: 70% 58%;
+}
+
+/* Squadmate-tile portrait — small thumbnail using the same banner crops
+ * so the squad-mate shown in the tile matches the central monster art. */
+.squadmate-portrait {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(214, 156, 88, 0.32);
+  background: rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+.squadmate-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.squadmate-portrait[data-monster-art-id="siege-mauler"] img {
+  object-position: 28% 58%;
+  transform: scale(2.6);
+  transform-origin: 28% 58%;
+}
+.squadmate-portrait[data-monster-art-id="savage-hound"] img {
+  object-position: 72% 58%;
+  transform: scale(2.6);
+  transform-origin: 72% 58%;
+}
+.squadmate-portrait[data-monster-art-id="signal-commander"] img {
+  object-position: 50% 52%;
+  transform: scale(2.4);
+  transform-origin: 50% 52%;
+}
+.squadmate-portrait[data-monster-art-id="bulwark-unit"] img {
+  object-position: 32% 58%;
+  transform: scale(2.8);
+  transform-origin: 32% 58%;
+}
+.squadmate-portrait[data-monster-art-id="execution-drone"] img {
+  object-position: 70% 58%;
+  transform: scale(2.8);
+  transform-origin: 70% 58%;
+}
+
+/* Squadmate tile layout switches to a row when a portrait is present
+ * (portrait left, text block right). The previous all-text layout
+ * still renders for monsters without art. */
+.squadmate-tile:has(.squadmate-portrait) {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.squadmate-tile .squadmate-text {
+  display: grid;
+  gap: 3px;
+  flex: 1 1 auto;
+}
+
+/* Encounter banner on the setup screen. Shown only when the picked
+ * encounter has a banner image — switches the row from the original
+ * compact text-only layout into a visual hero with the banner on top
+ * and the info column underneath. */
+.setup-encounter-row.has-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: start;
+  gap: 16px 24px;
+}
+.setup-encounter-banner-wrap {
+  grid-column: 1 / -1;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(192, 132, 255, 0.22),
+    0 12px 32px rgba(0, 0, 0, 0.55);
+  background: rgba(8, 4, 14, 0.6);
+}
+.setup-encounter-banner {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 240px;
+  object-fit: cover;
+  object-position: center;
+}
+.setup-encounter-summary {
+  margin-top: 6px;
+  font-size: 0.86rem;
+  color: rgba(232, 220, 196, 0.78);
+  line-height: 1.4;
+  max-width: 60ch;
+}
+
+/* In-game encounter banner strip — sits above the primary monster
+ * figure in multi-monster fights to anchor the encounter identity. */
+.encounter-banner-strip {
+  width: 100%;
+  max-width: 540px;
+  height: 110px;
+  margin: 0 auto 8px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px rgba(192, 132, 255, 0.24),
+    0 8px 22px rgba(0, 0, 0, 0.55);
+}
+.encounter-banner-strip-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 38%;
+  filter: brightness(0.92) saturate(1.05);
+}
+
+/* Squadmate tray — compact tiles for non-primary monsters in a
+ * multi-monster encounter. Mounts under the primary monster's
+ * baseplate so players can track every member of the squad. */
+.squadmate-tray {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.squadmate-tile {
+  display: grid;
+  gap: 3px;
+  min-width: 130px;
+  padding: 7px 9px 8px;
+  background: linear-gradient(180deg, rgba(20, 14, 10, 0.94), rgba(8, 6, 4, 0.96));
+  border: 1px solid rgba(214, 156, 88, 0.32);
+  border-radius: 6px;
+  color: #e8dcc4;
+  font-size: 0.74rem;
+  text-align: left;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.squadmate-tile.is-dead {
+  opacity: 0.35;
+  filter: grayscale(0.7);
+}
+
+.squadmate-name {
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #f6e8c4;
+  letter-spacing: 0.04em;
+}
+
+.squadmate-role {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(232, 220, 196, 0.7);
+}
+
+.squadmate-meter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.squadmate-meter .meter-track {
+  flex: 1 1 auto;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.squadmate-meter .meter-track em {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #e07b4a, #d6c89c);
+  border-radius: 3px;
+  font-style: normal;
+}
+
+.squadmate-meter strong {
+  font-weight: 700;
+  font-size: 0.7rem;
+  color: #f6e8c4;
+  white-space: nowrap;
+}
+
+.squadmate-traits {
+  font-size: 0.62rem;
+  color: rgba(232, 220, 196, 0.6);
+  font-style: italic;
+}
+
+/* Banner-art classes: the source images are wide hero banners with the
+ * character's head in the upper-left quadrant. We zoom in on that quadrant
+ * via transform: scale + transform-origin (object-fit: cover already shows
+ * the full vertical range, so a vertical-only object-position adjustment
+ * is a no-op — scale is required to actually crop in on the head).
+ * Side-right players also get scaleX(-1) so the portrait faces inward. */
+.standoff-champion.class-storm-forge .champion-portrait {
+  object-position: 36% 22%;
+  transform: scale(1.6);
+  transform-origin: 36% 22%;
+}
+.standoff-champion.side-right.class-storm-forge .champion-portrait {
+  transform: scaleX(-1) scale(1.6);
+  transform-origin: 36% 22%;
+}
+.standoff-champion.class-hydroflow .champion-portrait {
+  object-position: 24% 18%;
+  transform: scale(1.6);
+  transform-origin: 24% 18%;
+}
+.standoff-champion.side-right.class-hydroflow .champion-portrait {
+  transform: scaleX(-1) scale(1.6);
+  transform-origin: 24% 18%;
 }
 
 .champion-pips {
@@ -5075,6 +5464,224 @@ body.dragging-card .standoff-champion {
     inset 0 0 0 1px rgba(214, 200, 164, 0.7),
     0 2px 6px rgba(0, 0, 0, 0.6);
   filter: drop-shadow(0 0 10px rgba(122, 78, 194, 0.75));
+}
+
+/* =====================================================================
+ * Faction: STORM FORGE — Storm Charge (sci-fi violet, lightning circuitry)
+ * Palette: #c084ff arc-violet, #1a0e2e deep void, #f0d6ff plasma highlight
+ * Mood: dark sci-fi panel, lightning arcs, glowing circuit lines
+ * Mirrors the printed card art (purple lightning bolt on void background).
+ * ===================================================================== */
+.hand-card.class-storm-forge {
+  --class-edge: #6a3aa6;
+  --class-glow: rgba(192, 132, 255, 0.5);
+  --faction-ink: #f0d6ff;
+  --faction-paper-1: #2a1648;
+  --faction-paper-2: #14081f;
+  --faction-band: #4a1f7a;
+  border-color: #6a3aa6;
+  background:
+    linear-gradient(180deg, rgba(192, 132, 255, 0.18) 0%, transparent 22%),
+    linear-gradient(180deg, var(--faction-paper-1) 0%, var(--faction-paper-2) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(192, 132, 255, 0.3),
+    inset 0 0 0 3px rgba(60, 20, 110, 0.5),
+    0 12px 24px rgba(0, 0, 0, 0.7);
+  color: #ecdcff;
+}
+
+.hand-card.class-storm-forge::before {
+  /* circuitry crosshatch */
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(0deg,
+      rgba(192, 132, 255, 0.06) 0 2px,
+      transparent 2px 8px),
+    repeating-linear-gradient(90deg,
+      rgba(192, 132, 255, 0.05) 0 2px,
+      transparent 2px 10px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-storm-forge::after {
+  /* arc-violet banner across the top */
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 6px;
+  height: 28px;
+  border-radius: 4px 4px 9px 9px;
+  background:
+    linear-gradient(180deg, #7a3eb4 0%, #3a1670 60%, #1a082e 100%),
+    radial-gradient(circle at 20% 50%, rgba(255, 220, 255, 0.32), transparent 30%);
+  box-shadow:
+    inset 0 1px 0 rgba(240, 214, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-storm-forge .card-name {
+  position: relative;
+  z-index: 2;
+  color: #f6e8ff;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7), 0 0 8px rgba(192, 132, 255, 0.45);
+}
+
+.hand-card.class-storm-forge .card-cost {
+  background: linear-gradient(180deg, #b070f0, #4c1f8a);
+  border-color: #e8c8ff;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.hand-card.class-storm-forge .card-role {
+  background: linear-gradient(180deg, rgba(74, 31, 122, 0.86), rgba(28, 10, 54, 0.86));
+  color: #f0d6ff;
+  border: 1px solid rgba(192, 132, 255, 0.5);
+}
+
+.hand-card.class-storm-forge .card-text {
+  background: rgba(10, 4, 22, 0.55);
+  color: #e6d2ff;
+  border: 1px solid rgba(192, 132, 255, 0.22);
+  border-radius: 4px;
+}
+
+.hand-card.class-storm-forge .card-art::before {
+  /* dark sci-fi panel with lightning hint */
+  background:
+    radial-gradient(circle at 30% 28%, rgba(192, 132, 255, 0.42) 0 8%, transparent 16%),
+    radial-gradient(circle at 70% 72%, rgba(192, 132, 255, 0.32) 0 7%, transparent 14%),
+    repeating-linear-gradient(115deg,
+      rgba(192, 132, 255, 0.07) 0 2px,
+      transparent 2px 12px),
+    linear-gradient(135deg, #2a1450 0%, #160726 50%, #08020e 100%);
+}
+
+.hand-card.class-storm-forge .card-art-glyph {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(240, 214, 255, 0.6), transparent 60%),
+    rgba(0, 0, 0, 0.6);
+  box-shadow:
+    inset 0 0 0 1px rgba(192, 132, 255, 0.7),
+    0 2px 8px rgba(0, 0, 0, 0.7);
+  filter: drop-shadow(0 0 10px rgba(192, 132, 255, 0.85));
+}
+
+/* =====================================================================
+ * Faction: HYDROFLOW — Hydroflow tokens (deep ocean, electric cyan)
+ * Palette: #3ec4ff hydro-cyan, #06182e deep ocean, #d0eeff foam highlight
+ * Mood: dark cyber panel, water droplets, glowing flow lines
+ * Mirrors the printed card art (cyan water on dark blue background).
+ * ===================================================================== */
+.hand-card.class-hydroflow {
+  --class-edge: #2a78b8;
+  --class-glow: rgba(62, 196, 255, 0.5);
+  --faction-ink: #d0eeff;
+  --faction-paper-1: #0e2a4a;
+  --faction-paper-2: #06121f;
+  --faction-band: #1a4a78;
+  border-color: #2a78b8;
+  background:
+    linear-gradient(180deg, rgba(62, 196, 255, 0.18) 0%, transparent 22%),
+    linear-gradient(180deg, var(--faction-paper-1) 0%, var(--faction-paper-2) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(62, 196, 255, 0.32),
+    inset 0 0 0 3px rgba(20, 60, 100, 0.5),
+    0 12px 24px rgba(0, 0, 0, 0.65);
+  color: #d8efff;
+}
+
+.hand-card.class-hydroflow::before {
+  /* flow-line lattice */
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(45deg,
+      rgba(62, 196, 255, 0.06) 0 2px,
+      transparent 2px 10px),
+    repeating-linear-gradient(-45deg,
+      rgba(62, 196, 255, 0.05) 0 2px,
+      transparent 2px 12px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-hydroflow::after {
+  /* hydro-cyan banner across the top */
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 6px;
+  height: 28px;
+  border-radius: 4px 4px 9px 9px;
+  background:
+    linear-gradient(180deg, #2a78b8 0%, #143a64 60%, #06121f 100%),
+    radial-gradient(circle at 20% 50%, rgba(220, 240, 255, 0.32), transparent 30%);
+  box-shadow:
+    inset 0 1px 0 rgba(208, 238, 255, 0.42),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hand-card.class-hydroflow .card-name {
+  position: relative;
+  z-index: 2;
+  color: #eaf6ff;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7), 0 0 8px rgba(62, 196, 255, 0.45);
+}
+
+.hand-card.class-hydroflow .card-cost {
+  background: linear-gradient(180deg, #5cc8ff, #1a4a78);
+  border-color: #d0eeff;
+  color: #051422;
+  text-shadow: 0 1px 0 rgba(208, 238, 255, 0.4);
+}
+
+.hand-card.class-hydroflow .card-role {
+  background: linear-gradient(180deg, rgba(26, 74, 120, 0.88), rgba(8, 22, 38, 0.88));
+  color: #d0eeff;
+  border: 1px solid rgba(62, 196, 255, 0.5);
+}
+
+.hand-card.class-hydroflow .card-text {
+  background: rgba(4, 14, 26, 0.55);
+  color: #d8efff;
+  border: 1px solid rgba(62, 196, 255, 0.24);
+  border-radius: 4px;
+}
+
+.hand-card.class-hydroflow .card-art::before {
+  /* deep ocean panel with droplet hints */
+  background:
+    radial-gradient(circle at 28% 30%, rgba(62, 196, 255, 0.42) 0 8%, transparent 16%),
+    radial-gradient(circle at 72% 70%, rgba(62, 196, 255, 0.34) 0 7%, transparent 14%),
+    repeating-linear-gradient(115deg,
+      rgba(62, 196, 255, 0.06) 0 2px,
+      transparent 2px 14px),
+    linear-gradient(135deg, #0e2a4a 0%, #06182e 50%, #02080f 100%);
+}
+
+.hand-card.class-hydroflow .card-art-glyph {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(208, 238, 255, 0.6), transparent 60%),
+    rgba(0, 0, 0, 0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(62, 196, 255, 0.7),
+    0 2px 8px rgba(0, 0, 0, 0.65);
+  filter: drop-shadow(0 0 10px rgba(62, 196, 255, 0.85));
 }
 
 /* ---- Hover/drag faction-glow polish (works for all factions) ---- */

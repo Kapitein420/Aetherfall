@@ -177,7 +177,224 @@ export const monsterRegistry = {
       };
     },
   },
+
+  // Bruiser Duo monsters — Pack Hunter passive: while another monster in
+  // the encounter is alive, this monster's attack gets +1. Encoded as the
+  // ability id "packHunter" so the engine's per-attack hook applies it.
+  "siege-mauler": {
+    id: "siege-mauler",
+    name: "Siege Mauler",
+    role: "Frontline Bruiser",
+    faction: "Bruiser Duo",
+    factory: (playerCount, playerIds = []) => ({
+      id: "monster",
+      name: "Siege Mauler",
+      monsterId: "siege-mauler",
+      role: "Frontline Bruiser",
+      faction: "Bruiser Duo",
+      maxHp: 40,
+      hp: 40,
+      baseAttack: 4,
+      defense: 1,
+      actionsPerTurn: 1,
+      elementResistances: {},
+      statuses: {},
+      phases: [{ id: "p1", hpThresholdPct: 1.0, onEnter: null }],
+      activePhaseIndex: 0,
+      threat: makeThreat(playerIds),
+      fixate: null,
+      // Fixate attack tuning — when this monster locks on, its strike
+      // jumps to 7. Engine reads `fixateAttack` to override the base.
+      fixateAttack: 7,
+      // Abilities: declarative bumps the engine reads at attack-time. See
+      // applyMonsterAbilities() in engine/game.js.
+      abilities: ["packHunter"],
+      traits: ["Pack Hunter"],
+      threatMax: DEFAULT_THREAT_MAX,
+    }),
+  },
+
+  "savage-hound": {
+    id: "savage-hound",
+    name: "Savage Hound",
+    role: "Aggressive Hunter",
+    faction: "Bruiser Duo",
+    factory: (playerCount, playerIds = []) => ({
+      id: "monster",
+      name: "Savage Hound",
+      monsterId: "savage-hound",
+      role: "Aggressive Hunter",
+      faction: "Bruiser Duo",
+      maxHp: 40,
+      hp: 40,
+      baseAttack: 3,
+      defense: 0,
+      actionsPerTurn: 1,
+      elementResistances: {},
+      statuses: {},
+      phases: [{ id: "p1", hpThresholdPct: 1.0, onEnter: null }],
+      activePhaseIndex: 0,
+      threat: makeThreat(playerIds),
+      fixate: null,
+      fixateAttack: 6,
+      abilities: ["packHunter"],
+      traits: ["Pack Hunter"],
+      threatMax: DEFAULT_THREAT_MAX,
+    }),
+  },
+
+  // Synthetic Hunter Squad — three drones with linked tactics. Crossfire's
+  // "+1 if another monster attacked the same target this turn, attack last"
+  // detail is simplified to a flat +1 attack while another squad-mate lives;
+  // a faithful implementation needs per-turn target tracking.
+  "execution-drone": {
+    id: "execution-drone",
+    name: "Execution Drone",
+    role: "Finisher",
+    faction: "Synthetic Hunter Squad",
+    factory: (playerCount, playerIds = []) => ({
+      id: "monster",
+      name: "Execution Drone",
+      monsterId: "execution-drone",
+      role: "Finisher",
+      faction: "Synthetic Hunter Squad",
+      maxHp: 22,
+      hp: 22,
+      baseAttack: 2,
+      defense: 0,
+      actionsPerTurn: 1,
+      elementResistances: {},
+      statuses: {},
+      phases: [{ id: "p1", hpThresholdPct: 1.0, onEnter: null }],
+      activePhaseIndex: 0,
+      threat: makeThreat(playerIds),
+      fixate: null,
+      fixateAttack: 5,
+      abilities: ["crossfire"],
+      // Squadmate-aware turn order: drones with `turnPriority` run later
+      // in the monster phase. Higher number = later.
+      turnPriority: 10,
+      traits: ["Crossfire", "Attacks Last"],
+      threatMax: DEFAULT_THREAT_MAX,
+    }),
+  },
+
+  "signal-commander": {
+    id: "signal-commander",
+    name: "Signal Commander",
+    role: "Support Buffer",
+    faction: "Synthetic Hunter Squad",
+    factory: (playerCount, playerIds = []) => ({
+      id: "monster",
+      name: "Signal Commander",
+      monsterId: "signal-commander",
+      role: "Support Buffer",
+      faction: "Synthetic Hunter Squad",
+      maxHp: 22,
+      hp: 22,
+      baseAttack: 2,
+      defense: 0,
+      actionsPerTurn: 1,
+      elementResistances: {},
+      statuses: {},
+      phases: [{ id: "p1", hpThresholdPct: 1.0, onEnter: null }],
+      activePhaseIndex: 0,
+      threat: makeThreat(playerIds),
+      fixate: null,
+      fixateAttack: 5,
+      abilities: ["targetUplink"],
+      traits: ["Target Uplink"],
+      threatMax: DEFAULT_THREAT_MAX,
+    }),
+  },
+
+  "bulwark-unit": {
+    id: "bulwark-unit",
+    name: "Bulwark Unit",
+    role: "Defensive Frontline",
+    faction: "Synthetic Hunter Squad",
+    factory: (playerCount, playerIds = []) => ({
+      id: "monster",
+      name: "Bulwark Unit",
+      monsterId: "bulwark-unit",
+      role: "Defensive Frontline",
+      faction: "Synthetic Hunter Squad",
+      maxHp: 22,
+      hp: 22,
+      baseAttack: 2,
+      // Base defense 0; Shared Shielding bumps to 2 while squad lives.
+      defense: 0,
+      actionsPerTurn: 1,
+      elementResistances: {},
+      statuses: {},
+      phases: [{ id: "p1", hpThresholdPct: 1.0, onEnter: null }],
+      activePhaseIndex: 0,
+      threat: makeThreat(playerIds),
+      fixate: null,
+      fixateAttack: 5,
+      abilities: ["sharedShielding"],
+      traits: ["Shared Shielding"],
+      threatMax: DEFAULT_THREAT_MAX,
+    }),
+  },
 };
+
+// Encounter registry — lets the picker present curated multi-monster
+// encounters as one selection. Each entry resolves to one or more
+// monsterIds at game-start. Single-monster encounters use a 1-element
+// `monsterIds` array so the engine path stays uniform.
+export const encounterRegistry = {
+  // Headlining encounters per the design PDF — listed first so they
+  // appear at the top of the dropdown.
+  "bruiser-duo": {
+    id: "bruiser-duo",
+    name: "Bruiser Duo",
+    role: "Pack Encounter",
+    faction: "Bruiser Duo",
+    monsterIds: ["siege-mauler", "savage-hound"],
+    summary: "Two Pack Hunters that ramp damage while both stand. Drop one fast or take sustained pressure.",
+    banner: "ui/banners/bruiser-duo.png",
+  },
+  "synthetic-hunter-squad": {
+    id: "synthetic-hunter-squad",
+    name: "Synthetic Hunter Squad",
+    role: "Tactical Squad",
+    faction: "Synthetic Hunter Squad",
+    monsterIds: ["signal-commander", "bulwark-unit", "execution-drone"],
+    summary: "Three linked drones — Commander buffs attack, Bulwark eats hits, Drone finishes after the rest.",
+    banner: "ui/banners/synthetic-hunter-squad.png",
+  },
+  // Legacy single-monster encounters, still selectable.
+  "hollow-titan": {
+    id: "hollow-titan",
+    name: "The Hollow Titan",
+    role: "Boss",
+    faction: "Aetherfall",
+    monsterIds: ["hollow-titan"],
+  },
+  "ironjaw-bruiser": {
+    id: "ironjaw-bruiser",
+    name: "Ironjaw Bruiser",
+    role: "Frontline / Tank",
+    faction: "Dreadmaw Crocs",
+    monsterIds: ["ironjaw-bruiser"],
+  },
+  "warden-of-targeting": {
+    id: "warden-of-targeting",
+    name: "Warden of Targeting",
+    role: "Surveillance Construct",
+    faction: "Aetherfall",
+    monsterIds: ["warden-of-targeting"],
+  },
+};
+
+export function listEncounters() {
+  return Object.values(encounterRegistry);
+}
+
+export function getEncounter(encounterId) {
+  return encounterRegistry[encounterId] ?? null;
+}
 
 // Hook registry for phase-enter side-effects. Hooks get the live state and
 // can mutate the monster directly. Keep them small and additive.

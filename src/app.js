@@ -1,7 +1,8 @@
 import { classDefinitions, selectableClasses } from "./content/classes.js";
 import { getCardDefinition } from "./content/cards.js";
 import { getChampionVisual, getEffectVisual, getMonsterVisual } from "./content/game-assets.js";
-import { listMonsters, DEFAULT_MONSTER_ID } from "./content/monsters.js";
+import { listMonsters, listEncounters, getEncounter, DEFAULT_MONSTER_ID } from "./content/monsters.js";
+import { assetUrl } from "./content/asset-paths.js";
 import { getPartyDeckCard, PARTY_DECK_INTERACTIONS } from "./content/party-deck.js";
 import { getElementIcon } from "./content/element-icons.js";
 import { getEffectDuration, getEffectName, shouldShowEffectAmount } from "./effects/effect-library.js";
@@ -45,8 +46,8 @@ const DRAG_AND_DROP_ENABLED = false;
 const MAX_PLAYERS = 4;
 let setup = {
   playerCount: 2,
-  playerClasses: ["rook", "lyra", "rook", "lyra"],
-  monsterId: DEFAULT_MONSTER_ID,
+  playerClasses: ["storm-forge", "hydroflow", "storm-forge", "hydroflow"],
+  monsterId: "bruiser-duo",
 };
 
 let gameState = null;
@@ -55,6 +56,12 @@ let lastSeenEventId = 0;
 let activeEffects = [];
 let effectInstanceId = 1;
 let dragInited = false;
+// Two-click target picker for multi-monster encounters: when the player
+// clicks an attack card with multiple living monsters available, we stash
+// the card here and wait for a target click. Cleared when targeting
+// completes, the card is unqueued, or the round resolves. Per-client UI
+// state only — not part of game state.
+let armedCard = null; // { playerId, instanceId, cardId } | null
 // Local UI: which player's hand is focused. null = show everyone. Click a
 // hand label to focus that player; click again to clear. Per-client only —
 // not part of game state, so multiplayer peers each pick their own focus.
@@ -152,14 +159,26 @@ function handleAction(element) {
     // Canonical: setup → battle directly. Party Deck draws auto-fire each
     // round inside the engine; no pre-fight pick.
     const activeClasses = setup.playerClasses.slice(0, setup.playerCount);
-    gameState = createCoopBattle({
+    // Encounter resolution: setup.monsterId may now name a multi-monster
+    // encounter (Bruiser Duo / Synthetic Hunter Squad). Resolve through
+    // the encounter registry to a monsterIds array; fall back to the
+    // single monsterId path if the entry is unknown (legacy compat).
+    const encounter = getEncounter(setup.monsterId);
+    const battleConfig = {
       players: activeClasses.map((classId, index) => ({
         id: `player-${index + 1}`,
         name: classDefinitions[classId].shortName,
         classId,
       })),
-      monsterId: setup.monsterId,
-    });
+    };
+    if (encounter && encounter.monsterIds.length > 1) {
+      battleConfig.monsterIds = encounter.monsterIds;
+    } else if (encounter) {
+      battleConfig.monsterId = encounter.monsterIds[0];
+    } else {
+      battleConfig.monsterId = setup.monsterId;
+    }
+    gameState = createCoopBattle(battleConfig);
     lastSeenEventId = getLatestEventId(gameState);
     activeEffects = [];
     message = DRAG_AND_DROP_ENABLED
@@ -261,14 +280,55 @@ function handleAction(element) {
   }
 
   if (action === "queue-card") {
-    gameState = queueCard(gameState, {
-      playerId: element.dataset.playerId,
-      instanceId: element.dataset.instanceId,
-    });
+    const playerId = element.dataset.playerId;
+    const instanceId = element.dataset.instanceId;
+    const cardId = element.dataset.cardId;
+    // Two-click flow for multi-monster encounters: if the card has any
+    // damage action and there are 2+ living monsters, arm the card on
+    // first click and wait for a monster click to confirm the target.
+    // Single-monster fights and non-attack cards skip the picker.
+    if (cardNeedsTarget(cardId)) {
+      // Toggle off if already armed for this same instance.
+      if (armedCard && armedCard.instanceId === instanceId) {
+        armedCard = null;
+        message = "";
+      } else {
+        armedCard = { playerId, instanceId, cardId };
+        message = "Pick a target monster.";
+      }
+      render();
+      return;
+    }
+    gameState = queueCard(gameState, { playerId, instanceId });
     enqueueEffectsFromState(gameState);
     message = "";
+    armedCard = null;
     render();
     notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
+    return;
+  }
+
+  if (action === "target-monster") {
+    if (!armedCard) return;
+    const targetMonsterId = element.dataset.monsterIdKey;
+    gameState = queueCard(gameState, {
+      playerId: armedCard.playerId,
+      instanceId: armedCard.instanceId,
+      targetMonsterId,
+    });
+    enqueueEffectsFromState(gameState);
+    notifyMultiplayer({
+      type: "queue-card",
+      dataset: {
+        playerId: armedCard.playerId,
+        instanceId: armedCard.instanceId,
+        cardId: armedCard.cardId,
+        targetMonsterId,
+      },
+    });
+    armedCard = null;
+    message = "";
+    render();
     return;
   }
 
@@ -278,12 +338,14 @@ function handleAction(element) {
       instanceId: element.dataset.instanceId,
     });
     message = "";
+    armedCard = null;
     render();
     notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
     return;
   }
 
   if (action === "resolve-round") {
+    armedCard = null;
     gameState = resolveRound(gameState);
     enqueueEffectsFromState(gameState);
     message =
@@ -435,7 +497,11 @@ function renderSetup() {
 }
 
 function renderEncounterPicker() {
-  const monsters = listMonsters();
+  // Pull from the encounter registry so multi-monster scenarios show up
+  // alongside single-monster boss fights. The Bruiser Duo and Synthetic
+  // Hunter Squad sit at the top of the registry and therefore the
+  // dropdown — they're the headlining encounters per the design PDF.
+  const monsters = listEncounters();
   const selected = monsters.find((m) => m.id === setup.monsterId) ?? monsters[0];
   const countOptions = [2, 3, 4]
     .map(
@@ -450,12 +516,28 @@ function renderEncounterPicker() {
       `,
     )
     .join("");
+  // When the selected encounter has a hero banner, surface it as the
+  // visual anchor of the row. The summary text moves under the banner so
+  // the "what am I fighting" panel reads top-to-bottom: banner → name →
+  // role → summary → controls. Encounters without a banner fall through
+  // to the legacy compact row.
+  const bannerHtml = selected.banner
+    ? `<div class="setup-encounter-banner-wrap">
+         <img src="${assetUrl(selected.banner)}" alt="${escapeHtml(selected.name)}" class="setup-encounter-banner" />
+       </div>`
+    : "";
+  const summaryHtml = selected.summary
+    ? `<p class="setup-encounter-summary">${escapeHtml(selected.summary)}</p>`
+    : "";
+  const rowClass = selected.banner ? "setup-encounter-row has-banner" : "setup-encounter-row";
   return `
-    <div class="setup-encounter-row">
+    <div class="${rowClass}">
+      ${bannerHtml}
       <div class="setup-encounter-info">
         <p class="eyebrow">Encounter</p>
         <h2>${escapeHtml(selected.name)}</h2>
         <p class="setup-encounter-role">${escapeHtml(selected.role)} · ${escapeHtml(selected.faction)}</p>
+        ${summaryHtml}
       </div>
       <div class="setup-encounter-controls">
         <div class="setup-player-count" role="group" aria-label="Number of players">
@@ -733,10 +815,11 @@ function renderGame() {
       <div class="standoff-stage" data-stage>
         <svg class="standoff-tethers" data-tethers aria-hidden="true"></svg>
 
-        <div class="standoff-monster" data-target-zone="monster" data-monster-id="${gameState.monster.id}">
+        <div class="standoff-monster ${(gameState.monsters?.length ?? 1) > 1 ? "multi" : ""} ${armedCard ? "armed" : ""}" data-target-zone="monster" data-monster-id="${gameState.monster.id}">
+          ${renderEncounterBanner()}
           ${renderMonsterIntent(intent)}
-          ${renderMonsterFigure(gameState.monster)}
-          ${renderMonsterBaseplate(gameState.monster)}
+          ${renderPrimaryTargetWrapper(gameState.monster, intent)}
+          ${renderSquadmates(gameState)}
         </div>
 
         <div class="standoff-flanks players-${gameState.players.length}">
@@ -846,6 +929,116 @@ function renderWinnerTitle() {
   return "The monster wins";
 }
 
+// Wrap the primary monster figure + baseplate in a click-target when
+// the picker is armed. The wrapper carries data-action="target-monster"
+// so handleAction routes the click through the queueCard-with-target
+// flow. Non-armed state passes through unchanged so existing layout /
+// styling stays intact.
+function renderPrimaryTargetWrapper(monster, intent) {
+  const armed = !!armedCard && monster.hp > 0;
+  const figure = renderMonsterFigure(monster);
+  const baseplate = renderMonsterBaseplate(monster);
+  if (!armed) {
+    return figure + baseplate;
+  }
+  return `
+    <button type="button" class="monster-target-button is-armed" data-action="target-monster" data-monster-id-key="${monster.monsterId}" aria-label="Target ${escapeHtml(monster.name)}">
+      ${figure}
+      ${baseplate}
+    </button>
+  `;
+}
+
+// Decides whether playing a card should arm the target picker. A card
+// "needs a target" when it has at least one damage-type action AND the
+// fight has 2+ living monsters. Single-monster fights and non-damage
+// cards skip the picker (queue immediately on click).
+function cardNeedsTarget(cardId) {
+  if (!cardId) return false;
+  const livingMonsters = (gameState?.monsters ?? []).filter((m) => m.hp > 0);
+  if (livingMonsters.length < 2) return false;
+  let card;
+  try {
+    card = getCardDefinition(cardId);
+  } catch {
+    return false;
+  }
+  return (card.actions ?? []).some((action) =>
+    action?.type === "damage"
+    || action?.type === "damageFromBlock"
+    || action?.type === "executeDamage",
+  );
+}
+
+// Encounter banner above the monster zone. Shows only when the
+// chosen encounter has a banner image and the fight has more than
+// one monster — single-monster boss fights keep the original look.
+function renderEncounterBanner() {
+  const encounter = getEncounter(setup.monsterId);
+  if (!encounter || !encounter.banner) return "";
+  if ((gameState.monsters?.length ?? 1) <= 1) return "";
+  return `
+    <div class="encounter-banner-strip" aria-hidden="true">
+      <img src="${assetUrl(encounter.banner)}" alt="" class="encounter-banner-strip-img" />
+    </div>
+  `;
+}
+
+// For multi-monster encounters, render the non-primary squadmates as
+// compact tiles next to the primary so the player can track every
+// monster's HP, ability, and "still alive" status. Returns an empty
+// string for single-monster fights.
+function renderSquadmates(state) {
+  const monsters = state.monsters ?? [];
+  if (monsters.length <= 1) return "";
+  const others = monsters.filter((m) => m !== state.monster);
+  if (others.length === 0) return "";
+  return `
+    <div class="squadmate-tray">
+      ${others.map(renderSquadmateTile).join("")}
+    </div>
+  `;
+}
+
+function renderSquadmateTile(monster) {
+  const hpPct = Math.max(0, Math.round((monster.hp / monster.maxHp) * 100));
+  const dead = monster.hp <= 0 ? "is-dead" : "";
+  const traits = (monster.traits ?? []).join(" · ");
+  const visual = getMonsterVisual(monster.monsterId);
+  const portraitMarkup = visual?.portrait
+    ? `<div class="squadmate-portrait" data-monster-art-id="${monster.monsterId ?? ""}">
+         <img src="${visual.portrait}" alt="" />
+       </div>`
+    : "";
+  const inner = `
+    ${portraitMarkup}
+    <div class="squadmate-text">
+      <div class="squadmate-name">${escapeHtml(monster.name)}</div>
+      <div class="squadmate-role">${escapeHtml(monster.role ?? "")}</div>
+      <div class="squadmate-meter">
+        <div class="meter-track meter-hp"><em style="width: ${hpPct}%"></em></div>
+        <strong>${monster.hp} / ${monster.maxHp}</strong>
+      </div>
+      ${traits ? `<div class="squadmate-traits">${escapeHtml(traits)}</div>` : ""}
+    </div>
+  `;
+  // When the target picker is armed and this monster is alive, wrap
+  // the tile in a button so clicking it routes through target-monster.
+  const armed = !!armedCard && monster.hp > 0;
+  if (armed) {
+    return `
+      <button type="button" class="squadmate-tile is-armed" data-action="target-monster" data-monster-id-key="${monster.monsterId}" aria-label="Target ${escapeHtml(monster.name)}">
+        ${inner}
+      </button>
+    `;
+  }
+  return `
+    <div class="squadmate-tile ${dead}" data-monster-id="${monster.id}-${escapeHtml(monster.name)}">
+      ${inner}
+    </div>
+  `;
+}
+
 function renderMonsterFigure(monster) {
   const hpFrac = Math.max(0, Math.min(1, monster.hp / monster.maxHp));
   const wounded = hpFrac < 0.5 ? "wounded" : "";
@@ -865,7 +1058,7 @@ function renderMonsterFigure(monster) {
         <div class="monster-eyes"></div>
       </div>`;
   return `
-    <div class="${figureClasses}" data-monster-art aria-hidden="true">
+    <div class="${figureClasses}" data-monster-art data-monster-art-id="${monster.monsterId ?? ""}" aria-hidden="true">
       <div class="monster-aura"></div>
       ${body}
       <div class="monster-glow"></div>
@@ -1293,9 +1486,10 @@ function renderHandCard(player, cardInstance, cardIndex, totalCards, side) {
   const rotation = side === "right" ? -baseRot : baseRot;
   const lift = baseLift;
   const styleVars = `--card-rotation: ${rotation}deg; --card-lift: ${lift}px;`;
+  const isArmed = armedCard && armedCard.instanceId === cardInstance.instanceId;
   return `
     <button
-      class="hand-card class-${player.classId} role-${card.role} ${cannotAfford ? "unplayable" : "playable"}"
+      class="hand-card class-${player.classId} role-${card.role} ${cannotAfford ? "unplayable" : "playable"} ${isArmed ? "is-armed" : ""}"
       type="button"
       data-action="queue-card"
       data-player-id="${player.id}"
@@ -1351,6 +1545,11 @@ function formatRole(role) {
   return role === "defense" ? "defend" : role;
 }
 
+// Per-event stagger so card / monster actions resolve visibly one after
+// the other instead of all flashing at once. Earlier events kick off
+// first; each one sits on screen for its own duration before clearing.
+const EFFECT_STAGGER_MS = 220;
+
 function enqueueEffectsFromState(state) {
   const newEvents = state.events.filter((event) => event.id > lastSeenEventId);
   if (newEvents.length === 0) {
@@ -1359,6 +1558,7 @@ function enqueueEffectsFromState(state) {
 
   lastSeenEventId = Math.max(...newEvents.map((event) => event.id));
 
+  let startDelay = 0;
   for (const event of newEvents) {
     if (!event.target) {
       continue;
@@ -1372,15 +1572,21 @@ function enqueueEffectsFromState(state) {
       label: event.label,
     };
     effectInstanceId += 1;
-    activeEffects.push(effect);
+    const localStart = startDelay;
+    const duration = getEffectDuration(effect.type);
 
     window.setTimeout(() => {
-      activeEffects = activeEffects.filter((candidate) => candidate.instanceId !== effect.instanceId);
+      activeEffects.push(effect);
+      activeEffects = activeEffects.slice(-24);
       render();
-    }, getEffectDuration(effect.type));
-  }
+      window.setTimeout(() => {
+        activeEffects = activeEffects.filter((candidate) => candidate.instanceId !== effect.instanceId);
+        render();
+      }, duration);
+    }, localStart);
 
-  activeEffects = activeEffects.slice(-24);
+    startDelay += EFFECT_STAGGER_MS;
+  }
 }
 
 function renderEffectSprites(target) {

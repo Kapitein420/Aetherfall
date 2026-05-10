@@ -102,6 +102,29 @@ export const classDefinitions = {
     personality: "Wry, precise, always two valves ahead — happiest when somebody else is getting hit because she pointed the monster there.",
     implemented: true,
   },
+  hydroflow: {
+    id: "hydroflow",
+    name: "Hydroflow Adept",
+    shortName: "Hydroflow",
+    role: "Support",
+    aspect: "Control / Pressure Shift / Hydroflow",
+    faction: "Aetherfall — Hydroflow Guild",
+    element: "hydroflow",
+    maxHp: 34,
+    archetypes: ["Control", "Pressure Shift", "Hydroflow"],
+    tagline: "Control the flow. Shift the pressure. Shape the battlefield.",
+    summary: "A canonical Hydroflow starter — light damage, light defense, but every basic can spend a Hydroflow token for an extra tick of pressure, and Flow Shift seeds the engine.",
+    personality: "Patient and deliberate. Wins by routing the monster's attention, not by trading blows.",
+    implemented: true,
+  },
 };
 
-export const selectableClasses = Object.values(classDefinitions);
+// Playable shortlist: while we balance the new token-themed starter decks
+// (Hydroflow + Storm Forge), restrict the setup picker to just these two.
+// Re-add ids here to bring older classes back into the picker. classDefinitions
+// itself is NOT filtered — engine, content, and saved games still resolve any
+// classId that exists.
+const PLAYABLE_CLASS_IDS = new Set(["hydroflow", "storm-forge"]);
+
+export const selectableClasses = Object.values(classDefinitions)
+  .filter((classDef) => PLAYABLE_CLASS_IDS.has(classDef.id));

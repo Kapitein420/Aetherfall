@@ -8,6 +8,28 @@ export const monsterVisuals = {
   "hollow-titan": {
     portrait: uiAsset("monsters/hollow-titan.png"),
   },
+  // Bruiser Duo monsters share the encounter banner as a source image.
+  // Per-monster CSS crops the banner to focus on the relevant figure
+  // (Siege Mauler = left half, Savage Hound = right half) — see
+  // styles.css :: .monster-figure[data-monster-art-id="..."].
+  "siege-mauler": {
+    portrait: uiAsset("banners/bruiser-duo.png"),
+  },
+  "savage-hound": {
+    portrait: uiAsset("banners/bruiser-duo.png"),
+  },
+  // Synthetic Hunter Squad: the banner has a central commander figure
+  // flanked by drones. Each squad-mate crops to a different region of
+  // the same source image.
+  "signal-commander": {
+    portrait: uiAsset("banners/synthetic-hunter-squad.png"),
+  },
+  "bulwark-unit": {
+    portrait: uiAsset("banners/synthetic-hunter-squad.png"),
+  },
+  "execution-drone": {
+    portrait: uiAsset("banners/synthetic-hunter-squad.png"),
+  },
 };
 
 export const championVisuals = {
@@ -49,6 +71,19 @@ export const championVisuals = {
   gorath: {
     portrait: uiAsset("portraits/noah.png"),
     cardBack: uiAsset("card-backs/noah.png"),
+  },
+  // Storm Forge — uses the wide starter-deck banner for both setup-screen
+  // hero and in-game portrait. The portrait slot crops to the head/chest
+  // via CSS object-position (see styles.css :: .class-storm-forge portraits).
+  "storm-forge": {
+    portrait: uiAsset("banners/storm-forge.png"),
+    banner: uiAsset("banners/storm-forge.png"),
+    cardBack: uiAsset("card-backs/arian.png"),
+  },
+  hydroflow: {
+    portrait: uiAsset("banners/hydroflow.png"),
+    banner: uiAsset("banners/hydroflow.png"),
+    cardBack: uiAsset("card-backs/wouter.png"),
   },
 };
 

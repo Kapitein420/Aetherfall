@@ -265,13 +265,14 @@ export const cardDefinitions = {
   // Storm Forge Vanguard — Storm Charge themed.
   // "Aggression fuels power." Damage actions are tagged element="overclock"
   // so Storm Charge passive (+1 to damage when any storm-charge held) and
-  // future Static Field bonuses route through them. tokenSpend payloads on
-  // the legacy 4 cards stay inert until Infusion lands.
-  "storm-forge.basic_attack": attack("storm-forge", "Basic Attack", 1, "Deal 1 damage. Storm passive: +1 damage with any held Storm Charge.", [
-    damage(1, "overclock"),
+  // future Static Field bonuses route through them. The basic_attack /
+  // basic_defend `spendToken` payloads are now live (engine resolveAction
+  // consumes one token of the named type and adds bonus damage / block).
+  "storm-forge.basic_attack": attack("storm-forge", "Basic Attack", 1, "Deal 1 damage. Storm passive: +1 damage with any held Storm Charge. Spend 1 token to gain +1 damage.", [
+    damageWithSpend(1, "overclock", "storm-charge", 1),
   ]),
-  "storm-forge.basic_defend": defend("storm-forge", "Basic Defend", 1, "Gain 2 block.", [
-    block(2),
+  "storm-forge.basic_defend": defend("storm-forge", "Basic Defend", 1, "Block 2 damage. Spend 1 Storm Charge token to gain +1 block.", [
+    blockWithSpend(2, "storm-charge", 1),
   ]),
   "storm-forge.power_strike": attack("storm-forge", "Power Strike", 2, "Deal 3 damage. Enhanced by Storm passive.", [
     damage(3, "overclock"),
@@ -429,6 +430,36 @@ export const cardDefinitions = {
     damage(13, "water"),
     moveThreat("self", "ally", 4),
   ]),
+
+  // Hydroflow Adept — canonical 4-card starter (4× Basic Attack, 4× Basic
+  // Defend, 1× Flow Shift, 1× Delay Damage) inflated to 15 with extra
+  // copies of the same cards. Every card you see in this deck is one of
+  // the four canonical Hydroflow designs — no growth cards invented on
+  // top. The starter is purposefully light on damage and heavy on
+  // pressure-shifting, leaning on the Hydroflow passive (held tokens
+  // soften incoming threat) and Flow Shift to seed the token economy.
+  "hydroflow.basic_attack": attack("hydroflow", "Basic Attack", 1, "Deal 1 damage. Spend 1 Hydroflow token to gain +1 damage.", [
+    damageWithSpend(1, "water", "hydroflow", 1),
+  ]),
+  "hydroflow.basic_defend": defend("hydroflow", "Basic Defend", 1, "Block 2 damage. Spend 1 Hydroflow token to gain +1 block.", [
+    blockWithSpend(2, "hydroflow", 1),
+  ]),
+  // Flow Shift: relocates pressure from the highest-threat player to the
+  // lowest. The "up to 3" amount is honored by the engine's moveThreat
+  // (it caps at available threat). bonusToken grants 1 Hydroflow when
+  // 3+ threat actually moved — the threshold matches the rules text.
+  "hydroflow.flow_shift": support("hydroflow", "Flow Shift", 2, "Move up to 3 threat from the highest-threat player to the lowest. If 3 or more threat is moved, gain 1 Hydroflow token.", [
+    moveThreatWithBonus("highest", "lowest", 3, { token: "hydroflow", threshold: 3, amount: 1 }),
+  ]),
+  // Delay Damage: prevents 2 damage (modeled as 2 block) and removes 2
+  // threat from the highest-threat player as a reactive analogue. The
+  // canonical text is "if attacked, you may remove 2 threat... once per
+  // turn"; without a reactive trigger or interactive picker the closest
+  // faithful reading is "always fire on play, target highest threat".
+  "hydroflow.delay_damage": defend("hydroflow", "Delay Damage", 2, "Prevent 2 damage. Remove 2 threat from the highest-threat player.", [
+    block(2),
+    reduceThreatHighest(2),
+  ]),
 };
 
 export const starterDecks = {
@@ -558,6 +589,27 @@ export const starterDecks = {
     "verdant-reach.standing_stone",
     "verdant-reach.bloomtide",
     "verdant-reach.ancient_oath",
+  ],
+  // Hydroflow Adept — canonical 4-card starter scaled to 15 by repeating
+  // each design. Ratios mirror the printed art (4 / 4 / 1 / 1) inflated
+  // to (6 / 6 / 2 / 1) so the deck plays as designed without inventing
+  // growth cards.
+  hydroflow: [
+    "hydroflow.basic_attack",
+    "hydroflow.basic_attack",
+    "hydroflow.basic_attack",
+    "hydroflow.basic_attack",
+    "hydroflow.basic_attack",
+    "hydroflow.basic_attack",
+    "hydroflow.basic_defend",
+    "hydroflow.basic_defend",
+    "hydroflow.basic_defend",
+    "hydroflow.basic_defend",
+    "hydroflow.basic_defend",
+    "hydroflow.basic_defend",
+    "hydroflow.flow_shift",
+    "hydroflow.flow_shift",
+    "hydroflow.delay_damage",
   ],
   // Tideflow Engineer — threat redirect / soft control. Attacks lean on
   // water element so they don't double-tax on physical defense, and the
@@ -703,4 +755,30 @@ function gainToken(token, amount = 1) {
 
 function moveThreat(from, to, amount) {
   return { type: "moveThreat", from, to, amount };
+}
+
+// Damage with an attached "spend 1 token" rider. If the player holds
+// `token`, the engine consumes one and adds `bonus` to the damage amount.
+// If they don't, the action falls back to the base amount silently.
+function damageWithSpend(amount, element, token, bonus) {
+  const action = { type: "damage", amount, spendToken: { token, bonus } };
+  if (element) action.element = element;
+  return action;
+}
+
+function blockWithSpend(amount, token, bonus) {
+  return { type: "block", amount, target: "self", spendToken: { token, bonus } };
+}
+
+// moveThreat that grants a bonus token when at least `bonusToken.threshold`
+// threat was actually relocated. Used by Flow Shift.
+function moveThreatWithBonus(from, to, amount, bonusToken) {
+  return { type: "moveThreat", from, to, amount, bonusToken };
+}
+
+// reduceThreat targeting the highest-threat living player. Encoded as a
+// distinct target so getPlayerTargets stays narrow — the engine resolves
+// this in the reduceThreat branch.
+function reduceThreatHighest(amount) {
+  return { type: "reduceThreat", amount, target: "highest" };
 }
