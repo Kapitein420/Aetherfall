@@ -2950,15 +2950,50 @@ select option:checked,
  * ---------------------------------------------------------------------- */
 
 #multiplayer-root {
-  /* Anchored to the bottom-right, sitting just above the fixed action
-   * bar so it reads as part of the footer toolbar rather than competing
-   * with the battle log in the top-right corner. */
+  /* Embedded into the action bar's vertical strip — sits between
+   * "0 queued" and "Resolve round" visually. The compact chip lives
+   * inside the bar (so it doesn't overlap cards anymore); the
+   * expanded panel pops UP and to the LEFT on hover. */
   position: fixed;
-  bottom: 70px;
-  right: 14px;
-  z-index: 90;
-  width: min(280px, 92vw);
+  bottom: 12px;
+  right: 280px;
+  z-index: 60;
+  width: auto;
   pointer-events: auto;
+}
+/* Compact chip — tiny pill that visually belongs in the action bar */
+#multiplayer-root .mp-panel {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  background: linear-gradient(180deg, rgba(20, 24, 22, 0.7), rgba(12, 15, 14, 0.78));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 4px 10px rgba(0, 0, 0, 0.5);
+  transition: background 200ms ease, box-shadow 200ms ease;
+}
+#multiplayer-root .mp-title {
+  font-size: 0.62rem;
+}
+/* Hover-reveal: expand the panel UPWARD (above the action bar) so
+ * connection actions are visible without covering cards in the hand. */
+#multiplayer-root:hover .mp-panel,
+#multiplayer-root:focus-within .mp-panel {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: min(300px, 80vw);
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.84rem;
+  background: linear-gradient(180deg, rgba(20, 24, 22, 0.96), rgba(12, 15, 14, 0.98));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 18px 38px rgba(0, 0, 0, 0.6);
+}
+#multiplayer-root:hover .mp-title,
+#multiplayer-root:focus-within .mp-title {
+  font-size: 0.74rem;
 }
 
 .mp-panel {
@@ -4005,9 +4040,33 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   width: clamp(96px, 14vmin, 160px);
 }
 .monster-roster.is-multi .monster-baseplate {
-  width: min(200px, 100%);
+  /* min-width on .baseplate would otherwise inflate the panel to 240px
+   * regardless of `width`; override it explicitly so the meter actually
+   * fits inside the panel and stops overflowing past the right edge. */
+  width: clamp(180px, 18vw, 240px);
+  min-width: 0;
+  max-width: 100%;
   font-size: 0.78em;
   padding: 6px 10px 8px;
+  box-sizing: border-box;
+}
+.monster-roster.is-multi .monster-baseplate .baseplate-meter {
+  /* min-width: 0 alone wasn't enough — the grid still computed
+   * min-content based on the inner em's intrinsic width. Force full-
+   * width so it fits the parent and the 1fr track actually shrinks. */
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.monster-roster.is-multi .monster-baseplate .meter-track {
+  min-width: 0;
+  width: 100%;
+}
+/* Belt-and-braces: clip any residual overflow inside the baseplate so
+ * a stray child can never extend past the panel border. */
+.monster-roster.is-multi .monster-baseplate {
+  overflow: hidden;
 }
 .monster-roster.is-multi .monster-baseplate h2 {
   font-size: 1.1em;
