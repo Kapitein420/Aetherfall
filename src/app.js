@@ -1,5 +1,5 @@
 import { classDefinitions, selectableClasses } from "./content/classes.js";
-import { getCardDefinition } from "./content/cards.js";
+import { getCardDefinition, starterDecks } from "./content/cards.js";
 import { getChampionVisual, getEffectVisual, getMonsterVisual } from "./content/game-assets.js";
 import { listMonsters, listEncounters, getEncounter, DEFAULT_MONSTER_ID } from "./content/monsters.js";
 import { assetUrl } from "./content/asset-paths.js";
@@ -88,6 +88,10 @@ let armedCard = null; // { playerId, instanceId, cardId } | null
 // hand label to focus that player; click again to clear. Per-client only —
 // not part of game state, so multiplayer peers each pick their own focus.
 let focusedPlayerId = null;
+// Deck viewer modal — { source: 'setup' | 'combat', playerId, classId }
+// Setup viewer shows the starter deck list verbatim; combat viewer
+// shows the player's current full deck (hand + draw pile + discard).
+let deckViewer = null;
 
 installMultiplayerHooks({
   runAction: (action) => {
@@ -157,6 +161,14 @@ app.addEventListener("change", (event) => {
 // player advances. The click pathway goes through data-action so the
 // regular delegate below handles it too.
 window.addEventListener("keydown", (event) => {
+  // Esc closes the deck viewer if open. Highest priority — beats
+  // splash advancement.
+  if (event.key === "Escape" && deckViewer) {
+    event.preventDefault();
+    deckViewer = null;
+    render();
+    return;
+  }
   if (screenPhase !== "splash" || splashLeaving) return;
   // Ignore meta-only presses (e.g. Tab focusing) — only commit on a
   // typing key, Space, or Enter so the player feels they pressed it.
@@ -206,6 +218,21 @@ function handleAction(element) {
 
   if (action === "splash-advance") {
     advanceSplash();
+    return;
+  }
+
+  if (action === "open-deck-viewer") {
+    const playerId = element.dataset.playerId ?? null;
+    const classId = element.dataset.classId ?? null;
+    const source = element.dataset.source ?? (gameState ? "combat" : "setup");
+    deckViewer = { source, playerId, classId };
+    render();
+    return;
+  }
+
+  if (action === "close-deck-viewer") {
+    deckViewer = null;
+    render();
     return;
   }
 
@@ -464,8 +491,12 @@ function render() {
   } else {
     html = renderSetup();
   }
+  // Deck viewer overlays the active screen so it works on setup AND
+  // mid-combat. Render it last so it sits on top of everything.
+  html += renderDeckViewer();
   app.innerHTML = html;
   document.body.dataset.gameView = gameState ? "active" : screenPhase;
+  document.body.dataset.modalOpen = deckViewer ? "true" : "";
 
   if (DRAG_AND_DROP_ENABLED && gameState && gameState.phase !== "game-over") {
     if (!dragInited) {
@@ -568,6 +599,96 @@ function findTargetElement(targetKeyValue) {
     return document.querySelector(`[data-target-zone="player"][data-player-id="${id}"]`);
   }
   return null;
+}
+
+// Deck viewer modal. Shows the cards in a player's deck as a flat
+// scrollable grid grouped by role. Source decides what we show:
+//   source === 'setup'  → the starter deck list for the picked class
+//   source === 'combat' → the player's current deck = hand + deck +
+//                         discard (every card still in the run)
+// Click anywhere on the dim backdrop or the close button to dismiss.
+function renderDeckViewer() {
+  if (!deckViewer) return "";
+
+  let cardIds = [];
+  let title = "";
+  let subtitle = "";
+  let theme = "";
+
+  if (deckViewer.source === "setup" && deckViewer.classId) {
+    cardIds = starterDecks[deckViewer.classId] ?? [];
+    const klass = classDefinitions[deckViewer.classId];
+    title = klass ? `${klass.shortName} starter deck` : "Deck preview";
+    subtitle = klass ? `${cardIds.length} cards · ${klass.role}` : `${cardIds.length} cards`;
+    theme = `class-${deckViewer.classId}`;
+  } else if (deckViewer.source === "combat" && deckViewer.playerId && gameState) {
+    const player = gameState.players.find((p) => p.id === deckViewer.playerId);
+    if (!player) return "";
+    const collected = [
+      ...(player.hand ?? []),
+      ...(player.deck ?? []),
+      ...(player.planned ?? []),
+      ...(player.discard ?? []),
+    ];
+    cardIds = collected.map((c) => c.cardId);
+    title = `${player.name}'s deck`;
+    subtitle = `${cardIds.length} cards · ${player.hand.length} in hand · ${player.deck.length} in draw · ${player.discard.length} in discard`;
+    theme = `class-${player.classId}`;
+  } else {
+    return "";
+  }
+
+  // Group by card.role so attacks / defends / heals etc. cluster together.
+  const groups = new Map();
+  for (const id of cardIds) {
+    let card;
+    try { card = getCardDefinition(id); } catch { continue; }
+    const role = card.role ?? "other";
+    if (!groups.has(role)) groups.set(role, []);
+    groups.get(role).push(card);
+  }
+  // Stable role order
+  const ROLE_ORDER = ["attack", "defense", "healing", "support", "unique"];
+  const orderedGroups = ROLE_ORDER.filter((r) => groups.has(r))
+    .concat([...groups.keys()].filter((r) => !ROLE_ORDER.includes(r)))
+    .map((role) => [role, groups.get(role)]);
+
+  const groupsMarkup = orderedGroups.map(([role, cards]) => {
+    const roleLabel = formatRole(role);
+    const cardItems = cards.map((c) => `
+      <li class="deck-viewer-card class-${escapeHtml(c.classId)} role-${escapeHtml(c.role)}">
+        <span class="deck-viewer-cost">${c.cost}</span>
+        <span class="deck-viewer-name">${escapeHtml(c.name)}</span>
+        <span class="deck-viewer-role">${escapeHtml(roleLabel)}</span>
+        <span class="deck-viewer-text">${escapeHtml(c.text)}</span>
+      </li>
+    `).join("");
+    return `
+      <section class="deck-viewer-group">
+        <h3 class="deck-viewer-group-head">
+          <span class="deck-viewer-group-name">${escapeHtml(roleLabel)}</span>
+          <span class="deck-viewer-group-count">${cards.length}</span>
+        </h3>
+        <ul class="deck-viewer-grid">${cardItems}</ul>
+      </section>
+    `;
+  }).join("");
+
+  return `
+    <div class="deck-viewer-backdrop" role="dialog" aria-modal="true" aria-label="Deck viewer">
+      <div class="deck-viewer-panel ${theme}">
+        <header class="deck-viewer-head">
+          <div>
+            <p class="deck-viewer-eyebrow">Deck</p>
+            <h2 class="deck-viewer-title">${escapeHtml(title)}</h2>
+            <p class="deck-viewer-subtitle">${escapeHtml(subtitle)}</p>
+          </div>
+          <button class="deck-viewer-close" type="button" data-action="close-deck-viewer" aria-label="Close deck viewer">×</button>
+        </header>
+        <div class="deck-viewer-body">${groupsMarkup}</div>
+      </div>
+    </div>
+  `;
 }
 
 // Title splash — the first screen the player sees. Phase A skeleton:
@@ -758,6 +879,14 @@ function renderSetupPlayer(label, slotIndex) {
             .join("")}
         </select>
       </label>
+      <button
+        type="button"
+        class="setup-preview-deck"
+        data-action="open-deck-viewer"
+        data-source="setup"
+        data-class-id="${selectedClass.id}"
+        title="Preview the cards in this starter deck"
+      >Preview deck</button>
     </section>
   `;
 }
@@ -1488,6 +1617,18 @@ function renderChampion(player, side, intent) {
         </div>
         ${renderPlayerTokens(player)}
         ${renderPlayerBuffs(player)}
+        <button
+          type="button"
+          class="champion-deck-button"
+          data-action="open-deck-viewer"
+          data-source="combat"
+          data-player-id="${player.id}"
+          aria-label="View ${escapeHtml(player.name)}'s deck"
+          title="View deck"
+        >
+          <span class="champion-deck-button-icon" aria-hidden="true">▤</span>
+          Deck (${(player.hand?.length ?? 0) + (player.deck?.length ?? 0) + (player.discard?.length ?? 0) + (player.planned?.length ?? 0)})
+        </button>
       </div>
     </div>
   `;

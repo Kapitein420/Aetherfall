@@ -4097,6 +4097,243 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
 }
 
 /* =====================================================================
+ * Deck viewer modal — shows the cards in a player's deck as a
+ * scrollable grid grouped by role. Source decides what:
+ *   setup viewer  → starter deck list for the picked class
+ *   combat viewer → hand + draw + discard + planned (full run deck)
+ * Backdrop dims the screen; panel is centered, max 80vw / 84vh.
+ * Esc + close button dismiss; click on backdrop does NOT (avoids
+ * accidental dismissal mid-scan). */
+.deck-viewer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 6, 8, 0.78);
+  backdrop-filter: blur(6px);
+  animation: deck-viewer-backdrop-in 220ms ease;
+  padding: 24px;
+}
+.deck-viewer-panel {
+  width: min(960px, 90vw);
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, rgba(20, 24, 28, 0.97), rgba(8, 11, 14, 0.99));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 28px 60px rgba(0, 0, 0, 0.7);
+  color: #e3e8e1;
+  overflow: hidden;
+  animation: deck-viewer-panel-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.deck-viewer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.deck-viewer-eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #f5d083;
+  font-weight: 800;
+}
+.deck-viewer-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #f6e8c4;
+}
+.deck-viewer-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: rgba(232, 220, 196, 0.65);
+  font-variant-numeric: tabular-nums;
+}
+.deck-viewer-close {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f6e8c4;
+  font-size: 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 160ms ease, transform 160ms ease;
+}
+.deck-viewer-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: scale(1.04);
+}
+.deck-viewer-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 18px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.deck-viewer-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 8px;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: rgba(232, 220, 196, 0.7);
+}
+.deck-viewer-group-name { color: #f5d083; }
+.deck-viewer-group-count {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(245, 208, 131, 0.14);
+  color: #f5d083;
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+}
+.deck-viewer-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.deck-viewer-card {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
+  gap: 4px;
+  padding: 12px 12px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(36, 32, 28, 0.86), rgba(18, 16, 14, 0.94));
+  font-size: 0.74rem;
+  color: #e3e8e1;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.deck-viewer-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(245, 208, 131, 0.45);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.55);
+}
+.deck-viewer-cost {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(245, 208, 131, 0.18);
+  color: #f5d083;
+  font-weight: 900;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+.deck-viewer-name {
+  font-weight: 800;
+  font-size: 0.86rem;
+  color: #f6e8c4;
+  padding-right: 28px;
+}
+.deck-viewer-role {
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(232, 220, 196, 0.55);
+}
+.deck-viewer-text {
+  font-size: 0.74rem;
+  line-height: 1.32;
+  color: rgba(232, 220, 196, 0.85);
+}
+
+/* Role-tinted accent strip on the left edge of each card */
+.deck-viewer-card.role-attack    { border-left: 3px solid rgba(217, 93, 77, 0.7); }
+.deck-viewer-card.role-defense   { border-left: 3px solid rgba(122, 196, 232, 0.7); }
+.deck-viewer-card.role-healing   { border-left: 3px solid rgba(107, 210, 127, 0.7); }
+.deck-viewer-card.role-support   { border-left: 3px solid rgba(245, 208, 131, 0.7); }
+.deck-viewer-card.role-unique    { border-left: 3px solid rgba(181, 144, 230, 0.7); }
+
+/* Setup-screen "Preview deck" button under the dropdown */
+.setup-preview-deck {
+  margin-top: 8px;
+  width: 100%;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 208, 131, 0.32);
+  background: rgba(245, 208, 131, 0.06);
+  color: #f5d083;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+.setup-preview-deck:hover {
+  background: rgba(245, 208, 131, 0.14);
+  border-color: rgba(245, 208, 131, 0.6);
+  transform: translateY(-1px);
+}
+
+/* In-combat "Deck" button on each champion baseplate */
+.champion-deck-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(232, 220, 196, 0.85);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+.champion-deck-button:hover {
+  background: rgba(245, 208, 131, 0.14);
+  color: #f6e8c4;
+  transform: translateY(-1px);
+}
+.champion-deck-button-icon {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+@keyframes deck-viewer-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes deck-viewer-panel-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* =====================================================================
  * Title splash — Phase A skeleton.
  * Full-bleed cinematic intro screen with the game name + a slow-
  * breathing "press any key" prompt. Fades out over 480ms when the
