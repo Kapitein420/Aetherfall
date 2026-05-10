@@ -915,15 +915,24 @@ function renderSquadmateTile(monster) {
   const hpPct = Math.max(0, Math.round((monster.hp / monster.maxHp) * 100));
   const dead = monster.hp <= 0 ? "is-dead" : "";
   const traits = (monster.traits ?? []).join(" · ");
+  const visual = getMonsterVisual(monster.monsterId);
+  const portraitMarkup = visual?.portrait
+    ? `<div class="squadmate-portrait" data-monster-art-id="${monster.monsterId ?? ""}">
+         <img src="${visual.portrait}" alt="" />
+       </div>`
+    : "";
   return `
     <div class="squadmate-tile ${dead}" data-monster-id="${monster.id}-${escapeHtml(monster.name)}">
-      <div class="squadmate-name">${escapeHtml(monster.name)}</div>
-      <div class="squadmate-role">${escapeHtml(monster.role ?? "")}</div>
-      <div class="squadmate-meter">
-        <div class="meter-track meter-hp"><em style="width: ${hpPct}%"></em></div>
-        <strong>${monster.hp} / ${monster.maxHp}</strong>
+      ${portraitMarkup}
+      <div class="squadmate-text">
+        <div class="squadmate-name">${escapeHtml(monster.name)}</div>
+        <div class="squadmate-role">${escapeHtml(monster.role ?? "")}</div>
+        <div class="squadmate-meter">
+          <div class="meter-track meter-hp"><em style="width: ${hpPct}%"></em></div>
+          <strong>${monster.hp} / ${monster.maxHp}</strong>
+        </div>
+        ${traits ? `<div class="squadmate-traits">${escapeHtml(traits)}</div>` : ""}
       </div>
-      ${traits ? `<div class="squadmate-traits">${escapeHtml(traits)}</div>` : ""}
     </div>
   `;
 }
@@ -947,7 +956,7 @@ function renderMonsterFigure(monster) {
         <div class="monster-eyes"></div>
       </div>`;
   return `
-    <div class="${figureClasses}" data-monster-art aria-hidden="true">
+    <div class="${figureClasses}" data-monster-art data-monster-art-id="${monster.monsterId ?? ""}" aria-hidden="true">
       <div class="monster-aura"></div>
       ${body}
       <div class="monster-glow"></div>

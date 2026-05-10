@@ -8,6 +8,28 @@ export const monsterVisuals = {
   "hollow-titan": {
     portrait: uiAsset("monsters/hollow-titan.png"),
   },
+  // Bruiser Duo monsters share the encounter banner as a source image.
+  // Per-monster CSS crops the banner to focus on the relevant figure
+  // (Siege Mauler = left half, Savage Hound = right half) — see
+  // styles.css :: .monster-figure[data-monster-art-id="..."].
+  "siege-mauler": {
+    portrait: uiAsset("banners/bruiser-duo.png"),
+  },
+  "savage-hound": {
+    portrait: uiAsset("banners/bruiser-duo.png"),
+  },
+  // Synthetic Hunter Squad: the banner has a central commander figure
+  // flanked by drones. Each squad-mate crops to a different region of
+  // the same source image.
+  "signal-commander": {
+    portrait: uiAsset("banners/synthetic-hunter-squad.png"),
+  },
+  "bulwark-unit": {
+    portrait: uiAsset("banners/synthetic-hunter-squad.png"),
+  },
+  "execution-drone": {
+    portrait: uiAsset("banners/synthetic-hunter-squad.png"),
+  },
 };
 
 export const championVisuals = {

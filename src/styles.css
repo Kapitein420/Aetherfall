@@ -3714,6 +3714,117 @@ body[data-drag-role="defense"] .standoff-tethers .drag-arrow {
   filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5));
 }
 
+/* Per-monster banner crops. Bruiser Duo and Synthetic Hunter Squad
+ * monsters share the encounter banner as a source image; each monster
+ * focuses on a different region via object-position + a zoom transform.
+ * The figures sit in the lower 50–70% of the banner (title bar takes
+ * the top), so the head Y values lean toward the bottom of the image.
+ *
+ * Bruiser Duo banner (1500×1024, two armored bruisers under title):
+ *   Siege Mauler — left figure  (~28% x, ~58% y)
+ *   Savage Hound — right figure (~72% x, ~58% y)
+ *
+ * Synthetic Hunter Squad banner (1500×1024, commander + 4 drones):
+ *   Signal Commander — central commander (~50% x, ~52% y)
+ *   Bulwark Unit     — second-left drone (~32% x, ~58% y)
+ *   Execution Drone  — second-right drone (~70% x, ~58% y) */
+/* Banner-cropped monster portraits. The IMG inside .monster-figure
+ * uses transform: scale to zoom into a region of the encounter banner;
+ * because clip-path on the IMG runs *before* transform, we put it on
+ * the figure parent instead — that clips the post-transform pixels to
+ * the figure's actual box. overflow: hidden would have the same effect
+ * but collapses the figure's grid cell, so clip-path it is. */
+.monster-figure[data-monster-art-id="siege-mauler"],
+.monster-figure[data-monster-art-id="savage-hound"],
+.monster-figure[data-monster-art-id="signal-commander"],
+.monster-figure[data-monster-art-id="bulwark-unit"],
+.monster-figure[data-monster-art-id="execution-drone"] {
+  clip-path: inset(0 round 12%);
+}
+.monster-figure[data-monster-art-id="siege-mauler"] .monster-portrait {
+  object-position: 28% 58%;
+  transform: scale(2.4);
+  transform-origin: 28% 58%;
+}
+.monster-figure[data-monster-art-id="savage-hound"] .monster-portrait {
+  object-position: 72% 58%;
+  transform: scale(2.4);
+  transform-origin: 72% 58%;
+}
+.monster-figure[data-monster-art-id="signal-commander"] .monster-portrait {
+  object-position: 50% 52%;
+  transform: scale(2.2);
+  transform-origin: 50% 52%;
+}
+.monster-figure[data-monster-art-id="bulwark-unit"] .monster-portrait {
+  object-position: 32% 58%;
+  transform: scale(2.6);
+  transform-origin: 32% 58%;
+}
+.monster-figure[data-monster-art-id="execution-drone"] .monster-portrait {
+  object-position: 70% 58%;
+  transform: scale(2.6);
+  transform-origin: 70% 58%;
+}
+
+/* Squadmate-tile portrait — small thumbnail using the same banner crops
+ * so the squad-mate shown in the tile matches the central monster art. */
+.squadmate-portrait {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(214, 156, 88, 0.32);
+  background: rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+.squadmate-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.squadmate-portrait[data-monster-art-id="siege-mauler"] img {
+  object-position: 28% 58%;
+  transform: scale(2.6);
+  transform-origin: 28% 58%;
+}
+.squadmate-portrait[data-monster-art-id="savage-hound"] img {
+  object-position: 72% 58%;
+  transform: scale(2.6);
+  transform-origin: 72% 58%;
+}
+.squadmate-portrait[data-monster-art-id="signal-commander"] img {
+  object-position: 50% 52%;
+  transform: scale(2.4);
+  transform-origin: 50% 52%;
+}
+.squadmate-portrait[data-monster-art-id="bulwark-unit"] img {
+  object-position: 32% 58%;
+  transform: scale(2.8);
+  transform-origin: 32% 58%;
+}
+.squadmate-portrait[data-monster-art-id="execution-drone"] img {
+  object-position: 70% 58%;
+  transform: scale(2.8);
+  transform-origin: 70% 58%;
+}
+
+/* Squadmate tile layout switches to a row when a portrait is present
+ * (portrait left, text block right). The previous all-text layout
+ * still renders for monsters without art. */
+.squadmate-tile:has(.squadmate-portrait) {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.squadmate-tile .squadmate-text {
+  display: grid;
+  gap: 3px;
+  flex: 1 1 auto;
+}
+
 /* Encounter banner on the setup screen. Shown only when the picked
  * encounter has a banner image — switches the row from the original
  * compact text-only layout into a visual hero with the banner on top
