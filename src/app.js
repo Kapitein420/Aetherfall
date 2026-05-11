@@ -1,5 +1,5 @@
 import { classDefinitions, selectableClasses } from "./content/classes.js";
-import { getCardDefinition, starterDecks } from "./content/cards.js";
+import { getCardDefinition, starterDecks, rewardOnlyPools } from "./content/cards.js";
 import { listRelics, getRelic } from "./content/relics.js";
 import { getChampionVisual, getEffectVisual, getMonsterVisual } from "./content/game-assets.js";
 import { listMonsters, listEncounters, getEncounter, DEFAULT_MONSTER_ID } from "./content/monsters.js";
@@ -688,16 +688,28 @@ function generateRun(firstEncounterId, length) {
   };
 }
 
-// Roll N random cards per player from their class's starter pool.
-// Same-class only (per design decision): keeps balance tight while
-// the reward economy is young. v2 can add a curated reward-only pool.
+// Roll N random cards per player. Pulls from the class's curated
+// `rewardOnlyPools` entry when one exists — distinct from the starter
+// so the player keeps seeing fresh options. Falls back to the starter
+// pool for classes without a reward pool yet (legacy behavior). Within
+// the roll we dedupe against the player's existing run picks so they
+// aren't offered the same card they already grabbed last fight.
 function rollRewardOptions(state) {
   const opts = {};
   for (const player of state.players) {
-    const pool = (starterDecks[player.classId] ?? []).slice();
-    // De-duplicate so a player isn't offered three identical "Basic
-    // Attack"s on the reward screen.
-    const unique = Array.from(new Set(pool));
+    const rewardPool = rewardOnlyPools?.[player.classId];
+    const sourcePool = (rewardPool && rewardPool.length > 0)
+      ? rewardPool.slice()
+      : (starterDecks[player.classId] ?? []).slice();
+    const owned = new Set(state.run?.runDeckAdds?.[player.id] ?? []);
+    // Prefer cards the player doesn't already own this run. If filtering
+    // would leave fewer than REWARD_CARD_OPTIONS, fall back to the full
+    // pool so the screen always shows 3 picks (duplicates allowed in the
+    // long-tail case where every reward card has been claimed once).
+    const freshIds = sourcePool.filter((id) => !owned.has(id));
+    const unique = Array.from(new Set(
+      freshIds.length >= REWARD_CARD_OPTIONS ? freshIds : sourcePool,
+    ));
     const choices = [];
     while (choices.length < REWARD_CARD_OPTIONS && unique.length > 0) {
       const i = Math.floor(Math.random() * unique.length);

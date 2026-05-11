@@ -501,6 +501,116 @@ export const cardDefinitions = {
     gainToken("storm-charge", 1),
     gainToken("hydroflow", 1),
   ]),
+
+  // ─────────────────────────────────────────────────────────────────
+  // Reward-only cards. These never appear in starter decks; they only
+  // drop on the post-fight reward screen via `rewardOnlyPools` below.
+  // Design intent: extend each starter's identity with options that
+  // feel like an upgrade — more punch on the attack side, more reach
+  // on the support side, plus one expensive "finish" per class.
+  // ─────────────────────────────────────────────────────────────────
+
+  // Hydroflow Adept rewards — control / pressure shifting, light damage.
+  "hydroflow.tide_pulse": attack("hydroflow", "Tide Pulse", 2, "Deal 3 water damage. Spend 1 Hydroflow token to gain +2 damage.", [
+    damageWithSpend(3, "water", "hydroflow", 2),
+  ]),
+  "hydroflow.pressure_drain": defend("hydroflow", "Pressure Drain", 1, "Gain 5 block. Remove 2 threat from the highest-threat player.", [
+    block(5),
+    reduceThreatHighest(2),
+  ]),
+  "hydroflow.deep_channel": support("hydroflow", "Deep Channel", 1, "Gain 2 Hydroflow tokens.", [
+    gainToken("hydroflow", 2),
+  ]),
+  "hydroflow.crosswash": support("hydroflow", "Crosswash", 2, "Move up to 4 threat from the highest-threat player to the lowest. Draw 1.", [
+    moveThreat("highest", "lowest", 4),
+    drawSelf(1),
+  ]),
+  "hydroflow.undertow_grip": defend("hydroflow", "Undertow Grip", 2, "Gain 6 block. Move 3 threat from your ally to you.", [
+    block(6),
+    moveThreat("ally", "self", 3),
+  ]),
+  "hydroflow.flood_finish": unique("hydroflow", "Flood Finish", 3, "Deal 6 water damage. Move 3 threat from highest to lowest. Gain 1 Hydroflow token.", [
+    damage(6, "water"),
+    moveThreat("highest", "lowest", 3),
+    gainToken("hydroflow", 1),
+  ]),
+
+  // Storm Forge rewards — Storm Charge burst, more reliable generation.
+  "storm-forge.spark_bolt": attack("storm-forge", "Spark Bolt", 1, "Deal 3 damage. Gain 1 Storm Charge token.", [
+    damage(3, "overclock"),
+    gainToken("storm-charge", 1),
+  ]),
+  "storm-forge.lightning_step": defend("storm-forge", "Lightning Step", 1, "Gain 4 block. Reduce your threat by 3.", [
+    block(4),
+    reduceThreat(3),
+  ]),
+  "storm-forge.voltage_lance": attack("storm-forge", "Voltage Lance", 2, "Deal 5 damage. Spend 1 Storm Charge token to gain +3 damage.", [
+    damageWithSpend(5, "overclock", "storm-charge", 3),
+  ]),
+  "storm-forge.charged_aegis": defend("storm-forge", "Charged Aegis", 2, "Gain 8 block. Gain 1 Storm Charge token.", [
+    block(8),
+    gainToken("storm-charge", 1),
+  ]),
+  "storm-forge.thunderhead_call": support("storm-forge", "Thunderhead Call", 2, "Gain 2 Storm Charge tokens. Draw 1.", [
+    gainToken("storm-charge", 2),
+    drawSelf(1),
+  ]),
+  "storm-forge.tempest_finish": unique("storm-forge", "Tempest Finish", 3, "Deal 10 damage. Gain 1 Storm Charge token.", [
+    damage(10, "overclock"),
+    gainToken("storm-charge", 1),
+  ]),
+
+  // Bloomcaller rewards — Bio-Growth heal/threat-sink, more attack reach.
+  "bloomcaller.thorn_jab": attack("bloomcaller", "Thorn Jab", 1, "Deal 3 damage. Gain 1 Bio-Growth token.", [
+    damage(3, "biohack"),
+    gainToken("bio-growth", 1),
+  ]),
+  "bloomcaller.thornbark_guard": defend("bloomcaller", "Thornbark Guard", 1, "Gain 6 block. Gain 1 Bio-Growth token.", [
+    block(6),
+    gainToken("bio-growth", 1),
+  ]),
+  "bloomcaller.canopy_mend": heal("bloomcaller", "Canopy Mend", 2, "Heal both players for 3.", [
+    healAll(3),
+  ]),
+  "bloomcaller.rootwoven_guard": defend("bloomcaller", "Rootwoven Guard", 2, "Both players gain 4 block.", [
+    blockAll(4),
+  ]),
+  "bloomcaller.spore_burst": support("bloomcaller", "Spore Burst", 2, "Heal the lowest-health player for 4. Gain 1 Bio-Growth token.", [
+    healLowest(4),
+    gainToken("bio-growth", 1),
+  ]),
+  "bloomcaller.worldroot_renewal": unique("bloomcaller", "Worldroot Renewal", 3, "Heal both players for 5. Gain 1 Bio-Growth token.", [
+    healAll(5),
+    gainToken("bio-growth", 1),
+  ]),
+
+  // Stormtide Conduit rewards — hybrid Storm + Hydroflow.
+  "stormtide-conduit.charged_jab": attack("stormtide-conduit", "Charged Jab", 1, "Deal 2 damage. Gain 1 Storm Charge token.", [
+    damage(2, "overclock"),
+    gainToken("storm-charge", 1),
+  ]),
+  "stormtide-conduit.tide_step": defend("stormtide-conduit", "Tide Step", 1, "Gain 4 block. Gain 1 Hydroflow token.", [
+    block(4),
+    gainToken("hydroflow", 1),
+  ]),
+  "stormtide-conduit.crosscurrent_strike": attack("stormtide-conduit", "Crosscurrent Strike", 2, "Deal 4 damage. Move 2 threat from you to your ally.", [
+    damage(4, "overclock"),
+    moveThreat("self", "ally", 2),
+  ]),
+  "stormtide-conduit.dual_aegis": defend("stormtide-conduit", "Dual Aegis", 2, "Gain 6 block. Gain 1 Storm Charge token.", [
+    block(6),
+    gainToken("storm-charge", 1),
+  ]),
+  "stormtide-conduit.surge_redirect": support("stormtide-conduit", "Surge Redirect", 2, "Move up to 3 threat from highest to lowest. Gain 1 Storm Charge and 1 Hydroflow token.", [
+    moveThreat("highest", "lowest", 3),
+    gainToken("storm-charge", 1),
+    gainToken("hydroflow", 1),
+  ]),
+  "stormtide-conduit.thunderwave_finish": unique("stormtide-conduit", "Thunderwave Finish", 3, "Deal 7 damage. Move 2 threat from highest to lowest. Gain 1 Hydroflow token.", [
+    damage(7, "overclock"),
+    moveThreat("highest", "lowest", 2),
+    gainToken("hydroflow", 1),
+  ]),
 };
 
 export const starterDecks = {
@@ -724,6 +834,47 @@ export const starterDecks = {
 starterDecks.stormForge = starterDecks["storm-forge"];
 starterDecks.verdantReach = starterDecks["verdant-reach"];
 starterDecks.tideflowEngineer = starterDecks["tideflow-engineer"];
+
+// Reward-only card pools, keyed by classId. Cards listed here never appear
+// in the starter deck — only as options on the post-fight reward screen
+// via `rollRewardOptions` in src/app.js. Each card is also present in
+// `cardDefinitions` (engine lookup by id), so picks plug into runDeckAdds
+// without any further wiring. Classes without a pool entry fall back to
+// rolling from their starter (legacy behavior).
+export const rewardOnlyPools = {
+  hydroflow: [
+    "hydroflow.tide_pulse",
+    "hydroflow.pressure_drain",
+    "hydroflow.deep_channel",
+    "hydroflow.crosswash",
+    "hydroflow.undertow_grip",
+    "hydroflow.flood_finish",
+  ],
+  "storm-forge": [
+    "storm-forge.spark_bolt",
+    "storm-forge.lightning_step",
+    "storm-forge.voltage_lance",
+    "storm-forge.charged_aegis",
+    "storm-forge.thunderhead_call",
+    "storm-forge.tempest_finish",
+  ],
+  bloomcaller: [
+    "bloomcaller.thorn_jab",
+    "bloomcaller.thornbark_guard",
+    "bloomcaller.canopy_mend",
+    "bloomcaller.rootwoven_guard",
+    "bloomcaller.spore_burst",
+    "bloomcaller.worldroot_renewal",
+  ],
+  "stormtide-conduit": [
+    "stormtide-conduit.charged_jab",
+    "stormtide-conduit.tide_step",
+    "stormtide-conduit.crosscurrent_strike",
+    "stormtide-conduit.dual_aegis",
+    "stormtide-conduit.surge_redirect",
+    "stormtide-conduit.thunderwave_finish",
+  ],
+};
 
 export function getCardDefinition(cardId) {
   const card = cardDefinitions[cardId];
