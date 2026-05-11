@@ -159,6 +159,11 @@ export function advanceToNextEncounter(currentState, options = {}) {
   if (typeof options.crystalsEarned === "number" && options.crystalsEarned > 0) {
     run.crystals = (run.crystals ?? 0) + options.crystalsEarned;
   }
+  // Crystals spent at the post-fight shop. Subtracted AFTER the earn
+  // so the player can spend up to the full new pool.
+  if (typeof options.crystalsSpent === "number" && options.crystalsSpent > 0) {
+    run.crystals = Math.max(0, (run.crystals ?? 0) - options.crystalsSpent);
+  }
   // Apply card picks from the reward screen. options.picks is keyed
   // by playerId, value is a single card-id string. Future multi-pick
   // rewards can swap to arrays without breaking this shape.
@@ -175,6 +180,15 @@ export function advanceToNextEncounter(currentState, options = {}) {
   if (options.relicPick) {
     const list = (run.relics ?? []).slice();
     if (!list.includes(options.relicPick)) list.push(options.relicPick);
+    run.relics = list;
+  }
+  // Bonus relics granted via the post-fight shop (or future "elite
+  // drops both") arrive as an array. Dedupe and merge.
+  if (Array.isArray(options.extraRelics) && options.extraRelics.length > 0) {
+    const list = (run.relics ?? []).slice();
+    for (const rid of options.extraRelics) {
+      if (rid && !list.includes(rid)) list.push(rid);
+    }
     run.relics = list;
   }
   // HP carryover snapshot. We persist this on run.players so create-

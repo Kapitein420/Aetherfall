@@ -248,6 +248,11 @@ function handleAction(element) {
     return;
   }
 
+  if (action === "shop-buy") {
+    handleShopBuy(element.dataset.shopItem ?? "");
+    return;
+  }
+
   if (action === "open-deck-viewer") {
     const playerId = element.dataset.playerId ?? null;
     const classId = element.dataset.classId ?? null;
@@ -551,6 +556,15 @@ function render() {
   document.body.dataset.gameView = gameState ? "active" : screenPhase;
   document.body.dataset.modalOpen = (deckViewer || pendingReward || gameState?.phase === "run-complete") ? "true" : "";
 
+  // Title-splash atmosphere — ember particles on the canvas placed in
+  // renderSplash. Each render replaces the canvas so we restart the
+  // loop; the previous loop self-terminates the next frame it can't
+  // find its (orphaned) canvas in the document. Defer one frame so
+  // the canvas has its layout box before we size the backing store.
+  if (!gameState && screenPhase === "splash") {
+    window.requestAnimationFrame(startSplashEmbers);
+  }
+
   if (DRAG_AND_DROP_ENABLED && gameState && gameState.phase !== "game-over") {
     if (!dragInited) {
       initDragSystem({
@@ -752,6 +766,30 @@ function ensurePendingReward() {
     isBoss,
     relicOptions: isBoss ? rollRelicOptions(gameState) : [],
     relicPick: null, // relic id or null (skipped)
+    // Shop — three crystal-spend slots that re-roll, heal, or grant a
+    // bonus relic. State is per-fight: any "applied" item persists
+    // through re-renders until the player advances. The bonus relic
+    // is rolled here so the price-tag shows what the player would
+    // actually receive.
+    shop: buildShop(gameState),
+    crystalsSpent: 0,
+  };
+}
+
+// Build the shop state for one reward screen. Rolls a bonus relic
+// from the unowned pool so the card can show the player exactly what
+// they'd buy (rather than a blind purchase). All slots start as
+// !applied; clicking spends crystals + flips applied=true.
+function buildShop(state) {
+  const ownedRelics = new Set(state.run?.relics ?? []);
+  const unowned = listRelics().filter((r) => !ownedRelics.has(r.id));
+  const bonusRelic = unowned.length > 0
+    ? unowned[Math.floor(Math.random() * unowned.length)].id
+    : null;
+  return {
+    heal:   { applied: false, cost: 30 },
+    reroll: { applied: false, cost: 20 },
+    relic:  { applied: false, cost: 80, relicId: bonusRelic },
   };
 }
 
@@ -762,6 +800,35 @@ function rollRelicOptions(state) {
   const pool = listRelics().filter((r) => !owned.has(r.id));
   const shuffled = pool.slice().sort(() => Math.random() - 0.5);
   return shuffled.slice(0, 2).map((r) => r.id);
+}
+
+// Shop purchase. Each slot is one-shot per fight: heal applies
+// immediately to the current battle's lowest-HP player; reroll
+// re-rolls the per-player card options in place; bonus relic flips a
+// flag and the relic is granted on advance. All three spend crystals
+// from the post-fight pool (`run.crystals` + `crystalsEarned`).
+function handleShopBuy(slot) {
+  if (!pendingReward || !gameState || !pendingReward.shop) return;
+  const item = pendingReward.shop[slot];
+  if (!item || item.applied) return;
+  const pool = (gameState.run?.crystals ?? 0) + pendingReward.crystalsEarned - pendingReward.crystalsSpent;
+  if (pool < item.cost) return;
+  pendingReward.crystalsSpent += item.cost;
+  item.applied = true;
+  if (slot === "heal") {
+    // Lowest-HP living player gets +10, capped at maxHp.
+    const living = gameState.players.filter((p) => p.hp > 0);
+    if (living.length > 0) {
+      const target = living.reduce((lo, p) => (p.hp < lo.hp ? p : lo), living[0]);
+      target.hp = Math.min(target.maxHp, target.hp + 10);
+    }
+  } else if (slot === "reroll") {
+    pendingReward.cardOptionsByPlayer = rollRewardOptions(gameState);
+    // Clear stale picks — the cards they referenced are gone now.
+    pendingReward.picksByPlayer = {};
+  }
+  // Bonus relic is applied at advance time via options.extraRelics.
+  render();
 }
 
 // Click handler for "claim this reward and advance" / "skip".
@@ -805,10 +872,15 @@ function handleClaimReward(element) {
   const nextEncounterId = gameState.run?.encounters[nextIndex];
   const enc = nextEncounterId ? getEncounter(nextEncounterId) : null;
   const monsterIds = enc?.monsterIds ?? [];
+  const extraRelics = pendingReward.shop?.relic?.applied && pendingReward.shop.relic.relicId
+    ? [pendingReward.shop.relic.relicId]
+    : [];
   gameState = advanceToNextEncounter(gameState, {
     crystalsEarned: pendingReward.crystalsEarned,
+    crystalsSpent: pendingReward.crystalsSpent ?? 0,
     picks,
     relicPick: pendingReward.relicPick,
+    extraRelics,
     monsterIds,
   });
   pendingReward = null;
@@ -874,6 +946,9 @@ function renderRewardScreen() {
       </section>
     `;
   }).join("");
+  // Shop — three crystal-spend slots available on every clear.
+  const shopSection = renderShopSection(pendingReward, run);
+
   // Boss-clear bonus: relic offer (2 options + skip)
   const relicSection = pendingReward.isBoss && pendingReward.relicOptions.length > 0
     ? `<section class="reward-relic-section">
@@ -891,7 +966,7 @@ function renderRewardScreen() {
                  data-relic-id="${escapeHtml(r.id)}"
                  aria-pressed="${picked ? "true" : "false"}"
                >
-                 <span class="reward-relic-icon" aria-hidden="true">${escapeHtml(r.icon ?? "✦")}</span>
+                 <span class="reward-relic-icon" aria-hidden="true">${r.iconSvg ?? escapeHtml(r.icon ?? "✦")}</span>
                  <span class="reward-relic-name">${escapeHtml(r.name)}</span>
                  <span class="reward-relic-desc">${escapeHtml(r.description)}</span>
                  ${picked ? `<span class="reward-card-picked-badge">Picked</span>` : ""}
@@ -913,10 +988,11 @@ function renderRewardScreen() {
         <header class="reward-screen-head">
           <p class="reward-screen-eyebrow">${pendingReward.isBoss ? "Boss" : "Encounter"} ${cleared} of ${total} cleared</p>
           <h2 class="reward-screen-title">Choose your reward</h2>
-          <p class="reward-screen-crystals">+${pendingReward.crystalsEarned} crystals · ${(run.crystals ?? 0) + pendingReward.crystalsEarned} total</p>
+          <p class="reward-screen-crystals">+${pendingReward.crystalsEarned} crystals · ${(run.crystals ?? 0) + pendingReward.crystalsEarned - (pendingReward.crystalsSpent ?? 0)} ◈ available</p>
         </header>
         <div class="reward-screen-body">
           ${playerRows}
+          ${shopSection}
           ${relicSection}
         </div>
         <footer class="reward-screen-foot">
@@ -926,6 +1002,59 @@ function renderRewardScreen() {
         </footer>
       </div>
     </div>
+  `;
+}
+
+// Render the three shop slots inside the reward screen. Each slot is
+// a clickable card showing icon / name / effect / crystal cost, with
+// disabled state when can't afford or already bought.
+function renderShopSection(pr, run) {
+  if (!pr.shop) return "";
+  const available = (run.crystals ?? 0) + pr.crystalsEarned - (pr.crystalsSpent ?? 0);
+  const heal = pr.shop.heal;
+  const reroll = pr.shop.reroll;
+  const relicSlot = pr.shop.relic;
+  const relicDef = relicSlot.relicId ? getRelic(relicSlot.relicId) : null;
+  const slot = (id, icon, name, desc, item) => {
+    const canAfford = available >= item.cost;
+    const sold = item.applied;
+    const cls = `shop-slot ${sold ? "is-sold" : ""} ${(!sold && !canAfford) ? "is-locked" : ""}`;
+    const aria = sold ? "Already purchased" : (canAfford ? `Buy for ${item.cost} crystals` : `Not enough crystals (need ${item.cost})`);
+    return `
+      <button
+        type="button"
+        class="${cls}"
+        data-action="shop-buy"
+        data-shop-item="${id}"
+        ${sold || !canAfford ? "disabled" : ""}
+        aria-label="${escapeHtml(aria)}"
+      >
+        <span class="shop-icon" aria-hidden="true">${icon}</span>
+        <span class="shop-name">${escapeHtml(name)}</span>
+        <span class="shop-desc">${escapeHtml(desc)}</span>
+        <span class="shop-cost">${sold ? "SOLD" : `${item.cost} ◈`}</span>
+      </button>
+    `;
+  };
+  // Bonus relic shows the actual relic that will be granted so the
+  // player knows what they're buying.
+  const relicLabel = relicDef ? `Bonus Relic — ${relicDef.name}` : "Bonus Relic";
+  const relicDesc = relicDef ? relicDef.description : "All relics already owned.";
+  const relicSlotHtml = relicDef
+    ? slot("relic", relicDef.iconSvg ?? escapeHtml(relicDef.icon ?? "✦"), relicLabel, relicDesc, relicSlot)
+    : `<div class="shop-slot is-empty"><span class="shop-name">${escapeHtml(relicLabel)}</span><span class="shop-desc">${escapeHtml(relicDesc)}</span></div>`;
+  return `
+    <section class="shop-section" aria-label="Spend crystals">
+      <header class="shop-head">
+        <h3 class="shop-title">Black-crystal shop</h3>
+        <p class="shop-sub">${available} ◈ available · spend before continuing</p>
+      </header>
+      <div class="shop-row">
+        ${slot("heal", "✚", "Heal Tonic", "Restore 10 HP to lowest-HP player.", heal)}
+        ${slot("reroll", "↻", "Reroll Rewards", "Roll a new set of 3 card options per player.", reroll)}
+        ${relicSlotHtml}
+      </div>
+    </section>
   `;
 }
 
@@ -1070,6 +1199,7 @@ function renderSplash() {
     <section class="title-splash ${splashLeaving ? "is-leaving" : ""}" data-screen="splash">
       <div class="title-splash-bg" aria-hidden="true"></div>
       <div class="title-splash-vignette" aria-hidden="true"></div>
+      <canvas class="title-splash-embers" aria-hidden="true"></canvas>
       <div class="title-splash-content">
         <p class="title-splash-eyebrow">A co-op deck-building boss trial</p>
         <h1 class="title-splash-name">
@@ -1087,6 +1217,66 @@ function renderSplash() {
       </div>
     </section>
   `;
+}
+
+// Vanilla canvas ember particles for the title splash. Spawns ~70
+// warm-colored embers drifting upward from below the viewport, fades
+// each one over its lifespan, recycles on death. No external deps,
+// auto-terminates the moment the canvas leaves the DOM (which
+// happens when render() rebuilds innerHTML for a non-splash screen).
+function startSplashEmbers() {
+  const canvas = document.querySelector(".title-splash-embers");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const resize = () => {
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  };
+  resize();
+  const onResize = () => resize();
+  window.addEventListener("resize", onResize);
+  const COUNT = 70;
+  const spawn = () => ({
+    x: Math.random() * canvas.width,
+    y: canvas.height + Math.random() * canvas.height * 0.25,
+    vx: (Math.random() - 0.5) * 0.5,
+    vy: -(0.25 + Math.random() * 0.65),
+    size: 0.6 + Math.random() * 1.8,
+    life: 0,
+    maxLife: 220 + Math.random() * 240,
+    hue: 18 + Math.random() * 24,
+  });
+  const embers = Array.from({ length: COUNT }, spawn);
+  const frame = () => {
+    // If the canvas was removed (splash unmounted), stop the loop.
+    if (!document.body.contains(canvas)) {
+      window.removeEventListener("resize", onResize);
+      return;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < embers.length; i++) {
+      const e = embers[i];
+      e.life += 1;
+      e.x += e.vx * dpr;
+      e.y += e.vy * dpr;
+      e.vx += (Math.random() - 0.5) * 0.04;
+      if (e.life > e.maxLife || e.y < -10) {
+        embers[i] = spawn();
+        continue;
+      }
+      const t = e.life / e.maxLife;
+      const alpha = Math.sin(t * Math.PI) * 0.78;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.size * dpr, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${e.hue}, 92%, 62%, ${alpha})`;
+      ctx.fill();
+    }
+    window.requestAnimationFrame(frame);
+  };
+  window.requestAnimationFrame(frame);
 }
 
 function renderSetup() {
@@ -1585,7 +1775,7 @@ function renderRunStatusSection(state) {
   const relicChips = relics.map((id) => {
     const r = getRelic(id);
     if (!r) return "";
-    return `<span class="ab-relic-chip" title="${escapeHtml(r.name)}: ${escapeHtml(r.description)}">${escapeHtml(r.icon ?? "✦")}</span>`;
+    return `<span class="ab-relic-chip" title="${escapeHtml(r.name)}: ${escapeHtml(r.description)}">${r.iconSvg ?? escapeHtml(r.icon ?? "✦")}</span>`;
   }).join("");
   return `
     <div class="ab-section ab-run" title="Run progress">
