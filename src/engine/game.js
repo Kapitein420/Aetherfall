@@ -438,8 +438,15 @@ export function resolveRound(currentState) {
     const run = state.run;
     const hasMoreEncounters =
       run && Array.isArray(run.encounters) && run.currentIndex + 1 < run.encounters.length;
+    // Three terminal states on victory:
+    //   `rewards`      — non-final fight in a run; reward screen next.
+    //   `run-complete` — final fight in a run; meta-progression fires.
+    //   `game-over`    — single-fight game (no run wrapper).
     if (hasMoreEncounters) {
       state.phase = "rewards";
+    } else if (run) {
+      state.phase = "run-complete";
+      state.winner = "players";
     } else {
       state.phase = "game-over";
       state.winner = "players";

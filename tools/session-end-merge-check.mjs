@@ -11,29 +11,33 @@
 // message when the stale-merge condition is detected so Claude sees
 // the warning and can surface it to the user.
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
-const run = (cmd) => {
+// execFileSync (not execSync) so command arguments are passed as an
+// argv array, not concatenated through a shell. Branch names like
+// `foo & calc` cannot escape into the parent shell — there is no
+// parent shell. Closes a Low-severity shell-injection finding.
+const run = (cmd, args) => {
   try {
-    return execSync(cmd, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+    return execFileSync(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   } catch {
     return "";
   }
 };
 
-const branch = run("git rev-parse --abbrev-ref HEAD");
+const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
 if (!branch || branch === "main" || branch === "HEAD") process.exit(0);
 
 // Fetch latest so we compare against the real origin/main.
-run("git fetch --quiet origin main");
-const ahead = run("git log origin/main..HEAD --oneline").split("\n").filter(Boolean);
+run("git", ["fetch", "--quiet", "origin", "main"]);
+const ahead = run("git", ["log", "origin/main..HEAD", "--oneline"]).split("\n").filter(Boolean);
 if (ahead.length === 0) process.exit(0);
 
 // Look up PRs whose head ref is this branch. Bail silently if gh
 // is not authenticated or the repo is not connected to GitHub.
 let prs = [];
 try {
-  const raw = run(`gh pr list --head ${branch} --state all --json number,state,mergedAt,url`);
+  const raw = run("gh", ["pr", "list", "--head", branch, "--state", "all", "--json", "number,state,mergedAt,url"]);
   if (raw) prs = JSON.parse(raw);
 } catch {
   // gh not available; nothing to compare against, skip.

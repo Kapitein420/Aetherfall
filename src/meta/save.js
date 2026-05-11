@@ -37,16 +37,56 @@ function defaultMeta() {
 // missing localStorage) degrade gracefully to an in-memory-only save.
 let cached = null;
 
+// Per-field validation of the deserialised payload. localStorage is
+// trivially writable by extensions / devtools / shared-device users,
+// so we never trust the structure — only pull each field through a
+// type-shaped guard. Anything that fails its check falls back to the
+// default. Prevents prototype-pollution-via-spread and prevents a
+// junk shape (e.g. `unlocks: "oops"`) from crashing the consumer.
 function safeRead() {
   if (typeof localStorage === "undefined") return defaultMeta();
   try {
     const raw = localStorage.getItem(META_KEY);
     if (!raw) return defaultMeta();
     const parsed = JSON.parse(raw);
-    // Schema-guard: if version differs, drop and reset (we ship v1
-    // first; future versions add a migrate() branch).
-    if (!parsed || parsed.version !== 1) return defaultMeta();
-    return { ...defaultMeta(), ...parsed };
+    if (!parsed || typeof parsed !== "object" || parsed.version !== 1) return defaultMeta();
+    const def = defaultMeta();
+    const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
+    const num = (v, fallback = 0) => (typeof v === "number" && Number.isFinite(v) && v >= 0) ? v : fallback;
+    const bool = (v) => v === true;
+    const strMap = (obj, predicate) => {
+      if (!isObj(obj)) return {};
+      const out = {};
+      for (const key of Object.keys(obj)) {
+        // Drop dangerous keys outright; coerce values through predicate.
+        if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
+        if (typeof key !== "string") continue;
+        const v = predicate(obj[key]);
+        if (v !== undefined) out[key] = v;
+      }
+      return out;
+    };
+    const runs = isObj(parsed.runs) ? parsed.runs : {};
+    const unlocks = isObj(parsed.unlocks) ? parsed.unlocks : {};
+    const lastUnlock = isObj(parsed.lastUnlock)
+      && typeof parsed.lastUnlock.cardId === "string"
+      && typeof parsed.lastUnlock.name === "string"
+      && typeof parsed.lastUnlock.classId === "string"
+        ? { cardId: parsed.lastUnlock.cardId, name: parsed.lastUnlock.name, classId: parsed.lastUnlock.classId }
+        : null;
+    return {
+      version: 1,
+      runs: {
+        started: num(runs.started, def.runs.started),
+        completed: num(runs.completed, def.runs.completed),
+        failed: num(runs.failed, def.runs.failed),
+      },
+      fightsWon: num(parsed.fightsWon, def.fightsWon),
+      classesPlayed: strMap(parsed.classesPlayed, (v) => num(v, undefined)),
+      classesCompleted: strMap(parsed.classesCompleted, (v) => bool(v) ? true : undefined),
+      unlocks: { cards: strMap(unlocks.cards, (v) => bool(v) ? true : undefined) },
+      lastUnlock,
+    };
   } catch {
     return defaultMeta();
   }

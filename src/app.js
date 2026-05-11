@@ -417,6 +417,8 @@ function handleAction(element) {
     message = "";
     activeEffects = [];
     lastSeenEventId = 0;
+    runUnlocks = null;
+    pendingReward = null;
     render();
     notifyMultiplayer({ type: action, dataset: { ...element.dataset } });
     return;
@@ -509,6 +511,16 @@ function handleAction(element) {
       // Multi-fight run: party cleared a non-final encounter.
       recordFightWin();
       message = "Encounter cleared. Choose a reward to continue the run.";
+    } else if (gameState.phase === "run-complete") {
+      // Final fight in a run won. Meta-progression: record win +
+      // unlock per-class milestones. Stash newly-unlocked cards on
+      // `runUnlocks` so the run-complete splash can surface them.
+      recordFightWin();
+      const classIds = gameState.players.map((p) => p.classId);
+      runUnlocks = recordRunComplete(classIds, milestonePools, cardDefinitions);
+      message = runUnlocks.length > 0
+        ? "Run complete. New cards unlocked for next time."
+        : "Run complete. Every encounter cleared.";
     } else if (gameState.phase === "game-over") {
       if (gameState.winner === "players") {
         // Single-fight win (no run wrapper). Still a fight cleared.
@@ -916,19 +928,11 @@ function handleClaimReward(element) {
   pendingReward = null;
   lastSeenEventId = getLatestEventId(gameState);
   activeEffects = [];
-  if (gameState.phase === "run-complete") {
-    // Meta-progression: record the win + unlock per-class milestones.
-    // Stash newly-unlocked cards on `runUnlocks` so the run-complete
-    // splash can surface them.
-    const classIds = gameState.players.map((p) => p.classId);
-    runUnlocks = recordRunComplete(classIds, milestonePools, cardDefinitions);
-    message = runUnlocks.length > 0
-      ? "Run complete. New cards unlocked for next time."
-      : "Run complete. Every encounter cleared.";
-  } else {
-    runUnlocks = null;
-    message = "Next encounter inbound. Plan your opening moves.";
-  }
+  // After the engine fix, the final-fight win sets phase="run-complete"
+  // directly (no reward screen for the final fight), so this handler
+  // only ever advances mid-run. Reset runUnlocks defensively.
+  runUnlocks = null;
+  message = "Next encounter inbound. Plan your opening moves.";
   render();
   notifyMultiplayer({ type: "claim-reward", dataset: {} });
 }
@@ -1719,7 +1723,7 @@ function renderPartyCardInteractions(entry, card, actor, canAfford) {
 // intent telegraph and the queued-card tether lines.
 function renderGame() {
   const totalQueued = gameState.players.reduce((total, player) => total + player.planned.length, 0);
-  const gameOver = gameState.phase === "game-over";
+  const gameOver = gameState.phase === "game-over" || gameState.phase === "run-complete";
   const intent = MONSTER_INTENT_ENABLED ? computeMonsterIntent(gameState) : null;
 
   return `
@@ -2519,7 +2523,7 @@ function computeMonsterIntent(state) {
 function computeMonsterIntentFor(state, monster) {
   if (!monster || monster.hp <= 0) return null;
   const livingPlayers = state.players.filter((p) => p.hp > 0);
-  if (!livingPlayers.length || state.phase === "game-over") {
+  if (!livingPlayers.length || state.phase === "game-over" || state.phase === "run-complete") {
     return null;
   }
   let target = null;
@@ -2567,7 +2571,7 @@ function computeMonsterIntentFor(state, monster) {
 function renderHandCard(player, cardInstance, cardIndex, totalCards, side) {
   const card = getCardDefinition(cardInstance.cardId);
   const remainingEnergy = getRemainingEnergy(player);
-  const cannotAfford = remainingEnergy < card.cost || player.hp <= 0 || gameState.phase === "game-over";
+  const cannotAfford = remainingEnergy < card.cost || player.hp <= 0 || gameState.phase === "game-over" || gameState.phase === "run-complete";
   // Spread cards in a soft fan. Mirror angles for the right side so cards face inward.
   const fanCount = Math.max(1, totalCards);
   const center = (fanCount - 1) / 2;
