@@ -611,6 +611,35 @@ export const cardDefinitions = {
     moveThreat("highest", "lowest", 2),
     gainToken("hydroflow", 1),
   ]),
+
+  // ─────────────────────────────────────────────────────────────────
+  // Milestone cards. Unlocked permanently via meta-progression by
+  // completing a run with the matching class. Stronger than the
+  // standard reward pool (3 effects each); appear ONLY when the
+  // unlock flag is set in localStorage. See src/meta/save.js.
+  // ─────────────────────────────────────────────────────────────────
+  "hydroflow.tideborn_doctrine": unique("hydroflow", "Tideborn Doctrine", 3, "Gain 6 block. Move 4 threat from ally to self. Both players reduce threat by 1. Gain 1 Hydroflow token.", [
+    block(6),
+    moveThreat("ally", "self", 4),
+    reduceAllThreat(1),
+    gainToken("hydroflow", 1),
+  ]),
+  "storm-forge.galvanic_crown": unique("storm-forge", "Galvanic Crown", 3, "Deal 8 damage. Gain 2 Storm Charge tokens. Draw 1.", [
+    damage(8, "overclock"),
+    gainToken("storm-charge", 2),
+    drawSelf(1),
+  ]),
+  "bloomcaller.worldroot_sermon": unique("bloomcaller", "Worldroot Sermon", 3, "Heal both players for 5. Gain 2 Bio-Growth tokens. Draw 1.", [
+    healAll(5),
+    gainToken("bio-growth", 2),
+    drawSelf(1),
+  ]),
+  "stormtide-conduit.conductive_doctrine": unique("stormtide-conduit", "Conductive Doctrine", 3, "Deal 6 damage. Move 3 threat from highest to lowest. Gain 1 Storm Charge and 1 Hydroflow token.", [
+    damage(6, "overclock"),
+    moveThreat("highest", "lowest", 3),
+    gainToken("storm-charge", 1),
+    gainToken("hydroflow", 1),
+  ]),
 };
 
 export const starterDecks = {
@@ -841,6 +870,17 @@ starterDecks.tideflowEngineer = starterDecks["tideflow-engineer"];
 // `cardDefinitions` (engine lookup by id), so picks plug into runDeckAdds
 // without any further wiring. Classes without a pool entry fall back to
 // rolling from their starter (legacy behavior).
+// Milestone reward pools — gated by meta-progression. Each entry
+// (1 card per class for v1) is appended to the class's reward roll
+// when `meta.unlocks.cards[cardId]` is true. Unlocked by completing
+// a run with that class. See src/meta/save.js.
+export const milestonePools = {
+  hydroflow: ["hydroflow.tideborn_doctrine"],
+  "storm-forge": ["storm-forge.galvanic_crown"],
+  bloomcaller: ["bloomcaller.worldroot_sermon"],
+  "stormtide-conduit": ["stormtide-conduit.conductive_doctrine"],
+};
+
 export const rewardOnlyPools = {
   hydroflow: [
     "hydroflow.tide_pulse",

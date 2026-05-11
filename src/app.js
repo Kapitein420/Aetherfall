@@ -1,5 +1,13 @@
 import { classDefinitions, selectableClasses } from "./content/classes.js";
-import { getCardDefinition, starterDecks, rewardOnlyPools } from "./content/cards.js";
+import { getCardDefinition, starterDecks, rewardOnlyPools, milestonePools, cardDefinitions } from "./content/cards.js";
+import {
+  getMeta,
+  recordRunStart,
+  recordFightWin,
+  recordRunFailed,
+  recordRunComplete,
+  isCardUnlocked,
+} from "./meta/save.js";
 import { listRelics, getRelic } from "./content/relics.js";
 import { getChampionVisual, getEffectVisual, getMonsterVisual } from "./content/game-assets.js";
 import { listMonsters, listEncounters, getEncounter, DEFAULT_MONSTER_ID } from "./content/monsters.js";
@@ -100,6 +108,10 @@ let deckViewer = null;
 // run. Holds rolled card options per player + crystals earned, so
 // rerolls / skips don't re-roll new randoms each render.
 let pendingReward = null;
+// Newly-unlocked milestone cards from the just-completed run.
+// Populated by recordRunComplete in handleClaimReward; consumed by
+// the run-complete splash to show the "✦ unlocked" toast.
+let runUnlocks = null;
 
 installMultiplayerHooks({
   runAction: (action) => {
@@ -309,6 +321,11 @@ function handleAction(element) {
       battleConfig.monsterId = setup.monsterId;
     }
     gameState = createCoopBattle(battleConfig);
+    // Meta-progression: bump per-class play counter at run start.
+    // Only count once per run (this is the entry point) and only
+    // when actually starting a multi-fight run; single fights still
+    // count so the codex tracks every game.
+    recordRunStart(activeClasses);
     lastSeenEventId = getLatestEventId(gameState);
     activeEffects = [];
     message = DRAG_AND_DROP_ENABLED
@@ -489,8 +506,17 @@ function handleAction(element) {
       render();
     }, ROUND_SUMMARY_MS);
     if (gameState.phase === "rewards") {
+      // Multi-fight run: party cleared a non-final encounter.
+      recordFightWin();
       message = "Encounter cleared. Choose a reward to continue the run.";
     } else if (gameState.phase === "game-over") {
+      if (gameState.winner === "players") {
+        // Single-fight win (no run wrapper). Still a fight cleared.
+        recordFightWin();
+      } else if (gameState.run) {
+        // Party fell mid-run.
+        recordRunFailed();
+      }
       message = gameState.winner === "players"
         ? "The monster is defeated. Victory."
         : "The party fell. Try a different plan.";
@@ -712,9 +738,13 @@ function rollRewardOptions(state) {
   const opts = {};
   for (const player of state.players) {
     const rewardPool = rewardOnlyPools?.[player.classId];
-    const sourcePool = (rewardPool && rewardPool.length > 0)
+    const basePool = (rewardPool && rewardPool.length > 0)
       ? rewardPool.slice()
       : (starterDecks[player.classId] ?? []).slice();
+    // Meta-progression: append any unlocked milestone cards for this
+    // class. Unlock flag is set in localStorage by recordRunComplete.
+    const milestones = (milestonePools[player.classId] ?? []).filter(isCardUnlocked);
+    const sourcePool = basePool.concat(milestones);
     const owned = new Set(state.run?.runDeckAdds?.[player.id] ?? []);
     // Prefer cards the player doesn't already own this run. If filtering
     // would leave fewer than REWARD_CARD_OPTIONS, fall back to the full
@@ -886,9 +916,19 @@ function handleClaimReward(element) {
   pendingReward = null;
   lastSeenEventId = getLatestEventId(gameState);
   activeEffects = [];
-  message = gameState.phase === "run-complete"
-    ? "Run complete. Every encounter cleared."
-    : "Next encounter inbound. Plan your opening moves.";
+  if (gameState.phase === "run-complete") {
+    // Meta-progression: record the win + unlock per-class milestones.
+    // Stash newly-unlocked cards on `runUnlocks` so the run-complete
+    // splash can surface them.
+    const classIds = gameState.players.map((p) => p.classId);
+    runUnlocks = recordRunComplete(classIds, milestonePools, cardDefinitions);
+    message = runUnlocks.length > 0
+      ? "Run complete. New cards unlocked for next time."
+      : "Run complete. Every encounter cleared.";
+  } else {
+    runUnlocks = null;
+    message = "Next encounter inbound. Plan your opening moves.";
+  }
   render();
   notifyMultiplayer({ type: "claim-reward", dataset: {} });
 }
@@ -1081,6 +1121,16 @@ function renderRunCompleteScreen() {
   const title = isComplete ? "Every encounter cleared" : "The party fell";
   const themeClass = isComplete ? "is-victory" : "is-defeat";
   const buttonLabel = isComplete ? "Begin a new run" : "Try again";
+  // Meta-progression: surface any milestone cards just unlocked.
+  // `runUnlocks` is populated by recordRunComplete in handleClaimReward.
+  const unlockBlock = (isComplete && runUnlocks && runUnlocks.length > 0)
+    ? `<div class="run-complete-unlocks" role="status">
+         <p class="run-complete-unlocks-eyebrow">✦ Unlocked for future runs</p>
+         <ul class="run-complete-unlocks-list">
+           ${runUnlocks.map((u) => `<li><strong>${escapeHtml(u.name)}</strong> — ${escapeHtml(u.classId)}</li>`).join("")}
+         </ul>
+       </div>`
+    : "";
   return `
     <div class="run-complete-backdrop ${themeClass}" role="dialog" aria-modal="true" aria-label="${eyebrow}">
       <div class="run-complete-panel">
@@ -1093,6 +1143,7 @@ function renderRunCompleteScreen() {
           · ${relicCount} relic${relicCount === 1 ? "" : "s"}
         </p>
         ${relicNames ? `<p class="run-complete-relics">Relics: ${escapeHtml(relicNames)}</p>` : ""}
+        ${unlockBlock}
         <button type="button" class="run-complete-button" data-action="new-game">${escapeHtml(buttonLabel)}</button>
       </div>
     </div>
@@ -1195,6 +1246,17 @@ function renderDeckViewer() {
 // "PRESS ANY KEY" prompt, and a background that uses the
 // battlefield image until a dedicated splash painting arrives.
 function renderSplash() {
+  // Meta-progression banner — shown only after the player has any
+  // play data on record. Quietly absent on a first boot so the title
+  // doesn't read as "0 runs / 0 wins" before they've played.
+  const meta = getMeta();
+  const hasPlayed = (meta.runs?.started ?? 0)
+    + (meta.runs?.completed ?? 0)
+    + (meta.runs?.failed ?? 0)
+    + (meta.fightsWon ?? 0) > 0;
+  const statsLine = hasPlayed
+    ? `<p class="title-splash-stats">${meta.runs.completed} runs cleared · ${meta.runs.failed} runs fallen · ${meta.fightsWon} fights won${meta.lastUnlock ? ` · last unlock: <strong>${escapeHtml(meta.lastUnlock.name)}</strong>` : ""}</p>`
+    : "";
   return `
     <section class="title-splash ${splashLeaving ? "is-leaving" : ""}" data-screen="splash">
       <div class="title-splash-bg" aria-hidden="true"></div>
@@ -1214,6 +1276,7 @@ function renderSplash() {
         >
           Press any key
         </button>
+        ${statsLine}
       </div>
     </section>
   `;
