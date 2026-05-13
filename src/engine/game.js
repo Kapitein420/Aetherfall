@@ -1173,6 +1173,12 @@ function resolveMonsterTurn(state) {
     .filter((m) => m && m.hp > 0)
     .sort((a, b) => (a.turnPriority ?? 0) - (b.turnPriority ?? 0));
 
+  // Per-turn target hit tracker. Maps playerId -> Set of monsterIds that
+  // have hit that player this monster phase. Powers faithful Crossfire
+  // ("+1 if another monster already hit the same target this turn"),
+  // resets at the start of every monster turn so chains can't leak.
+  state.monsterTurnHits = {};
+
   for (const monster of order) {
     if (state.players.every((player) => player.hp <= 0)) return;
     if (monster.hp <= 0) continue;
@@ -1218,7 +1224,7 @@ function runSingleMonsterTurn(state, monster) {
 
     let damage = Math.max(
       1,
-      effectiveMonsterAttack(state, monster) + Math.floor(state.roundNumber / 2),
+      effectiveMonsterAttack(state, monster, target) + Math.floor(state.roundNumber / 2),
     );
     // Fixate damage: monsters with an explicit `fixateAttack` use that
     // flat number on the locked target (Bruiser Duo / Synthetic Squad
@@ -1252,19 +1258,45 @@ function runSingleMonsterTurn(state, monster) {
       amount: damage,
       label: monster.name,
     });
+
+    // Record this hit for Crossfire's "another monster already hit this
+    // target this turn" check. Recorded AFTER the damage call so the
+    // monster's own first action doesn't trigger Crossfire on its own
+    // second action — we only count distinct monsterIds.
+    if (state.monsterTurnHits) {
+      const key = target.id;
+      const id = monster.monsterId ?? monster.id;
+      if (id) {
+        (state.monsterTurnHits[key] ??= new Set()).add(id);
+      }
+    }
   }
 }
 
 // Effective attack for a monster, factoring in declarative abilities.
-// `packHunter` / `crossfire` add +1 while at least one other living
-// squadmate exists. `targetUplink` from a SEPARATE living monster
-// adds +1 to this monster's attack.
-function effectiveMonsterAttack(state, monster) {
+//   packHunter — +1 while any other squadmate is alive (pack tactics).
+//   crossfire  — +1 ONLY if another monster has already hit this target
+//                this turn (requires `target` arg + state.monsterTurnHits).
+//                If state lacks the tracker (preview / older callers),
+//                falls back to "any other squadmate alive" so we never
+//                under-count the threat preview.
+//   targetUplink — +1 from a separate living uplinker.
+function effectiveMonsterAttack(state, monster, target = null) {
   let bonus = 0;
   const others = (state.monsters ?? []).filter((m) => m !== monster && m.hp > 0);
   const abilities = monster.abilities ?? [];
-  if ((abilities.includes("packHunter") || abilities.includes("crossfire")) && others.length > 0) {
+  if (abilities.includes("packHunter") && others.length > 0) {
     bonus += 1;
+  }
+  if (abilities.includes("crossfire")) {
+    const myId = monster.monsterId ?? monster.id;
+    const hits = target && state.monsterTurnHits ? state.monsterTurnHits[target.id] : null;
+    const anotherHit = hits ? Array.from(hits).some((id) => id !== myId) : false;
+    if (anotherHit) {
+      bonus += 1;
+    } else if (!state.monsterTurnHits && others.length > 0) {
+      bonus += 1; // legacy/preview fallback
+    }
   }
   if (others.some((m) => (m.abilities ?? []).includes("targetUplink"))) {
     bonus += 1;
