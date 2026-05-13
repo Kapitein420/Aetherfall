@@ -8727,3 +8727,150 @@ body.dragging-card .standoff-champion {
   opacity: 0;
   pointer-events: none;
 }
+
+/* -----------------------------------------------------------------
+   Card preview overlay — anchored detail popup that appears after a
+   short hover on hand cards. The hand-card itself keeps its 1.4×
+   scale for immediate feedback; this panel is the full-readability
+   "card sheet" so rules text + action breakdown are comfortable.
+   ----------------------------------------------------------------- */
+.card-preview-overlay {
+  --cp-edge: rgba(212, 178, 110, 0.55);
+  --cp-glow: rgba(245, 208, 131, 0.34);
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1500;
+  width: 280px;
+  max-width: calc(100vw - 24px);
+  padding: 14px 16px 16px;
+  border: 1px solid var(--cp-edge);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 30%),
+    linear-gradient(180deg, #2b2218 0%, #1a130d 100%);
+  color: #f4e5c2;
+  box-shadow:
+    0 0 0 1px rgba(255, 245, 210, 0.05),
+    0 18px 38px rgba(0, 0, 0, 0.6),
+    0 0 28px var(--cp-glow);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.card-preview-overlay.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.card-preview-overlay .cp-header {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(245, 208, 131, 0.18);
+  margin-bottom: 10px;
+}
+
+.card-preview-overlay .cp-cost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(245, 208, 131, 0.55);
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.18), transparent 60%),
+    linear-gradient(180deg, #4a3318, #2a1c0a);
+  color: #ffe49d;
+  font-family: "Cinzel", "Trajan Pro", serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  flex: 0 0 auto;
+}
+
+.card-preview-overlay .cp-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.card-preview-overlay .cp-name {
+  font-family: "Cinzel", "Trajan Pro", serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffe7b5;
+  line-height: 1.15;
+}
+
+.card-preview-overlay .cp-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(244, 229, 194, 0.65);
+}
+
+.card-preview-overlay .cp-role {
+  font-weight: 600;
+}
+
+.card-preview-overlay .cp-element {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 245, 210, 0.06);
+  border: 1px solid rgba(245, 208, 131, 0.18);
+  font-size: 0.68rem;
+  color: rgba(244, 229, 194, 0.8);
+}
+
+.card-preview-overlay .cp-body {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #f4e5c2;
+  margin-bottom: 10px;
+}
+
+.card-preview-overlay .cp-actions {
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px;
+  background: rgba(255, 245, 210, 0.04);
+  border: 1px solid rgba(245, 208, 131, 0.14);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: rgba(244, 229, 194, 0.92);
+}
+
+.card-preview-overlay .cp-actions li {
+  position: relative;
+  padding-left: 14px;
+}
+
+.card-preview-overlay .cp-actions li::before {
+  content: "•";
+  position: absolute;
+  left: 2px;
+  top: 0;
+  color: rgba(245, 208, 131, 0.7);
+}
+
+/* Per-class accent is applied via the --cp-edge / --cp-glow inline
+   custom properties (set from JS by reading the anchor's --class-glow),
+   so the preview matches every class without per-class CSS overrides. */

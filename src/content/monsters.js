@@ -243,10 +243,11 @@ export const monsterRegistry = {
     }),
   },
 
-  // Synthetic Hunter Squad — three drones with linked tactics. Crossfire's
-  // "+1 if another monster attacked the same target this turn, attack last"
-  // detail is simplified to a flat +1 attack while another squad-mate lives;
-  // a faithful implementation needs per-turn target tracking.
+  // Synthetic Hunter Squad — three drones with linked tactics. Crossfire
+  // is faithful: +1 only if another monster has already hit this drone's
+  // target this turn (tracked via state.monsterTurnHits, populated in
+  // the monster-phase loop). The drone's high turnPriority (10) means it
+  // attacks last so its squadmates' hits are already on the board.
   "execution-drone": {
     id: "execution-drone",
     name: "Execution Drone",

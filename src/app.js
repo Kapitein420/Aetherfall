@@ -147,6 +147,189 @@ window.addEventListener("resize", () => {
   }
 });
 
+// ---------------------------------------------------------------------
+// Card preview overlay — hand cards have a 1.4× hover scale already but
+// the rules text is still small at that size. The overlay below renders
+// a comfortable, fully-readable detail panel anchored to the hovered
+// card. Single shared element, populated on demand; positioned in
+// viewport coords so it can't be clipped by ancestor overflow.
+// ---------------------------------------------------------------------
+const CARD_PREVIEW_DELAY_MS = 220;
+let cardPreviewEl = null;
+let cardPreviewTimer = null;
+let cardPreviewAnchor = null;
+
+function ensureCardPreviewEl() {
+  if (cardPreviewEl) return cardPreviewEl;
+  const el = document.createElement("div");
+  el.className = "card-preview-overlay";
+  el.setAttribute("role", "tooltip");
+  el.setAttribute("aria-hidden", "true");
+  document.body.appendChild(el);
+  cardPreviewEl = el;
+  return el;
+}
+
+function buildCardPreviewMarkup(card, classId) {
+  const element = getCardElement(card);
+  const elementBadge = element
+    ? `<span class="cp-element elem-${escapeHtml(element)}" title="${escapeHtml(element)} element">${getElementIcon(element)} ${escapeHtml(element)}</span>`
+    : "";
+  // Action breakdown — convert the structured action list into a short
+  // bulleted summary alongside the canonical body text. Falls back to
+  // just the text when actions are unstructured or empty.
+  const actionLines = (card.actions ?? [])
+    .map((a) => formatActionForPreview(a))
+    .filter(Boolean);
+  const actionList = actionLines.length
+    ? `<ul class="cp-actions">${actionLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`
+    : "";
+  return `
+    <div class="cp-header class-${escapeHtml(classId)}">
+      <span class="cp-cost">${card.cost}</span>
+      <div class="cp-titles">
+        <span class="cp-name">${escapeHtml(card.name)}</span>
+        <span class="cp-sub">
+          <span class="cp-role">${escapeHtml(formatRole(card.role))}</span>
+          ${elementBadge}
+        </span>
+      </div>
+    </div>
+    <div class="cp-body">${escapeHtml(card.text)}</div>
+    ${actionList}
+  `;
+}
+
+// Best-effort one-liner per action — used for the bulleted breakdown so
+// players can scan the mechanical effect at a glance even when the text
+// is flavor-heavy. Unknown action shapes are dropped silently.
+function formatActionForPreview(action) {
+  if (!action || typeof action !== "object") return null;
+  switch (action.type) {
+    case "damage":
+      return `Deal ${action.amount} ${action.element ? `${action.element} ` : ""}damage`;
+    case "damageFromBlock":
+      return `Deal damage = block ÷ ${action.divisor ?? 1}`;
+    case "block":
+      return `Gain ${action.amount} block`;
+    case "blockAll":
+      return `Both players gain ${action.amount} block`;
+    case "blockAlly":
+      return `Ally gains ${action.amount} block`;
+    case "threat":
+      return `Gain ${action.amount} threat`;
+    case "reduceThreat":
+      return `Reduce your threat by ${action.amount}`;
+    case "reduceAllyThreat":
+      return `Reduce ally threat by ${action.amount}`;
+    case "taunt":
+      return `Taunt (+5 threat)`;
+    case "heal":
+    case "healSelf":
+      return `Heal ${action.amount}`;
+    case "healAll":
+      return `Heal both players for ${action.amount}`;
+    case "healLowest":
+      return `Heal lowest-HP player for ${action.amount}`;
+    case "draw":
+    case "drawSelf":
+      return `Draw ${action.amount}`;
+    case "drawAll":
+      return `Both players draw ${action.amount}`;
+    case "spendToken":
+      return `Spend 1 ${action.token} token`;
+    default:
+      return null;
+  }
+}
+
+function positionCardPreview(anchor) {
+  if (!cardPreviewEl) return;
+  const rect = anchor.getBoundingClientRect();
+  const margin = 12;
+  // Make sure the element is visible-but-measurable before reading its size.
+  cardPreviewEl.style.visibility = "hidden";
+  cardPreviewEl.classList.add("is-visible");
+  const pw = cardPreviewEl.offsetWidth;
+  const ph = cardPreviewEl.offsetHeight;
+  cardPreviewEl.style.visibility = "";
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  // Prefer placing above the card; if not enough room, fall back below.
+  let top = rect.top - ph - margin;
+  if (top < margin) {
+    top = Math.min(rect.bottom + margin, vh - ph - margin);
+  }
+  // Center horizontally on the card, then clamp to viewport.
+  let left = rect.left + rect.width / 2 - pw / 2;
+  left = Math.max(margin, Math.min(left, vw - pw - margin));
+  cardPreviewEl.style.top = `${Math.round(top)}px`;
+  cardPreviewEl.style.left = `${Math.round(left)}px`;
+}
+
+function showCardPreviewFor(handCardEl) {
+  const cardId = handCardEl.dataset.cardId;
+  if (!cardId) return;
+  const card = getCardDefinition(cardId);
+  if (!card) return;
+  const classId = handCardEl.className.split(/\s+/).find((c) => c.startsWith("class-"))?.slice("class-".length) ?? "neutral";
+  const el = ensureCardPreviewEl();
+  el.innerHTML = buildCardPreviewMarkup(card, classId);
+  // Pull the anchor's --class-glow custom prop so the preview's accent
+  // edge + halo match whichever class is hovered (covers every class
+  // without per-class CSS duplication in the overlay).
+  const cs = window.getComputedStyle(handCardEl);
+  const glow = cs.getPropertyValue("--class-glow").trim();
+  if (glow) {
+    el.style.setProperty("--cp-edge", glow);
+    el.style.setProperty("--cp-glow", glow);
+  } else {
+    el.style.removeProperty("--cp-edge");
+    el.style.removeProperty("--cp-glow");
+  }
+  el.setAttribute("aria-hidden", "false");
+  cardPreviewAnchor = handCardEl;
+  positionCardPreview(handCardEl);
+}
+
+function hideCardPreview() {
+  if (cardPreviewTimer) {
+    clearTimeout(cardPreviewTimer);
+    cardPreviewTimer = null;
+  }
+  if (!cardPreviewEl) return;
+  cardPreviewEl.classList.remove("is-visible");
+  cardPreviewEl.setAttribute("aria-hidden", "true");
+  cardPreviewAnchor = null;
+}
+
+app.addEventListener("mouseover", (event) => {
+  const handCard = event.target.closest(".hand-card");
+  if (!handCard) return;
+  // Touch-friendly: skip preview while a drag is in progress.
+  if (document.body.classList.contains("card-dragging")) return;
+  if (cardPreviewAnchor === handCard) return;
+  if (cardPreviewTimer) clearTimeout(cardPreviewTimer);
+  cardPreviewTimer = window.setTimeout(() => {
+    cardPreviewTimer = null;
+    showCardPreviewFor(handCard);
+  }, CARD_PREVIEW_DELAY_MS);
+});
+
+app.addEventListener("mouseout", (event) => {
+  const handCard = event.target.closest(".hand-card");
+  if (!handCard) return;
+  // Suppress if the related target is still inside the same card.
+  if (event.relatedTarget && handCard.contains(event.relatedTarget)) return;
+  hideCardPreview();
+});
+
+// Hide on scroll / resize / click anywhere — the anchor would otherwise
+// drift away from the preview's pinned viewport coords.
+window.addEventListener("scroll", hideCardPreview, true);
+window.addEventListener("resize", hideCardPreview);
+document.addEventListener("click", hideCardPreview, true);
+
 function notifyMultiplayer(action) {
   broadcastLocalAction(action);
   pushSnapshotIfHost(gameState);
@@ -2516,6 +2699,24 @@ function computeMonsterIntent(state) {
   return computeMonsterIntentFor(state, state.monster);
 }
 
+// Predict which player a monster will hit this turn (pure read — does
+// not mutate state). Used by the intent preview and by the Crossfire
+// look-ahead so we can mirror the engine's actual resolution order.
+function predictMonsterTargetFor(state, monster, livingPlayers) {
+  if (!monster || monster.hp <= 0) return null;
+  if (!livingPlayers.length) return null;
+  const fixate = monster.fixate;
+  if (fixate && fixate.roundsRemaining > 0) {
+    const fixated = livingPlayers.find((p) => p.id === fixate.playerId);
+    if (fixated) return fixated;
+  }
+  return [...livingPlayers].sort((a, b) => {
+    const threatDiff = (monster.threat?.[b.id] ?? 0) - (monster.threat?.[a.id] ?? 0);
+    if (threatDiff !== 0) return threatDiff;
+    return a.hp - b.hp;
+  })[0];
+}
+
 // Per-monster intent preview. Each living monster gets its own predicted
 // target + damage so multi-monster encounters can show every threat
 // upfront (Slay the Spire style). Mirrors the engine's target picker
@@ -2526,25 +2727,29 @@ function computeMonsterIntentFor(state, monster) {
   if (!livingPlayers.length || state.phase === "game-over" || state.phase === "run-complete") {
     return null;
   }
-  let target = null;
+  const target = predictMonsterTargetFor(state, monster, livingPlayers);
+  if (!target) return null;
   const fixate = monster.fixate;
-  if (fixate && fixate.roundsRemaining > 0) {
-    target = livingPlayers.find((p) => p.id === fixate.playerId) ?? null;
-  }
-  if (!target) {
-    target = [...livingPlayers].sort((a, b) => {
-      const threatDiff = (monster.threat?.[b.id] ?? 0) - (monster.threat?.[a.id] ?? 0);
-      if (threatDiff !== 0) return threatDiff;
-      return a.hp - b.hp;
-    })[0];
-  }
-  // Mirror engine effectiveMonsterAttack: Pack Hunter / Crossfire +1
-  // when squadmates alive, Target Uplink +1 from a separate uplinker.
+  // Mirror engine effectiveMonsterAttack split:
+  //   packHunter — +1 while any squadmate alive
+  //   crossfire  — +1 only if an earlier-turn squadmate is predicted to
+  //                hit the same target (faithful "another monster hit
+  //                this turn" rule)
+  //   targetUplink — +1 from a separate living uplinker
   const others = (state.monsters ?? []).filter((m) => m !== monster && m.hp > 0);
   const abilities = monster.abilities ?? [];
   let abilityBonus = 0;
-  if ((abilities.includes("packHunter") || abilities.includes("crossfire")) && others.length > 0) {
+  if (abilities.includes("packHunter") && others.length > 0) {
     abilityBonus += 1;
+  }
+  if (abilities.includes("crossfire")) {
+    const myPriority = monster.turnPriority ?? 0;
+    const earlier = others.filter((m) => (m.turnPriority ?? 0) < myPriority);
+    const sharesTarget = earlier.some((m) => {
+      const t = predictMonsterTargetFor(state, m, livingPlayers);
+      return t && t.id === target.id;
+    });
+    if (sharesTarget) abilityBonus += 1;
   }
   if (others.some((m) => (m.abilities ?? []).includes("targetUplink"))) {
     abilityBonus += 1;
